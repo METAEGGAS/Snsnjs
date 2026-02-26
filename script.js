@@ -1,284 +1,606 @@
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>QT Real Trading</title>
-    <style>
-        *{margin:0;padding:0;box-sizing:border-box}
-        html,body{height:100%;overflow:hidden}
-        body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;direction:rtl;display:flex;flex-direction:column;font-size:12.6px}
-        .header{flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;padding:4px 10px;background:#0f1d35;position:relative}
-        .header::after{content:'';position:absolute;bottom:-8px;left:0;right:0;height:8px;background:linear-gradient(to bottom,#0f1d35,transparent);pointer-events:none;z-index:5}
-        .header-left{display:flex;gap:8px;align-items:center}
-        .header-center{display:flex;gap:8px;align-items:center}
-        .header-right{display:flex;align-items:center;gap:8px}
-        .icon-btn{width:38px;height:38px;background:rgba(255,255,255,.05);border-radius:8px;display:flex;align-items:center;justify-content:center;border:0;cursor:pointer;padding:0}
-        .logo-btn img{width:100%;height:100%;display:block;object-fit:cover}
-        .balance-box{background:#0f1d35;padding:8px 14px;border-radius:10px;min-height:46px;display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.12);position:relative}
-        .balance-label{font-size:9.5px;color:#fff;font-weight:700;letter-spacing:.3px;margin-bottom:2px}
-        .balance-amount{font-size:15px;font-weight:900;letter-spacing:.4px;color:#fff}
-        .balance-content{display:flex;flex-direction:column}
-        .balance-arrow{display:flex;align-items:center;justify-content:center;color:#8b9cb5;font-size:16px}
-        .wallet-btn{width:38px;height:38px;background:#16a34a;border-radius:8px;border:2px solid rgba(255,255,255,.15);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;overflow:hidden}
-        .wallet-btn img{width:100%;height:100%;display:block;object-fit:cover}
-        .time-display{position:absolute;left:8px;top:calc(100% + 8px);font-size:11px;color:#8b9cb5;font-weight:700;letter-spacing:.4px;background:rgba(15,29,53,.95);padding:6px 12px;border-radius:6px;z-index:180;border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;gap:6px}
-        .time-display::before{content:'';width:6px;height:6px;background:#0f0;border-radius:50%;box-shadow:0 0 8px #0f0;animation:pulse 2s infinite}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-        .chart-container{flex:1 1 auto;min-height:0;background:#0a1628;position:relative;overflow:hidden}
-        .quick-actions{position:absolute;top:52px;left:8px;display:flex;flex-direction:column;gap:6px;z-index:190;pointer-events:none}
-        .quick-actions button{pointer-events:auto}
-        .qa-btn{width:44px;height:44px;background:#0f1d35;border:1px solid rgba(255,255,255,.12);border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;transition:background .15s}
-        .qa-btn:hover{background:#1a2942}
-        .qa-btn:active{background:#213554}
-        .chart-frame{position:relative;width:100%;height:100%;overflow:hidden}
-        .plot{position:absolute;inset:0;overflow:hidden}
-        #chartCanvas{display:block;position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;touch-action:none;cursor:grab}
-        #chartCanvas:active{cursor:grabbing}
-        .candle-timer{position:absolute;color:rgba(255,255,255,.35);font-size:11px;font-weight:700;z-index:180;pointer-events:none;font-family:monospace}
-        .price-line{position:absolute;left:0;right:0;height:2px;background:transparent;z-index:150;pointer-events:none;border-top:2px dashed rgba(255,255,255,.7)}
-        .timeLabels{position:absolute;left:0;right:0;bottom:0;height:24px;background:rgba(10,22,40,.95);border-top:1px solid rgba(255,255,255,.08);pointer-events:none;z-index:160}
-        .timeLabel{position:absolute;bottom:2px;font-size:8.5px;font-weight:900;color:rgba(255,255,255,.55);transform:translateX(-50%);white-space:nowrap}
-        .timeLabel.major{color:rgba(255,215,0,.85);font-weight:900}
-        .pair-display{position:absolute;left:8px;bottom:28px;background:rgba(10,22,40,.85);backdrop-filter:blur(8px);z-index:170;display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:8px;border:2px solid rgba(255,255,255,.25)}
-        .pair-flags{display:flex;align-items:center;gap:5px}
-        .pair-display img{width:20px;height:20px;object-fit:cover;border-radius:50%;border:1.5px solid rgba(255,255,255,.3)}
-        .pair-text{font-size:11px;font-weight:900;color:#fff;letter-spacing:.5px}
-        #priceScale{position:absolute;top:0;right:0;bottom:0;width:50px;pointer-events:none;z-index:170;background:transparent!important;border:none!important;box-shadow:none!important}
-        #priceScaleLabels{position:absolute;inset:0;background:transparent!important;border:none!important;box-shadow:none!important}
-        #currentPrice{position:absolute;right:8px;transform:translateY(-50%);color:#000;font-size:10px;font-weight:900;white-space:nowrap;background:#ffd700!important;padding:4px 8px!important;border-radius:4px!important;box-shadow:0 0 10px rgba(255,215,0,.6)!important;text-shadow:none!important;border:1px solid rgba(255,215,0,.8)!important}
-        #priceScale .pLabel{position:absolute;right:8px;transform:translateY(-50%);font-size:9px;font-weight:800;color:#fff;white-space:nowrap;background:transparent!important;box-shadow:none!important;border:none!important;text-shadow:0 0 6px rgba(255,255,255,.4)!important;padding:0!important;margin:0!important;filter:brightness(1.3)}
-        #priceScale .pLabel.major{color:#fff;filter:brightness(1.5)}
-        .controls{flex:0 0 auto;padding:9px 10.8px 0;background:#0f1d35}
-        .timer-amount{display:flex;gap:7.2px;margin-bottom:9px}
-        .control-group{flex:1;display:flex;flex-direction:column;gap:5.4px}
-        .control-label{font-size:9.9px;color:#8b9cb5;font-weight:600;text-align:center}
-        .control-value{background:#0a1628;padding:9px 14px;border-radius:9px;border:1px solid rgba(255,255,255,.2);font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;position:relative;user-select:none;width:100%;min-height:46px;box-shadow:inset 0 2px 8px rgba(0,0,0,.4)}
-        .control-value:hover{background:#0d1a2e}
-        .control-text{flex:1;text-align:center}
-        .control-icon{width:18px;height:18px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
-        .dropdown{position:absolute;bottom:calc(100% + 7.2px);left:-9px;right:-9px;background:#1a2942;border-radius:10.8px;box-shadow:0 -3.6px 18px rgba(0,0,0,.6);z-index:200;display:none;border:1px solid rgba(255,255,255,.15);max-width:360px;width:auto;min-width:calc(100% + 18px)}
-        .dropdown.show{display:block}
-        .dropdown-header{display:flex;border-bottom:1px solid rgba(255,255,255,.1);padding:3.6px}
-        .dropdown-tab{flex:1;padding:9px 14.4px;text-align:center;font-size:10.8px;cursor:pointer;background:transparent;border:0;color:#8b9cb5;font-weight:700;border-radius:7.2px;transition:all .2s}
-        .dropdown-tab.active{color:#fff;background:rgba(59,130,246,.2)}
-        .dropdown-content{max-height:216px;overflow-y:auto;padding:5.4px;display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
-        .dropdown-item{padding:10.8px 8px;font-size:12.6px;cursor:pointer;border-radius:7.2px;font-weight:600;transition:all .2s;text-align:center}
-        .dropdown-item:hover{background:rgba(59,130,246,.15);color:#3b82f6}
-        .custom-input{padding:7.2px 10.8px;display:none}
-        .custom-input.show{display:block}
-        .time-input{width:100%;background:#0f1d35;border:1px solid rgba(255,255,255,.2);border-radius:7.2px;padding:10.8px;color:#fff;font-size:14.4px;text-align:center;font-weight:700;letter-spacing:.9px}
-        #timeDisplay.editing{background:#0f1d35;border:1px solid rgba(59,130,246,.5);outline:none;cursor:text;color:#fff}
-        #amountDisplay{background:transparent;border:none;color:#fff;font-size:16px;text-align:center;font-weight:700;outline:none;width:100%;cursor:text;padding:0}
-        #amountDisplay:focus{outline:none}
-        .trade-buttons{display:flex;gap:7.2px;margin:9px 0 5.4px}
-        .trade-btn{flex:1;height:38px;border:0;border-radius:10.8px;font-size:13.5px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7.2px;transition:transform .2s}
-        .trade-btn:active{transform:scale(.96)}
-        .buy-btn{background:linear-gradient(135deg,#0f0,#0c0);color:#fff}
-        .buy-btn:before{content:"↗";font-size:16.2px}
-        .sell-btn{background:linear-gradient(135deg,#f00,#c00);color:#fff}
-        .sell-btn:before{content:"↘";font-size:16.2px}
-        .ai-trade-btn{flex:2;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff}
-        .ai-trade-btn:before{content:"AI";margin-right:4.5px;font-weight:900}
-        .bottom-nav{flex:0 0 auto;background:#0f1d35;display:flex;justify-content:space-around;padding:7.2px 0;border-top:1px solid rgba(255,255,255,.05)}
-        .nav-item{display:flex;flex-direction:column;align-items:center;gap:3.6px;color:#6b7a94;font-size:9px;cursor:pointer}
-        .nav-item.active{color:#3b82f6}
-        .nav-icon{width:21.6px;height:21.6px;display:flex;align-items:center;justify-content:center;font-size:16.2px}
-    </style>
-</head>
-<body>
-    <div class="header">
-        <div class="header-left">
-            <div class="balance-box">
-                <div class="balance-content">
-                    <div class="balance-label">QT Real USD</div>
-                    <div class="balance-amount">$10,000.00</div>
-                </div>
-                <div class="balance-arrow">▼</div>
-            </div>
-        </div>
-        <div class="header-center">
-            <button class="wallet-btn" aria-label="Wallet">
-                <img src="https://cdn-icons-png.flaticon.com/128/10167/10167706.png" alt="Wallet">
-            </button>
-            <button class="icon-btn logo-btn" aria-label="QT">
-                <img src="https://cdn-icons-png.flaticon.com/128/18921/18921105.png" alt="QT">
-            </button>
-        </div>
-        <div class="time-display" id="liveTime">00:00:00 UTC+3</div>
-    </div>
+function updateLiveTime(){
+    const d=new Date,u=d.getTime()+d.getTimezoneOffset()*6e4,t=new Date(u+108e5),h=String(t.getHours()).padStart(2,"0"),m=String(t.getMinutes()).padStart(2,"0"),s=String(t.getSeconds()).padStart(2,"0");
+    document.getElementById("liveTime").textContent=`${h}:${m}:${s} UTC+3`
+}
+updateLiveTime();
+setInterval(updateLiveTime,1e3);
 
-    <div class="chart-container">
-        <div class="quick-actions">
-            <button class="qa-btn" aria-label="Trade History">
-                <svg width="42" height="42" viewBox="0 0 24 24" fill="none">
-                    <defs>
-                        <linearGradient id="gradBag" x1="0" y1="0" x2="24" y2="24">
-                            <stop offset="0%" stop-color="#4a90e2"></stop>
-                            <stop offset="100%" stop-color="#357abd"></stop>
-                        </linearGradient>
-                    </defs>
-                    <rect x="3" y="7" width="18" height="13" rx="3" stroke="url(#gradBag)" stroke-width="2" fill="none"></rect>
-                    <path d="M8 7V5a4 4 0 0 1 8 0v2" stroke="url(#gradBag)" stroke-width="2" stroke-linecap="round"></path>
-                    <line x1="7" y1="12" x2="17" y2="12" stroke="url(#gradBag)" stroke-width="1.6" stroke-linecap="round"></line>
-                </svg>
-            </button>
-            <button class="qa-btn" aria-label="Options" style="color:#4a90e2">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <line x1="5" y1="7" x2="19" y2="7" stroke="currentColor" stroke-width="2" stroke-linecap="round"></line>
-                    <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"></line>
-                    <line x1="5" y1="17" x2="19" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"></line>
-                </svg>
-            </button>
-        </div>
+class AdvancedTradingChart{
+    constructor(){
+        this.plot=document.getElementById("plot");
+        this.canvas=document.getElementById("chartCanvas");
+        this.ctx=this.canvas.getContext("2d");
+        this.timeLabels=document.getElementById("timeLabels");
+        this.candleTimer=document.getElementById("candleTimer");
+        this.priceLine=document.getElementById("priceLine");
+        this.priceScaleLabels=document.getElementById("priceScaleLabels");
+        this.currentPriceEl=document.getElementById("currentPrice");
+        this.candles=[];
+        this.currentCandle=null;
+        this.maxCandles=200;
+        this.basePrice=1.95;
+        this.currentPrice=1.9518;
+        this.seed=11001;
+        this.digits=5;
+        this.priceRange={min:1.9,max:2};
+        this.baseSpacing=12;
+        this.zoom=1;
+        this.targetZoom=1;
+        this.minZoom=0.425;
+        this.maxZoom=2.25;
+        this.zoomEase=0.28;
+        this.targetOffsetX=0;
+        this.offsetX=0;
+        this.panEase=0.38;
+        this.velocity=0;
+        this.drag=0;
+        this.dragStartX=0;
+        this.dragStartOffset=0;
+        this.lastDragX=0;
+        this.lastDragTime=0;
+        this.pinch=0;
+        this.p0=0;
+        this.pMidX=0;
+        this.pMidY=0;
+        this.timeframe=6e4;
+        this.t0=Math.floor(Date.now()/6e4)*6e4;
+        this.smin=null;
+        this.smax=null;
+        this.sre=0.088;
+        this._fr=0;
+        this.markers=[];
+        this.selectedTime=5;
+        this.setup();
+        this.initHistoricalData();
+        this.initEvents();
+        this.startRealtime();
+        this.loop()
+    }
+    setup(){
+        const dpr=window.devicePixelRatio||1,r=this.plot.getBoundingClientRect();
+        this.w=r.width;
+        this.h=r.height-24;
+        this.canvas.width=this.w*dpr;
+        this.canvas.height=this.h*dpr;
+        this.canvas.style.width=this.w+"px";
+        this.canvas.style.height=this.h+"px";
+        this.ctx.scale(dpr,dpr);
+        this.updatePriceLabel();
+        this.updatePriceScale();
+        this.updateTimeLabels()
+    }
+    rnd(s){
+        const x=Math.sin(s)*1e4;
+        return x-Math.floor(x)
+    }
+    rndG(s){
+        const u1=this.rnd(s),u2=this.rnd(s+1e5);
+        return Math.sqrt(-2*Math.log(u1+1e-5))*Math.cos(2*Math.PI*u2)
+    }
+    genCandle(t,o){
+        const s=this.seed+Math.floor(t/this.timeframe),vb=8e-4,tb=5e-5,r1=this.rndG(s),r2=this.rndG(s+1),r3=this.rndG(s+2),r4=this.rnd(s+3),r5=this.rnd(s+4),r6=this.rnd(s+5),v=vb*(.7+Math.abs(r1)*.8),tr=tb*r2*.6,dir=r3>0?1:-1,tc=o+(dir*v+tr),rg=v*(.2+r4*.6),hm=rg*(.3+r5*.7),lm=rg*(.3+(1-r5)*.7),c=+(tc+(r6-.5)*v*.1).toFixed(this.digits),op=+o.toFixed(this.digits);
+        return{open:op,close:c,high:+Math.max(op,c,op+hm,c+hm).toFixed(this.digits),low:+Math.min(op,c,op-lm,c-lm).toFixed(this.digits),timestamp:t}
+    }
+    initHistoricalData(){
+        let p=this.basePrice,t=Date.now()-this.maxCandles*this.timeframe;
+        for(let i=0;i<this.maxCandles;i++){
+            const c=this.genCandle(t,p);
+            this.candles.push(c);
+            p=c.close;
+            t+=this.timeframe
+        }
+        this.currentPrice=this.candles[this.candles.length-1].close;
+        this.snapToLive();
+        this.updateTimeLabels();
+        this.updatePriceRange();
+        this.smin=this.priceRange.min;
+        this.smax=this.priceRange.max;
+        this.updatePriceScale();
+        this.updatePriceLabel()
+    }
+    getSpacing(){
+        return this.baseSpacing*this.zoom
+    }
+    getCandleWidth(){
+        return this.getSpacing()*.8
+    }
+    getMinOffset(){
+        return this.w/2-this.candles.length*this.getSpacing()
+    }
+    getMaxOffset(){
+        return this.w/2
+    }
+    clampPan(){
+        const mn=this.getMinOffset(),mx=this.getMaxOffset();
+        this.targetOffsetX=Math.max(mn,Math.min(mx,this.targetOffsetX));
+        this.offsetX=Math.max(mn,Math.min(mx,this.offsetX))
+    }
+    snapToLive(){
+        this.targetOffsetX=this.getMinOffset();
+        this.offsetX=this.targetOffsetX;
+        this.velocity=0;
+        this.clampPan()
+    }
+    updatePan(){
+        const diff=this.targetOffsetX-this.offsetX;
+        if(Math.abs(diff)>.003)this.offsetX+=diff*this.panEase;
+        else this.offsetX=this.targetOffsetX;
+        if(Math.abs(this.velocity)>.01){
+            this.targetOffsetX+=this.velocity;
+            this.velocity*=.972;
+            this.clampPan()
+        }else this.velocity=0
+    }
+    tickZoom(){
+        const d=this.targetZoom-this.zoom;
+        Math.abs(d)>.0001?this.zoom+=d*this.zoomEase:this.zoom=this.targetZoom
+    }
+    tickSR(){
+        const r=this.priceRange;
+        if(this.smin===null){
+            this.smin=r.min;
+            this.smax=r.max;
+            return
+        }
+        this.smin+=(r.min-this.smin)*this.sre;
+        this.smax+=(r.max-this.smax)*this.sre
+    }
+    applyZoomAround(mx,my,sc){
+        const oz=this.targetZoom,nz=Math.max(this.minZoom,Math.min(this.maxZoom,oz*sc));
+        if(Math.abs(nz-oz)<1e-6)return;
+        const idx=this.xToIndex(mx);
+        this.targetZoom=nz;
+        this.zoom=nz;
+        const nx=mx-idx*this.getSpacing();
+        this.targetOffsetX=nx;
+        this.offsetX=nx;
+        this.clampPan();
+        this.updateTimeLabels()
+    }
+    indexToX(i){
+        return this.offsetX+i*this.getSpacing()
+    }
+    xToIndex(x){
+        return(x-this.offsetX)/this.getSpacing()
+    }
+    getPriceRange(){
+        const mn=this.smin!==null?this.smin:this.priceRange.min,mx=this.smax!==null?this.smax:this.priceRange.max;
+        return{min:mn,max:mx}
+    }
+    niceNum(v,rnd){
+        const e=Math.floor(Math.log10(v)),p=Math.pow(10,e),f=v/p;
+        let nf;
+        if(rnd){
+            if(f<1.5)nf=1;
+            else if(f<3)nf=2;
+            else if(f<7)nf=5;
+            else nf=10
+        }else{
+            if(f<=1)nf=1;
+            else if(f<=2)nf=2;
+            else if(f<=5)nf=5;
+            else nf=10
+        }
+        return nf*p
+    }
+    calcNiceGrid(){
+        const r=this.getPriceRange(),rng=r.max-r.min,d=this.niceNum(rng/7,0),g0=Math.floor(r.min/d)*d,g1=Math.ceil(r.max/d)*d;
+        return{min:g0,max:g1,step:d,count:Math.round((g1-g0)/d)}
+    }
+    drawGrid(){
+        const{min,max,step,count}=this.calcNiceGrid();
+        for(let i=0;i<=count;i++){
+            const p=min+i*step,y=this.priceToY(p);
+            if(y<-5||y>this.h+5)continue;
+            const mj=i%5===0;
+            this.ctx.strokeStyle=mj?"rgba(255,215,0,.12)":"rgba(255,255,255,.05)";
+            this.ctx.lineWidth=mj?1:.8;
+            this.ctx.beginPath();
+            this.ctx.moveTo(0,y+.5);
+            this.ctx.lineTo(this.w,y+.5);
+            this.ctx.stroke()
+        }
+        const visC=this.w/this.getSpacing(),targetL=9,stepC=Math.max(1,Math.round(visC/targetL)),s=Math.floor(this.xToIndex(0)),e=Math.ceil(this.xToIndex(this.w));
+        for(let i=s;i<=e;i++){
+            if(i%stepC!==0)continue;
+            const x=this.indexToX(i);
+            if(x<-5||x>this.w+5)continue;
+            const mj=i%Math.round(stepC*5)===0;
+            this.ctx.strokeStyle=mj?"rgba(255,215,0,.12)":"rgba(255,255,255,.05)";
+            this.ctx.lineWidth=mj?1:.8;
+            this.ctx.beginPath();
+            this.ctx.moveTo(x+.5,0);
+            this.ctx.lineTo(x+.5,this.h);
+            this.ctx.stroke()
+        }
+    }
+    updateTimeLabels(){
+        const tl=this.timeLabels;
+        tl.innerHTML="";
+        const visC=this.w/this.getSpacing(),targetL=9,stepC=Math.max(1,Math.round(visC/targetL)),s=Math.floor(this.xToIndex(0)),e=Math.ceil(this.xToIndex(this.w)),tS=this.candles.length?this.candles[0].timestamp:this.t0;
+        for(let i=s;i<=e;i++){
+            if(i%stepC!==0)continue;
+            const x=this.indexToX(i);
+            if(x<5||x>this.w-5)continue;
+            const t=tS+i*this.timeframe,d=new Date(t),hh=String(d.getHours()).padStart(2,"0"),mm=String(d.getMinutes()).padStart(2,"0"),lb=document.createElement("div");
+            lb.className="timeLabel";
+            (i%Math.round(stepC*5)===0)&&lb.classList.add("major");
+            lb.style.left=x+"px";
+            lb.textContent=`${hh}:${mm}`;
+            tl.appendChild(lb)
+        }
+    }
+    updatePriceScale(){
+        const{min,step,count}=this.calcNiceGrid();
+        let h="";
+        for(let i=0;i<=count;i++){
+            const p=min+i*step,y=this.priceToY(p);
+            if(y<-8||y>this.h+8)continue;
+            const mj=i%5===0;
+            h+=`<div class="pLabel${mj?" major":""}" style="top:${y}px">${p.toFixed(this.digits)}</div>`
+        }
+        this.priceScaleLabels.innerHTML=h
+    }
+    updatePriceLabel(){
+        const py=this.priceToY(this.currentPrice);
+        this.priceLine.style.top=py+"px";
+        this.currentPriceEl.style.top=py+"px";
+        this.currentPriceEl.textContent=this.currentPrice.toFixed(this.digits)
+    }
+    updateCandleTimer(){
+        if(!this.currentCandle)return;
+        const n=Date.now(),e=n-this.t0,r=this.timeframe-e,s=Math.floor(r/1e3);
+        this.candleTimer.textContent=s>=0?s:0;
+        const cx=this.indexToX(this.candles.length);
+        this.candleTimer.style.left=cx+15+"px";
+        this.candleTimer.style.top="10px";
+        this.candleTimer.style.display='block'
+    }
+    priceToY(p){
+        const r=this.getPriceRange(),n=(p-r.min)/(r.max-r.min);
+        return this.h*(1-n)
+    }
+    drawCandle(c,x,glow){
+        const oy=this.priceToY(c.open),cy=this.priceToY(c.close),hy=this.priceToY(c.high),ly=this.priceToY(c.low),b=c.close>=c.open,w=this.getCandleWidth();
+        this.ctx.strokeStyle=b?"#0f0":"#f00";
+        this.ctx.lineWidth=Math.max(1,.18*w);
+        this.ctx.beginPath();
+        this.ctx.moveTo(x,hy);
+        this.ctx.lineTo(x,ly);
+        this.ctx.stroke();
+        const bh=Math.max(1,Math.abs(cy-oy)),bt=Math.min(oy,cy),g=this.ctx.createLinearGradient(x,bt,x,bt+bh);
+        b?(g.addColorStop(0,"#0f0"),g.addColorStop(.5,"#0f0"),g.addColorStop(1,"#0c0")):(g.addColorStop(0,"#f00"),g.addColorStop(.5,"#f00"),g.addColorStop(1,"#c00"));
+        this.ctx.fillStyle=g;
+        if(glow){
+            this.ctx.shadowColor=b?"rgba(0,255,0,.8)":"rgba(255,0,0,.8)";
+            this.ctx.shadowBlur=12
+        }
+        this.ctx.fillRect(x-w/2,bt,w,bh);
+        if(glow)this.ctx.shadowBlur=0
+    }
+    addMarker(t){
+        const op=this.currentPrice,c=this.currentCandle;
+        if(!c)return;
+        const bt=Math.max(c.open,c.close),bb=Math.min(c.open,c.close);
+        let fp=op;
+        op>bt?fp=bt:op<bb&&(fp=bb);
+        const fi=this.candles.length;
+        this.markers.push({type:t,ts:Date.now(),price:fp,candleIndex:fi,candleTimestamp:c.timestamp})
+    }
+    drawMarker(m){
+        let actualIdx=m.candleIndex;
+        for(let i=0;i<this.candles.length;i++){
+            if(this.candles[i].timestamp===m.candleTimestamp){
+                actualIdx=i;
+                break
+            }
+        }
+        const x=this.indexToX(actualIdx);
+        if(x<-200||x>this.w+50)return;
+        const y=this.priceToY(m.price),w=this.getCandleWidth(),ib=m.type==="buy",cl=ib?"#16a34a":"#ff3b3b",r=5.5;
+        this.ctx.save();
+        const lsx=x;
+        this.ctx.shadowColor=cl;
+        this.ctx.shadowBlur=9;
+        this.ctx.fillStyle=cl;
+        this.ctx.beginPath();
+        this.ctx.arc(x,y,r,0,2*Math.PI);
+        this.ctx.fill();
+        this.ctx.shadowBlur=0;
+        this.ctx.fillStyle="#fff";
+        this.ctx.save();
+        this.ctx.translate(x,y);
+        ib||this.ctx.rotate(Math.PI);
+        this.ctx.beginPath();
+        this.ctx.moveTo(0,-2.8);
+        this.ctx.lineTo(-2,.8);
+        this.ctx.lineTo(-.65,.8);
+        this.ctx.lineTo(-.65,2.8);
+        this.ctx.lineTo(.65,2.8);
+        this.ctx.lineTo(.65,.8);
+        this.ctx.lineTo(2,.8);
+        this.ctx.closePath();
+        this.ctx.fill();
+        this.ctx.restore();
+        const lx=lsx+w/2+3,lw=Math.min(95,this.w-lx-22);
+        this.ctx.strokeStyle=ib?"rgba(22,163,74,.7)":"rgba(255,59,59,.7)";
+        this.ctx.lineWidth=1.2;
+        this.ctx.beginPath();
+        this.ctx.moveTo(lsx+w/2,y);
+        this.ctx.lineTo(lx,y);
+        this.ctx.stroke();
+        this.ctx.beginPath();
+        this.ctx.moveTo(lx,y);
+        this.ctx.lineTo(lx+lw,y);
+        this.ctx.stroke();
+        const ex=lx+lw,er=5;
+        this.ctx.strokeStyle=cl;
+        this.ctx.lineWidth=2;
+        this.ctx.fillStyle="#fff";
+        this.ctx.beginPath();
+        this.ctx.arc(ex,y,er,0,2*Math.PI);
+        this.ctx.fill();
+        this.ctx.stroke();
+        this.ctx.strokeStyle=ib?"rgba(22,163,74,.5)":"rgba(255,59,59,.5)";
+        this.ctx.lineWidth=1.2;
+        this.ctx.beginPath();
+        this.ctx.moveTo(ex+er,y);
+        this.ctx.lineTo(ex+65,y);
+        this.ctx.stroke();
+        this.ctx.restore()
+    }
+    draw(){
+        this.tickZoom();
+        this.updatePan();
+        this.updatePriceRange();
+        this.tickSR();
+        this.ctx.clearRect(0,0,this.w,this.h);
+        this.drawGrid();
+        for(let i=0;i<this.candles.length;i++){
+            const x=this.indexToX(i);
+            if(x<-60||x>this.w+60)continue;
+            this.drawCandle(this.candles[i],x,0)
+        }
+        if(this.currentCandle&&(!this.candles.length||this.currentCandle.timestamp!==this.candles[this.candles.length-1].timestamp)){
+            const lx=this.indexToX(this.candles.length);
+            lx>=-60&&lx<=this.w+60&&this.drawCandle(this.currentCandle,lx,1)
+        }
+        for(let mk of this.markers)this.drawMarker(mk);
+        if(++this._fr%2===0){
+            this.updatePriceScale();
+            this.updateTimeLabels()
+        }
+        this.updatePriceLabel();
+        this.updateCandleTimer()
+    }
+    stepTowards(c,t,m){
+        const d=t-c;
+        return Math.abs(d)<=m?t:c+Math.sign(d)*m
+    }
+    updateCurrentCandle(){
+        if(!this.currentCandle){
+            const lp=this.candles.length?this.candles[this.candles.length-1].close:this.currentPrice;
+            this.currentCandle=this.genCandle(this.t0,lp);
+            this.currentCandle.close=lp;
+            this.currentCandle.high=Math.max(this.currentCandle.open,this.currentCandle.close);
+            this.currentCandle.low=Math.min(this.currentCandle.open,this.currentCandle.close);
+            return
+        }
+        const n=Date.now(),r=this.rnd(this.seed+n),dir=(r-.5)*4e-4,t=this.currentCandle.close+dir,ms=8e-4*.18,nc=+this.stepTowards(this.currentCandle.close,t,ms).toFixed(this.digits);
+        this.currentCandle.close=nc;
+        this.currentCandle.high=+Math.max(this.currentCandle.high,nc).toFixed(this.digits);
+        this.currentCandle.low=+Math.min(this.currentCandle.low,nc).toFixed(this.digits);
+        this.currentPrice=nc
+    }
+    startRealtime(){
+        setInterval(()=>{
+            const n=Date.now(),e=n-this.t0;
+            if(e>=this.timeframe){
+                if(this.currentCandle&&(!this.candles.length||this.candles[this.candles.length-1].timestamp!==this.currentCandle.timestamp)){
+                    this.candles.push({...this.currentCandle});
+                    if(this.candles.length>this.maxCandles)this.candles.shift()
+                }
+                this.t0=Math.floor(n/this.timeframe)*this.timeframe;
+                const lp=this.currentCandle?this.currentCandle.close:this.currentPrice;
+                this.currentCandle=this.genCandle(this.t0,lp);
+                this.currentCandle.open=lp;
+                this.currentCandle.close=lp;
+                this.currentCandle.high=lp;
+                this.currentCandle.low=lp;
+                this.currentPrice=lp
+            }else this.updateCurrentCandle()
+        },200)
+    }
+    updatePriceRange(){
+        let v=[...this.candles];
+        this.currentCandle&&(!v.length||this.currentCandle.timestamp!==v[v.length-1].timestamp)&&v.push(this.currentCandle);
+        if(!v.length){
+            this.priceRange={min:.95*this.basePrice,max:1.05*this.basePrice};
+            return
+        }
+        const si=Math.floor(this.xToIndex(0)),ei=Math.ceil(this.xToIndex(this.w)),sl=v.slice(Math.max(0,si-5),Math.min(v.length,ei+5));
+        if(!sl.length){
+            this.priceRange={min:.95*this.basePrice,max:1.05*this.basePrice};
+            return
+        }
+        const lo=sl.map(c=>c.low),hi=sl.map(c=>c.high),mn=Math.min(...lo),mx=Math.max(...hi),pd=.15*(mx-mn)||1e-9;
+        this.priceRange={min:mn-pd,max:mx+pd}
+    }
+    initEvents(){
+        addEventListener("resize",()=>this.setup());
+        this.canvas.addEventListener("wheel",e=>{
+            e.preventDefault();
+            const r=this.canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,sc=e.deltaY>0?1/1.1:1.1;
+            this.applyZoomAround(x,y,sc)
+        },{passive:!1});
+        const md=(x,t)=>{
+            this.drag=1;
+            this.dragStartX=x;
+            this.dragStartOffset=this.targetOffsetX;
+            this.velocity=0;
+            this.lastDragX=x;
+            this.lastDragTime=t
+        };
+        const mm=(x,t)=>{
+            if(this.drag){
+                const d=x-this.dragStartX;
+                this.targetOffsetX=this.dragStartOffset+d;
+                this.clampPan();
+                const dt=t-this.lastDragTime;
+                if(dt>0&&dt<80)this.velocity=(x-this.lastDragX)/dt*26;
+                this.lastDragX=x;
+                this.lastDragTime=t
+            }
+        };
+        const mu=()=>{
+            this.drag=0;
+            this.updateTimeLabels()
+        };
+        this.canvas.addEventListener("mousedown",e=>{
+            const r=this.canvas.getBoundingClientRect();
+            md(e.clientX-r.left,Date.now())
+        });
+        addEventListener("mousemove",e=>{
+            const r=this.canvas.getBoundingClientRect();
+            mm(e.clientX-r.left,Date.now())
+        });
+        addEventListener("mouseup",mu);
+        const db=(a,b)=>Math.hypot(b.clientX-a.clientX,b.clientY-a.clientY);
+        this.canvas.addEventListener("touchstart",e=>{
+            const r=this.canvas.getBoundingClientRect();
+            if(e.touches.length===1)md(e.touches[0].clientX-r.left,Date.now());
+            else if(e.touches.length===2){
+                this.drag=0;
+                this.pinch=1;
+                this.p0=db(e.touches[0],e.touches[1]);
+                this.pMidX=(e.touches[0].clientX+e.touches[1].clientX)/2-r.left;
+                this.pMidY=(e.touches[0].clientY+e.touches[1].clientY)/2-r.top
+            }
+        },{passive:!1});
+        this.canvas.addEventListener("touchmove",e=>{
+            e.preventDefault();
+            const r=this.canvas.getBoundingClientRect();
+            if(this.pinch&&e.touches.length===2){
+                const d=db(e.touches[0],e.touches[1]);
+                if(this.p0>0){
+                    const sc=Math.max(.2,Math.min(5,d/(this.p0||d)));
+                    this.applyZoomAround(this.pMidX,this.pMidY,sc)
+                }
+                this.p0=d
+            }else if(!this.pinch&&e.touches.length===1)mm(e.touches[0].clientX-r.left,Date.now())
+        },{passive:!1});
+        this.canvas.addEventListener("touchend",e=>{
+            e.touches.length<2&&(this.pinch=0,this.p0=0);
+            e.touches.length===0&&mu()
+        },{passive:!1});
+        this.canvas.addEventListener("touchcancel",()=>{
+            this.pinch=0;
+            this.p0=0;
+            mu()
+        },{passive:!1})
+    }
+    loop(){
+        this.draw();
+        requestAnimationFrame(()=>this.loop())
+    }
+}
 
-        <div class="chart-frame">
-            <div class="plot" id="plot">
-                <canvas id="chartCanvas"></canvas>
-                <div class="price-line" id="priceLine"></div>
-                <div class="candle-timer" id="candleTimer">59</div>
-                <div id="priceScale">
-                    <div id="priceScaleLabels"></div>
-                    <div id="currentPrice"></div>
-                </div>
-                <div class="timeLabels" id="timeLabels"></div>
-                <div class="pair-display">
-                    <div class="pair-flags">
-                        <img src="https://flagcdn.com/w80/eu.png" alt="EUR">
-                        <img src="https://flagcdn.com/w80/us.png" alt="USD">
-                    </div>
-                    <div class="pair-text">EUR/USD OTC</div>
-                </div>
-            </div>
-        </div>
-    </div>
+window.chart=new AdvancedTradingChart;
 
-    <div class="controls">
-        <div class="timer-amount">
-            <div class="control-group">
-                <div class="control-label">Time</div>
-                <div class="control-value" id="timeSelector">
-                    <span class="control-text" id="timeDisplay">00:05</span>
-                    <div class="control-icon">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="9"></circle>
-                            <path d="M12 7v5l3 2"></path>
-                        </svg>
-                    </div>
-                    <div class="dropdown" id="timeDropdown">
-                        <div class="dropdown-header">
-                            <button class="dropdown-tab active" id="tabCompensation">Quick</button>
-                            <button class="dropdown-tab" id="tabCustom">Custom</button>
-                        </div>
-                        <div class="dropdown-content" id="compensationList">
-                            <div class="dropdown-item" data-sec="5">00:05</div>
-                            <div class="dropdown-item" data-sec="10">00:10</div>
-                            <div class="dropdown-item" data-sec="15">00:15</div>
-                            <div class="dropdown-item" data-sec="30">00:30</div>
-                            <div class="dropdown-item" data-sec="60">01:00</div>
-                            <div class="dropdown-item" data-sec="120">02:00</div>
-                            <div class="dropdown-item" data-sec="300">05:00</div>
-                            <div class="dropdown-item" data-sec="600">10:00</div>
-                            <div class="dropdown-item" data-sec="900">15:00</div>
-                            <div class="dropdown-item" data-sec="1800">30:00</div>
-                            <div class="dropdown-item" data-sec="3600">01:00:00</div>
-                            <div class="dropdown-item" data-sec="7200">02:00:00</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="control-group">
-                <div class="control-label">Amount</div>
-                <div class="control-value" id="amountContainer">
-                    <input type="text" class="control-text" id="amountDisplay" value="50$">
-                    <div class="control-icon">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="9"></circle>
-                            <path d="M12 6v12"></path>
-                            <path d="M15 9.5c0-1.4-1.3-2.5-3-2.5s-3 1.1-3 2.5 1.3 2.5 3 2.5 3 1.1 3 2.5-1.3 2.5-3 2.5-3-1.1-3-2.5"></path>
-                        </svg>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="trade-buttons">
-            <button class="trade-btn buy-btn" id="buyBtn">BUY</button>
-            <button class="trade-btn ai-trade-btn">TRADING</button>
-            <button class="trade-btn sell-btn" id="sellBtn">SELL</button>
-        </div>
-    </div>
+const timeSelector=document.getElementById("timeSelector"),timeDropdown=document.getElementById("timeDropdown"),timeDisplay=document.getElementById("timeDisplay"),tabCompensation=document.getElementById("tabCompensation"),tabCustom=document.getElementById("tabCustom"),compensationList=document.getElementById("compensationList"),amountDisplay=document.getElementById("amountDisplay"),amountContainer=document.getElementById("amountContainer");
 
-    <div class="bottom-nav">
-        <div class="nav-item active">
-            <div class="nav-icon">
-                <svg width="21.6" height="21.6" viewBox="0 0 24 24" fill="none">
-                    <rect x="2" y="2" width="20" height="20" rx="2" ry="2" stroke="currentColor" stroke-width="1.5" fill="none"></rect>
-                    <line x1="4" y1="20" x2="20" y2="20" stroke="currentColor" stroke-width=".8"></line>
-                    <line x1="4" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width=".8"></line>
-                    <polyline points="4,16 8,12 12,14 16,8 20,10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline>
-                    <circle cx="4" cy="16" r="1.2" fill="currentColor"></circle>
-                    <circle cx="8" cy="12" r="1.2" fill="currentColor"></circle>
-                    <circle cx="12" cy="14" r="1.2" fill="currentColor"></circle>
-                    <circle cx="16" cy="8" r="1.2" fill="currentColor"></circle>
-                    <circle cx="20" cy="10" r="1.2" fill="currentColor"></circle>
-                </svg>
-            </div>
-            <div>Chart</div>
-        </div>
-        <div class="nav-item">
-            <div class="nav-icon">
-                <svg width="21.6" height="21.6" viewBox="0 0 24 24" fill="none">
-                    <rect x="3" y="7" width="18" height="14" rx="2" ry="2" fill="currentColor"></rect>
-                    <rect x="8" y="3" width="8" height="4" rx="1" ry="1" fill="currentColor"></rect>
-                    <line x1="6" y1="11" x2="18" y2="11" stroke="#0a1628" stroke-width="1"></line>
-                    <line x1="6" y1="14" x2="18" y2="14" stroke="#0a1628" stroke-width="1"></line>
-                    <line x1="6" y1="17" x2="18" y2="17" stroke="#0a1628" stroke-width="1"></line>
-                </svg>
-            </div>
-            <div>History</div>
-        </div>
-        <div class="nav-item">
-            <div class="nav-icon">
-                <svg width="21.6" height="21.6" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="2" fill="none"></circle>
-                    <circle cx="12" cy="8" r="3" fill="currentColor"></circle>
-                    <path d="M6 20c0-3.3 5-5 6-5s6 1.7 6 5" fill="currentColor"></path>
-                </svg>
-            </div>
-            <div>Profile</div>
-        </div>
-        <div class="nav-item">
-            <div class="nav-icon">
-                <svg width="21.6" height="21.6" viewBox="0 0 24 24" fill="none">
-                    <rect x="2" y="2" width="20" height="20" rx="3" ry="3" stroke="currentColor" stroke-width="1.5" fill="none"></rect>
-                    <rect x="8" y="18" width="8" height="2" fill="currentColor"></rect>
-                    <rect x="11" y="10" width="2" height="8" fill="currentColor"></rect>
-                    <path d="M6 10 C6 6, 18 6, 18 10 C18 14, 6 14, 6 10 Z" fill="currentColor"></path>
-                    <path d="M6 10 C4 10, 4 12, 6 12" stroke="currentColor" stroke-width="1.5" fill="none"></path>
-                    <path d="M18 10 C20 10, 20 12, 18 12" stroke="currentColor" stroke-width="1.5" fill="none"></path>
-                </svg>
-            </div>
-            <div>Rank</div>
-        </div>
-        <div class="nav-item">
-            <div class="nav-icon">
-                <svg width="21.6" height="21.6" viewBox="0 0 24 24" fill="none">
-                    <rect x="2" y="2" width="20" height="20" rx="3" ry="3" stroke="currentColor" stroke-width="1.5" fill="none"></rect>
-                    <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2" fill="currentColor"></circle>
-                    <line x1="12" y1="2" x2="12" y2="5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></line>
-                    <line x1="12" y1="19" x2="12" y2="22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></line>
-                    <line x1="2" y1="12" x2="5" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></line>
-                    <line x1="19" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></line>
-                    <line x1="5" y1="5" x2="7" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></line>
-                    <line x1="17" y1="17" x2="19" y2="19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></line>
-                    <line x1="5" y1="19" x2="7" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></line>
-                    <line x1="17" y1="7" x2="19" y2="5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></line>
-                </svg>
-            </div>
-            <div>Settings</div>
-        </div>
-    </div>
+let isEditingTime=false,savedTimeValue="00:05";
 
-    <script src="script.js"></script>
-</body>
-</html>
+timeSelector.addEventListener("click",e=>{
+    e.stopPropagation();
+    if(!isEditingTime)timeDropdown.classList.toggle("show")
+});
+
+document.addEventListener("click",()=>{
+    timeDropdown.classList.remove("show");
+    if(isEditingTime){
+        timeDisplay.textContent=savedTimeValue;
+        isEditingTime=false
+    }
+});
+
+timeDropdown.addEventListener("click",e=>e.stopPropagation());
+
+tabCompensation.addEventListener("click",()=>{
+    tabCompensation.classList.add("active");
+    tabCustom.classList.remove("active");
+    compensationList.style.display="grid";
+    if(isEditingTime){
+        timeDisplay.textContent=savedTimeValue;
+        isEditingTime=false
+    }
+});
+
+tabCustom.addEventListener("click",()=>{
+    tabCustom.classList.add("active");
+    tabCompensation.classList.remove("active");
+    compensationList.style.display="none";
+    timeDisplay.textContent="";
+    isEditingTime=true;
+    setTimeout(()=>timeDisplay.focus(),50)
+});
+
+compensationList.addEventListener("click",e=>{
+    if(e.target.classList.contains("dropdown-item")){
+        savedTimeValue=e.target.textContent;
+        timeDisplay.textContent=savedTimeValue;
+        chart.selectedTime=parseInt(e.target.getAttribute("data-sec"));
+        timeDropdown.classList.remove("show")
+    }
+});
+
+timeDisplay.addEventListener("input",e=>{
+    if(isEditingTime){
+        let v=e.target.textContent.replace(/[^0-9]/g,"");
+        if(v.length>4)v=v.slice(0,4);
+        e.target.textContent=v
+    }
+});
+
+timeDisplay.addEventListener("blur",()=>{
+    if(isEditingTime){
+        let v=timeDisplay.textContent.replace(/[^0-9]/g,"");
+        if(v.length===0)v="0005";
+        v=v.padStart(4,"0");
+        const h=v.slice(0,2),m=v.slice(2,4);
+        savedTimeValue=`${h}:${m}`;
+        timeDisplay.textContent=savedTimeValue;
+        isEditingTime=false
+    }
+});
+
+amountContainer.addEventListener("click",()=>{
+    amountDisplay.focus()
+});
+
+amountDisplay.addEventListener("focus",function(){
+    let v=this.value.replace("$","");
+    this.value=v;
+    setTimeout(()=>{
+        this.setSelectionRange(0,this.value.length)
+    },10)
+});
+
+amountDisplay.addEventListener("input",function(){
+    this.value=this.value.replace(/[^0-9]/g,"")
+});
+
+amountDisplay.addEventListener("blur",function(){
+    let val=parseFloat(this.value)||50;
+    this.value=val+"$"
+});
+
+amountDisplay.addEventListener("keydown",function(e){
+    if(e.key==="Enter"){
+        e.preventDefault();
+        this.blur()
+    }
+});
+
+document.getElementById("buyBtn").addEventListener("click",()=>chart.addMarker("buy"));
+document.getElementById("sellBtn").addEventListener("click",()=>chart.addMarker("sell"));
