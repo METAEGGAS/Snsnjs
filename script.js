@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>QT Real Trading</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        html,body{height:100%;overflow:hidden}
+        body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;direction:rtl;display:flex;flex-direction:column;font-size:12.6px}
+        .header{flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;padding:4px 10px;background:#0f1d35;position:relative}
+        .header::after{content:'';position:absolute;bottom:-8px;left:0;right:0;height:8px;background:linear-gradient(to bottom,#0f1d35,transparent);pointer-events:none;z-index:5}
+        .header-left{display:flex;gap:8px;align-items:center}
+        .header-center{display:flex;gap:8px;align-items:center}
+        .header-right{display:flex;align-items:center;gap:8px}
+        .icon-btn{width:38px;height:38px;background:rgba(255,255,255,.05);border-radius:8px;display:flex;align-items:center;justify-content:center;border:0;cursor:pointer;padding:0}
+        .logo-btn img{width:100%;height:100%;display:block;object-fit:cover}
+        .balance-box{background:#0f1d35;padding:8px 14px;border-radius:10px;min-height:46px;display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid rgba(255,255,255,.12);position:relative}
+        .balance-label{font-size:9.5px;color:#fff;font-weight:700;letter-spacing:.3px;margin-bottom:2px}
+        .balance-amount{font-size:15px;font-weight:900;letter-spacing:.4px;color:#fff}
+        .balance-content{display:flex;flex-direction:column}
+        .balance-arrow{display:flex;align-items:center;justify-content:center;color:#8b9cb5;font-size:16px}
+        .wallet-btn{width:38px;height:38px;background:#16a34a;border-radius:8px;border:2px solid rgba(255,255,255,.15);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;overflow:hidden}
+        .wallet-btn img{width:100%;height:100%;display:block;object-fit:cover}
+        .time-display{position:absolute;left:8px;top:calc(100% + 8px);font-size:11px;color:#8b9cb5;font-weight:700;letter-spacing:.4px;background:rgba(15,29,53,.95);padding:6px 12px;border-radius:6px;z-index:180;border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;gap:6px}
+        .time-display::before{content:'';width:6px;height:6px;background:#0f0;border-radius:50%;box-shadow:0 0 8px #0f0;animation:pulse 2s infinite}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+        .chart-container{flex:1 1 auto;min-height:0;background:#0a1628;position:relative;overflow:hidden}
+        .quick-actions{position:absolute;top:52px;left:8px;display:flex;flex-direction:column;gap:6px;z-index:190;pointer-events:none}
+        .quick-actions button{pointer-events:auto}
+        .qa-btn{width:44px;height:44px;background:#0f1d35;border:1px solid rgba(255,255,255,.12);border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;transition:background .15s}
+        .qa-btn:hover{background:#1a2942}
+        .qa-btn:active{background:#213554}
+        .chart-frame{position:relative;width:100%;height:100%;overflow:hidden}
+        .plot{position:absolute;inset:0;overflow:hidden}
+        #chartCanvas{display:block;position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;touch-action:none;cursor:grab}
+        #chartCanvas:active{cursor:grabbing}
+        .candle-timer{position:absolute;color:rgba(255,255,255,.35);font-size:11px;font-weight:700;z-index:180;pointer-events:none;font-family:monospace}
+        .price-line{position:absolute;left:0;right:0;height:2px;background:transparent;z-index:150;pointer-events:none;border-top:2px dashed rgba(255,255,255,.7)}
+        .timeLabels{position:absolute;left:0;right:0;bottom:0;height:24px;background:rgba(10,22,40,.95);border-top:1px solid rgba(255,255,255,.08);pointer-events:none;z-index:160}
+        .timeLabel{position:absolute;bottom:2px;font-size:8.5px;font-weight:900;color:rgba(255,255,255,.55);transform:translateX(-50%);white-space:nowrap}
+        .timeLabel.major{color:rgba(255,215,0,.85);font-weight:900}
+        .pair-display{position:absolute;left:8px;bottom:28px;background:rgba(10,22,40,.85);backdrop-filter:blur(8px);z-index:170;display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:8px;border:2px solid rgba(255,255,255,.25)}
+        .pair-flags{display:flex;align-items:center;gap:5px}
+        .pair-display img{width:20px;height:20px;object-fit:cover;border-radius:50%;border:1.5px solid rgba(255,255,255,.3)}
+        .pair-text{font-size:11px;font-weight:900;color:#fff;letter-spacing:.5px}
+        #priceScale{position:absolute;top:0;right:0;bottom:0;width:50px;pointer-events:none;z-index:170;background:transparent!important;border:none!important;box-shadow:none!important}
+        #priceScaleLabels{position:absolute;inset:0;background:transparent!important;border:none!important;box-shadow:none!important}
+        #currentPrice{position:absolute;right:8px;transform:translateY(-50%);color:#000;font-size:10px;font-weight:900;white-space:nowrap;background:#ffd700!important;padding:4px 8px!important;border-radius:4px!important;box-shadow:0 0 10px rgba(255,215,0,.6)!important;text-shadow:none!important;border:1px solid rgba(255,215,0,.8)!important}
+        #priceScale .pLabel{position:absolute;right:8px;transform:translateY(-50%);font-size:9px;font-weight:800;color:#fff;white-space:nowrap;background:transparent!important;box-shadow:none!important;border:none!important;text-shadow:0 0 6px rgba(255,255,255,.4)!important;padding:0!important;margin:0!important;filter:brightness(1.3)}
+        #priceScale .pLabel.major{color:#fff;filter:brightness(1.5)}
+        .controls{flex:0 0 auto;padding:9px 10.8px 0;background:#0f1d35}
+        .timer-amount{display:flex;gap:7.2px;margin-bottom:9px}
+        .control-group{flex:1;display:flex;flex-direction:column;gap:5.4px}
+        .control-label{font-size:9.9px;color:#8b9cb5;font-weight:600;text-align:center}
+        .control-value{background:#0a1628;padding:9px 14px;border-radius:9px;border:1px solid rgba(255,255,255,.2);font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;position:relative;user-select:none;width:100%;min-height:46px;box-shadow:inset 0 2px 8px rgba(0,0,0,.4)}
+        .control-value:hover{background:#0d1a2e}
+        .control-text{flex:1;text-align:center}
+        .control-icon{width:18px;height:18px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+        .dropdown{position:absolute;bottom:calc(100% + 7.2px);left:-9px;right:-9px;background:#1a2942;border-radius:10.8px;box-shadow:0 -3.6px 18px rgba(0,0,0,.6);z-index:200;display:none;border:1px solid rgba(255,255,255,.15);max-width:360px;width:auto;min-width:calc(100% + 18px)}
+        .dropdown.show{display:block}
+        .dropdown-header{display:flex;border-bottom:1px solid rgba(255,255,255,.1);padding:3.6px}
+        .dropdown-tab{flex:1;padding:9px 14.4px;text-align:center;font-size:10.8px;cursor:pointer;background:transparent;border:0;color:#8b9cb5;font-weight:700;border-radius:7.2px;transition:all .2s}
+        .dropdown-tab.active{color:#fff;background:rgba(59,130,246,.2)}
+        .dropdown-content{max-height:216px;overflow-y:auto;padding:5.4px;display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+        .dropdown-item{padding:10.8px 8px;font-size:12.6px;cursor:pointer;border-radius:7.2px;font-weight:600;transition:all .2s;text-align:center}
+        .dropdown-item:hover{background:rgba(59,130,246,.15);color:#3b82f6}
+        .custom-input{padding:7.2px 10.8px;display:none}
+        .custom-input.show{display:block}
+        .time-input{width:100%;background:#0f1d35;border:1px solid rgba(255,255,255,.2);border-radius:7.2px;padding:10.8px;color:#fff;font-size:14.4px;text-align:center;font-weight:700;letter-spacing:.9px}
+        #timeDisplay.editing{background:#0f1d35;border:1px solid rgba(59,130,246,.5);outline:none;cursor:text;color:#fff}
+        #amountDisplay{background:transparent;border:none;color:#fff;font-size:16px;text-align:center;font-weight:700;outline:none;width:100%;cursor:text;padding:0}
+        #amountDisplay:focus{outline:none}
+        .trade-buttons{display:flex;gap:7.2px;margin:9px 0 5.4px}
+        .trade-btn{flex:1;height:38px;border:0;border-radius:10.8px;font-size:13.5px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7.2px;transition:transform .2s}
+        .trade-btn:active{transform:scale(.96)}
+        .buy-btn{background:linear-gradient(135deg,#0f0,#0c0);color:#fff}
+        .buy-btn:before{content:"↗";font-size:16.2px}
+        .sell-btn{background:linear-gradient(135deg,#f00,#c00);color:#fff}
+        .sell-btn:before{content:"↘";font-size:16.2px}
+        .ai-trade-btn{flex:2;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff}
+        .ai-trade-btn:before{content:"AI";margin-right:4.5px;font-weight:900}
+        .bottom-nav{flex:0 0 auto;background:#0f1d35;display:flex;justify-content:space-around;padding:7.2px 0;border-top:1px solid rgba(255,255,255,.05)}
+        .nav-item{display:flex;flex-direction:column;align-items:center;gap:3.6px;color:#6b7a94;font-size:9px;cursor:pointer}
+        .nav-item.active{color:#3b82f6}
+        .nav-icon{width:21.6px;height:21.6px;display:flex;align-items:center;justify-content:center;font-size:16.2px}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-left">
+            <div class="balance-box">
+                <div class="balance-content">
+                    <div class="balance-label">QT Real USD</div>
+                    <div class="balance-amount">$10,000.00</div>
+                </div>
+                <div class="balance-arrow">▼</div>
+            </div>
+        </div>
+        <div class="header-center">
+            <button class="wallet-btn" aria-label="Wallet">
+                <img src="https://cdn-icons-png.flaticon.com/128/10167/10167706.png" alt="Wallet">
+            </button>
+            <button class="icon-btn logo-btn" aria-label="QT">
+                <img src="https://cdn-icons-png.flaticon.com/128/18921/18921105.png" alt="QT">
+            </button>
+        </div>
+        <div class="time-display" id="liveTime">00:00:00 UTC+3</div>
+    </div>
+
+    <div class="chart-container">
+        <div class="quick-actions">
+            <button class="qa-btn" aria-label="Trade History">
+                <svg width="42" height="42" viewBox="0 0 24 24" fill="none">
+                    <defs>
+                        <linearGradient id="gradBag" x1="0" y1="0" x2="24" y2="24">
+                            <stop offset="0%" stop-color="#4a90e2"></stop>
+                            <stop offset="100%" stop-color="#357abd"></stop>
+                        </linearGradient>
+                    </defs>
+                    <rect x="3" y="7" width="18" height="13" rx="3" stroke="url(#gradBag)" stroke-width="2" fill="none"></rect>
+                    <path d="M8 7V5a4 4 0 0 1 8 0v2" stroke="url(#gradBag)" stroke-width="2" stroke-linecap="round"></path>
+                    <line x1="7" y1="12" x2="17" y2="12" stroke="url(#gradBag)" stroke-width="1.6" stroke-linecap="round"></line>
+                </svg>
+            </button>
+            <button class="qa-btn" aria-label="Options" style="color:#4a90e2">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <line x1="5" y1="7" x2="19" y2="7" stroke="currentColor" stroke-width="2" stroke-linecap="round"></line>
+                    <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"></line>
+                    <line x1="5" y1="17" x2="19" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"></line>
+                </svg>
+            </button>
+        </div>
+
+        <div class="chart-frame">
+            <div class="plot" id="plot">
+                <canvas id="chartCanvas"></canvas>
+                <div class="price-line" id="priceLine"></div>
+                <div class="candle-timer" id="candleTimer">59</div>
+                <div id="priceScale">
+                    <div id="priceScaleLabels"></div>
+                    <div id="currentPrice"></div>
+                </div>
+                <div class="timeLabels" id="timeLabels"></div>
+                <div class="pair-display">
+                    <div class="pair-flags">
+                        <img src="https://flagcdn.com/w80/eu.png" alt="EUR">
+                        <img src="https://flagcdn.com/w80/us.png" alt="USD">
+                    </div>
+                    <div class="pair-text">EUR/USD OTC</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <div class="timer-amount">
+            <div class="control-group">
+                <div class="control-label">Time</div>
+                <div class="control-value" id="timeSelector">
+                    <span class="control-text" id="timeDisplay">00:05</span>
+                    <div class="control-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="9"></circle>
+                            <path d="M12 7v5l3 2"></path>
+                        </svg>
+                    </div>
+                    <div class="dropdown" id="timeDropdown">
+                        <div class="dropdown-header">
+                            <button class="dropdown-tab active" id="tabCompensation">Quick</button>
+                            <button class="dropdown-tab" id="tabCustom">Custom</button>
+                        </div>
+                        <div class="dropdown-content" id="compensationList">
+                            <div class="dropdown-item" data-sec="5">00:05</div>
+                            <div class="dropdown-item" data-sec="10">00:10</div>
+                            <div class="dropdown-item" data-sec="15">00:15</div>
+                            <div class="dropdown-item" data-sec="30">00:30</div>
+                            <div class="dropdown-item" data-sec="60">01:00</div>
+                            <div class="dropdown-item" data-sec="120">02:00</div>
+                            <div class="dropdown-item" data-sec="300">05:00</div>
+                            <div class="dropdown-item" data-sec="600">10:00</div>
+                            <div class="dropdown-item" data-sec="900">15:00</div>
+                            <div class="dropdown-item" data-sec="1800">30:00</div>
+                            <div class="dropdown-item" data-sec="3600">01:00:00</div>
+                            <div class="dropdown-item" data-sec="7200">02:00:00</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="control-group">
+                <div class="control-label">Amount</div>
+                <div class="control-value" id="amountContainer">
+                    <input type="text" class="control-text" id="amountDisplay" value="50$">
+                    <div class="control-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="9"></circle>
+                            <path d="M12 6v12"></path>
+                            <path d="M15 9.5c0-1.4-1.3-2.5-3-2.5s-3 1.1-3 2.5 1.3 2.5 3 2.5 3 1.1 3 2.5-1.3 2.5-3 2.5-3-1.1-3-2.5"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="trade-buttons">
+            <button class="trade-btn buy-btn" id="buyBtn">BUY</button>
+            <button class="trade-btn ai-trade-btn">TRADING</button>
+            <button class="trade-btn sell-btn" id="sellBtn">SELL</button>
+        </div>
+    </div>
+
+    <div class="bottom-nav">
+        <div class="nav-item active">
+            <div class="nav-icon">
+                <svg width="21.6" height="21.6" viewBox="0 0 24 24" fill="none">
+                    <rect x="2" y="2" width="20" height="20" rx="2" ry="2" stroke="currentColor" stroke-width="1.5" fill="none"></rect>
+                    <line x1="4" y1="20" x2="20" y2="20" stroke="currentColor" stroke-width=".8"></line>
+                    <line x1="4" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width=".8"></line>
+                    <polyline points="4,16 8,12 12,14 16,8 20,10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                    <circle cx="4" cy="16" r="1.2" fill="currentColor"></circle>
+                    <circle cx="8" cy="12" r="1.2" fill="currentColor"></circle>
+                    <circle cx="12" cy="14" r="1.2" fill="currentColor"></circle>
+                    <circle cx="16" cy="8" r="1.2" fill="currentColor"></circle>
+                    <circle cx="20" cy="10" r="1.2" fill="currentColor"></circle>
+                </svg>
+            </div>
+            <div>Chart</div>
+        </div>
+        <div class="nav-item">
+            <div class="nav-icon">
+                <svg width="21.6" height="21.6" viewBox="0 0 24 24" fill="none">
+                    <rect x="3" y="7" width="18" height="14" rx="2" ry="2" fill="currentColor"></rect>
+                    <rect x="8" y="3" width="8" height="4" rx="1" ry="1" fill="currentColor"></rect>
+                    <line x1="6" y1="11" x2="18" y2="11" stroke="#0a1628" stroke-width="1"></line>
+                    <line x1="6" y1="14" x2="18" y2="14" stroke="#0a1628" stroke-width="1"></line>
+                    <line x1="6" y1="17" x2="18" y2="17" stroke="#0a1628" stroke-width="1"></line>
+                </svg>
+            </div>
+            <div>History</div>
+        </div>
+        <div class="nav-item">
+            <div class="nav-icon">
+                <svg width="21.6" height="21.6" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="2" fill="none"></circle>
+                    <circle cx="12" cy="8" r="3" fill="currentColor"></circle>
+                    <path d="M6 20c0-3.3 5-5 6-5s6 1.7 6 5" fill="currentColor"></path>
+                </svg>
+            </div>
+            <div>Profile</div>
+        </div>
+        <div class="nav-item">
+            <div class="nav-icon">
+                <svg width="21.6" height="21.6" viewBox="0 0 24 24" fill="none">
+                    <rect x="2" y="2" width="20" height="20" rx="3" ry="3" stroke="currentColor" stroke-width="1.5" fill="none"></rect>
+                    <rect x="8" y="18" width="8" height="2" fill="currentColor"></rect>
+                    <rect x="11" y="10" width="2" height="8" fill="currentColor"></rect>
+                    <path d="M6 10 C6 6, 18 6, 18 10 C18 14, 6 14, 6 10 Z" fill="currentColor"></path>
+                    <path d="M6 10 C4 10, 4 12, 6 12" stroke="currentColor" stroke-width="1.5" fill="none"></path>
+                    <path d="M18 10 C20 10, 20 12, 18 12" stroke="currentColor" stroke-width="1.5" fill="none"></path>
+                </svg>
+            </div>
+            <div>Rank</div>
+        </div>
+        <div class="nav-item">
+            <div class="nav-icon">
+                <svg width="21.6" height="21.6" viewBox="0 0 24 24" fill="none">
+                    <rect x="2" y="2" width="20" height="20" rx="3" ry="3" stroke="currentColor" stroke-width="1.5" fill="none"></rect>
+                    <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2" fill="currentColor"></circle>
+                    <line x1="12" y1="2" x2="12" y2="5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></line>
+                    <line x1="12" y1="19" x2="12" y2="22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></line>
+                    <line x1="2" y1="12" x2="5" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></line>
+                    <line x1="19" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></line>
+                    <line x1="5" y1="5" x2="7" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></line>
+                    <line x1="17" y1="17" x2="19" y2="19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></line>
+                    <line x1="5" y1="19" x2="7" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></line>
+                    <line x1="17" y1="7" x2="19" y2="5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></line>
+                </svg>
+            </div>
+            <div>Settings</div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
