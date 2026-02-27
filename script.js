@@ -117,6 +117,17 @@ async function openTrade(type) {
     const startTime  = Date.now();
     const endTime    = startTime + duration * 1000;
 
+    // ── احسب سعر العلامة مسبقاً بنفس منطق addMarker ──────────────
+    // هذا يضمن عودة الماركر بنفس مكانه عند إعادة تحميل الصفحة
+    let markerPrice = entryPrice;
+    const cc = window.chart.currentCandle;
+    if (cc) {
+        const bt = Math.max(cc.open, cc.close);
+        const bb = Math.min(cc.open, cc.close);
+        if (markerPrice > bt) markerPrice = bt;
+        else if (markerPrice < bb) markerPrice = bb;
+    }
+
     // اخصم من الرصيد فوراً
     currentBalance -= amount;
     updateBalanceDisplay();
@@ -124,7 +135,8 @@ async function openTrade(type) {
     const tradeData = {
         type, pair: 'EUR/USD OTC', entryPrice, amount,
         duration, startTime, endTime,
-        status: 'active', closePrice: null, pnl: null
+        status: 'active', closePrice: null, pnl: null,
+        markerPrice: markerPrice   // ← يُخزَّن في Firebase لضمان ثبات الموضع
     };
 
     try {
@@ -221,46 +233,25 @@ async function loadActiveTrades() {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   ACTIVE TRADES UI  –  بطاقات الصفقات النشطة
+   ACTIVE TRADES UI
+   ── لا تُعرض البطاقات فوق الشارت، فقط الماركر هو الذي يظهر ──
    ════════════════════════════════════════════════════════════════ */
 function renderActiveTrades() {
+    // نُخفي اللوحة دائماً – الشارت يعرض فقط ترادو ماركرز
     const panel = document.getElementById('activeTradesPanel');
     if (!panel) return;
-    if (!activeTrades.length) { panel.innerHTML = ''; panel.style.display = 'none'; return; }
-    panel.style.display = 'flex';
-    panel.innerHTML = activeTrades.map(t => {
-        const rem = Math.max(0, (t.endTime - Date.now()) / 1000);
-        const cp  = window.chart ? window.chart.currentPrice : t.entryPrice;
-        const win = t.type === 'buy' ? cp > t.entryPrice : cp < t.entryPrice;
-        const tc  = t.type === 'buy' ? 'buy' : 'sell';
-        return `<div class="trade-card ${tc}-card" data-id="${t.id}">
-            <div class="tc-header">
-                <span class="tc-type ${tc}">${t.type==='buy'?'↗ شراء':'↘ بيع'}</span>
-                <span class="tc-timer" id="tcTimer-${t.id}">${fmtCountdown(rem)}</span>
-            </div>
-            <div class="tc-row"><span>المبلغ</span><span>$${t.amount.toFixed(2)}</span></div>
-            <div class="tc-row"><span>سعر الدخول</span><span>${t.entryPrice.toFixed(5)}</span></div>
-            <div class="tc-pnl ${win?'tc-win':'tc-lose'}" id="tcPnl-${t.id}">
-                ${win?'+$'+(t.amount*0.8).toFixed(2):'-$'+t.amount.toFixed(2)}
-            </div>
-        </div>`;
-    }).join('');
+    panel.innerHTML = '';
+    panel.style.display = 'none';
 }
 
-// تحديث العداد والربح المؤقت كل ثانية
+// تحديث العداد التنازلي داخل سجل الصفقات كل ثانية
 setInterval(() => {
     const now = Date.now();
     for (const t of activeTrades) {
-        const timerEl = document.getElementById(`tcTimer-${t.id}`);
-        if (timerEl) timerEl.textContent = fmtCountdown((t.endTime - now) / 1000);
-        const pnlEl = document.getElementById(`tcPnl-${t.id}`);
-        if (pnlEl && window.chart) {
-            const cp  = window.chart.currentPrice;
-            const win = t.type === 'buy' ? cp > t.entryPrice : cp < t.entryPrice;
-            pnlEl.className = 'tc-pnl ' + (win ? 'tc-win' : 'tc-lose');
-            pnlEl.textContent = win
-                ? '+$' + (t.amount * 0.8).toFixed(2)
-                : '-$' + t.amount.toFixed(2);
+        const histTimerEl = document.getElementById(`histTimer-${t.id}`);
+        if (histTimerEl) {
+            const rem = Math.max(0, (t.endTime - now) / 1000);
+            histTimerEl.textContent = '⏱ ' + fmtCountdown(rem);
         }
     }
 }, 1000);
@@ -311,13 +302,11 @@ function renderTradeRecord(t) {
 
     let stLbl, stCls, pnlCls, pnlStr;
     if (t.status === 'active') {
-        const cp  = window.chart ? window.chart.currentPrice : t.entryPrice;
-        const win = t.type === 'buy' ? cp > t.entryPrice : cp < t.entryPrice;
-        stLbl   = '● نشطة'; stCls = 'active';
-        pnlCls  = win ? 'active-pnl' : 'active-pnl';
-        pnlStr  = win
-            ? `+$${(t.amount*0.8).toFixed(2)}`
-            : `-$${t.amount.toFixed(2)}`;
+        // ── الصفقات النشطة: عداد تنازلي حي بدلاً من الربح/الخسارة ──
+        const rem = Math.max(0, ((t.endTime || Date.now()) - Date.now()) / 1000);
+        stLbl  = '● نشطة'; stCls = 'active';
+        pnlCls = 'active-pnl';
+        pnlStr = `<span id="histTimer-${t.id}">⏱ ${fmtCountdown(rem)}</span>`;
     } else if (t.status === 'won') {
         stLbl = '✓ ربح'; stCls = 'won';
         pnlCls = 'win'; pnlStr = `+$${(t.pnl||0).toFixed(2)}`;
@@ -382,7 +371,7 @@ updateLiveTime();
 setInterval(updateLiveTime,1e3);
 
 /* ════════════════════════════════════════════════════════════════
-   ADVANCED TRADING CHART  (كل الكود الأصلي + التعديلات)
+   ADVANCED TRADING CHART
    ════════════════════════════════════════════════════════════════ */
 class AdvancedTradingChart{
     constructor(){
@@ -582,15 +571,24 @@ class AdvancedTradingChart{
         if(glow)this.ctx.shadowBlur=0;
     }
 
-    /* ── علامات الصفقات ─────────────────────────────────────── */
+    /* ── علامات الصفقات (Trade Markers) ─────────────────────── */
 
     // إضافة علامة جديدة عند فتح صفقة
     addMarker(t, tradeData=null){
-        const op=this.currentPrice,c=this.currentCandle;
-        if(!c)return null;
-        const bt=Math.max(c.open,c.close),bb=Math.min(c.open,c.close);
-        let fp=op;
-        op>bt?fp=bt:op<bb&&(fp=bb);
+        const op=this.currentPrice, c=this.currentCandle;
+        if(!c) return null;
+
+        // ── استخدم markerPrice المحسوب مسبقاً إن وجد لضمان ثبات الموضع ──
+        let fp;
+        if(tradeData && tradeData.markerPrice !== undefined){
+            fp = tradeData.markerPrice;
+        } else {
+            const bt=Math.max(c.open,c.close), bb=Math.min(c.open,c.close);
+            fp=op;
+            if(op>bt) fp=bt;
+            else if(op<bb) fp=bb;
+        }
+
         const marker={
             type:t, ts:Date.now(), price:fp,
             candleIndex:this.candles.length, candleTimestamp:c.timestamp,
@@ -607,21 +605,31 @@ class AdvancedTradingChart{
     // واجهة مساعدة تُستدعى من openTrade
     addMarkerForTrade(type, trade){ return this.addMarker(type, trade); }
 
-    // إعادة تحميل علامة صفقة قديمة من Firebase (عند تحديث الصفحة)
+    // ── إعادة تحميل علامة صفقة من Firebase عند فتح الصفحة ──────────
+    // يستخدم trade.markerPrice لضمان نفس الموضع بدقة صارمة
     addMarkerFromTrade(trade){
-        const tS=this.candles.length?this.candles[0].timestamp:this.t0;
-        const est=Math.round((trade.startTime-tS)/this.timeframe);
-        const idx=Math.max(0,Math.min(est,this.candles.length-1));
-        const c=this.candles[idx];
+        const tS = this.candles.length ? this.candles[0].timestamp : this.t0;
+
+        // احسب الإندكس من وقت فتح الصفقة مقارنةً بأقدم شمعة
+        const idx = Math.round((trade.startTime - tS) / this.timeframe);
+        const clampedIdx = Math.max(0, Math.min(idx, this.candles.length));
+
+        // السعر: استخدم markerPrice المخزون إن وجد وإلا entryPrice
+        const markerPrice = (trade.markerPrice !== undefined && trade.markerPrice !== null)
+            ? trade.markerPrice
+            : trade.entryPrice;
+
         this.markers.push({
-            type:trade.type, ts:trade.startTime,
-            price:trade.entryPrice,
-            candleIndex:idx,
-            candleTimestamp:c?c.timestamp:this.t0,
-            tradeId:trade.id, endTime:trade.endTime,
-            status:trade.status||'active',
-            closePrice:trade.closePrice,
-            duration:trade.duration
+            type:  trade.type,
+            ts:    trade.startTime,
+            price: markerPrice,
+            candleIndex:      clampedIdx,
+            candleTimestamp:  trade.startTime,   // يُستخدم كـ key للبحث الزمني
+            tradeId:    trade.id,
+            endTime:    trade.endTime,
+            status:     trade.status || 'active',
+            closePrice: trade.closePrice,
+            duration:   trade.duration
         });
     }
 
@@ -631,88 +639,118 @@ class AdvancedTradingChart{
         if(m){m.status=status;m.closePrice=closePrice;}
     }
 
-    // رسم علامة الصفقة على الرسم البياني
+    // ── رسم علامة الصفقة على الشارت ──────────────────────────────
+    // لا يوجد أي نص أو مؤشرات – فقط: نقطة دخول + خط + نقطة نهاية
     drawMarker(m){
-        let actualIdx=m.candleIndex;
-        for(let i=0;i<this.candles.length;i++){
-            if(this.candles[i].timestamp===m.candleTimestamp){actualIdx=i;break}
+        // ── تحديد الإندكس الصحيح بطريقة مزدوجة ──────────────────
+        let actualIdx = m.candleIndex;
+
+        // (1) بحث بالتايم ستامب أولاً (للصفقات المفتوحة في نفس الجلسة)
+        let found = false;
+        for(let i=0; i<this.candles.length; i++){
+            if(this.candles[i].timestamp === m.candleTimestamp){
+                actualIdx = i;
+                found = true;
+                break;
+            }
         }
-        const x=this.indexToX(actualIdx);
-        if(x<-200||x>this.w+50)return;
-        const y=this.priceToY(m.price),w=this.getCandleWidth(),ib=m.type==="buy",
-              cl=ib?"#16a34a":"#ff3b3b",r=5.5;
-        this.ctx.save();
-        const lsx=x;
 
-        // نقطة الدخول
-        this.ctx.shadowColor=cl;this.ctx.shadowBlur=9;
-        this.ctx.fillStyle=cl;
-        this.ctx.beginPath();this.ctx.arc(x,y,r,0,2*Math.PI);this.ctx.fill();
-        this.ctx.shadowBlur=0;
+        // (2) إن لم يُوجد، احسب من وقت الصفقة مقارنةً بأقدم شمعة (لإعادة التحميل)
+        if(!found && m.ts){
+            const tS = this.candles.length ? this.candles[0].timestamp : this.t0;
+            actualIdx = Math.round((m.ts - tS) / this.timeframe);
+            actualIdx = Math.max(0, Math.min(actualIdx, this.candles.length));
+        }
 
-        // سهم داخل النقطة
-        this.ctx.fillStyle="#fff";
+        const x = this.indexToX(actualIdx);
+        if(x < -200 || x > this.w + 50) return;
+
+        const y   = this.priceToY(m.price);
+        const cw  = this.getCandleWidth();
+        const ib  = m.type === "buy";
+        const cl  = ib ? "#16a34a" : "#ff3b3b";
+        const r   = 5.5;
+
         this.ctx.save();
-        this.ctx.translate(x,y);ib||this.ctx.rotate(Math.PI);
+
+        // ── نقطة الدخول ──────────────────────────────────────────
+        this.ctx.shadowColor = cl;
+        this.ctx.shadowBlur  = 9;
+        this.ctx.fillStyle   = cl;
         this.ctx.beginPath();
-        this.ctx.moveTo(0,-2.8);this.ctx.lineTo(-2,.8);this.ctx.lineTo(-.65,.8);
-        this.ctx.lineTo(-.65,2.8);this.ctx.lineTo(.65,2.8);this.ctx.lineTo(.65,.8);
-        this.ctx.lineTo(2,.8);this.ctx.closePath();this.ctx.fill();
+        this.ctx.arc(x, y, r, 0, 2 * Math.PI);
+        this.ctx.fill();
+        this.ctx.shadowBlur = 0;
+
+        // ── سهم داخل نقطة الدخول ─────────────────────────────────
+        this.ctx.fillStyle = "#fff";
+        this.ctx.save();
+        this.ctx.translate(x, y);
+        if(!ib) this.ctx.rotate(Math.PI);
+        this.ctx.beginPath();
+        this.ctx.moveTo(0, -2.8);
+        this.ctx.lineTo(-2, .8);
+        this.ctx.lineTo(-.65, .8);
+        this.ctx.lineTo(-.65, 2.8);
+        this.ctx.lineTo(.65, 2.8);
+        this.ctx.lineTo(.65, .8);
+        this.ctx.lineTo(2, .8);
+        this.ctx.closePath();
+        this.ctx.fill();
         this.ctx.restore();
 
-        // خط أفقي + دائرة النهاية
-        const lx=lsx+w/2+3;
-
-        // احسب عرض الخط بناءً على مدة الصفقة أو افتراضي 95px
+        // ── الخط الأفقي ──────────────────────────────────────────
+        const lx = x + cw / 2 + 3;
         let lw;
         if(m.duration){
-            const cForTrade=(m.duration*1000)/this.timeframe;
-            const pxForTrade=cForTrade*this.getSpacing();
-            lw=Math.min(Math.max(pxForTrade,55),Math.max(this.w-lx-18,55));
+            const cForTrade  = (m.duration * 1000) / this.timeframe;
+            const pxForTrade = cForTrade * this.getSpacing();
+            lw = Math.min(Math.max(pxForTrade, 55), Math.max(this.w - lx - 18, 55));
         } else {
-            lw=Math.min(95,this.w-lx-22);
+            lw = Math.min(95, this.w - lx - 22);
         }
 
-        const lineColor=ib?"rgba(22,163,74,.7)":"rgba(255,59,59,.7)";
-        this.ctx.strokeStyle=lineColor;this.ctx.lineWidth=1.2;
+        const lineColor = ib ? "rgba(22,163,74,.7)" : "rgba(255,59,59,.7)";
+        this.ctx.strokeStyle = lineColor;
+        this.ctx.lineWidth   = 1.2;
 
-        // قطعة أولى
-        this.ctx.beginPath();this.ctx.moveTo(lsx+w/2,y);this.ctx.lineTo(lx,y);this.ctx.stroke();
+        // قطعة ربط
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + cw / 2, y);
+        this.ctx.lineTo(lx, y);
+        this.ctx.stroke();
 
-        // الخط الرئيسي (منقط للصفقات النشطة)
-        const st=m.status;
-        if(st==='active'){this.ctx.setLineDash([4,3]);}
-        this.ctx.beginPath();this.ctx.moveTo(lx,y);this.ctx.lineTo(lx+lw,y);this.ctx.stroke();
+        // الخط الرئيسي (منقط للنشطة)
+        const st = m.status;
+        if(st === 'active') this.ctx.setLineDash([4, 3]);
+        this.ctx.beginPath();
+        this.ctx.moveTo(lx, y);
+        this.ctx.lineTo(lx + lw, y);
+        this.ctx.stroke();
         this.ctx.setLineDash([]);
 
-        // دائرة نهاية الصفقة – لون يعتمد على النتيجة
-        const ex=lx+lw,er=5;
-        if(st==='won'){
-            this.ctx.strokeStyle='#00cc00';this.ctx.lineWidth=2;this.ctx.fillStyle='#00cc00';
-        } else if(st==='lost'){
-            this.ctx.strokeStyle='#ff3333';this.ctx.lineWidth=2;this.ctx.fillStyle='#ff3333';
+        // ── دائرة نهاية الصفقة (بدون أي نص) ─────────────────────
+        const ex = lx + lw;
+        const er = 5;
+        if(st === 'won'){
+            this.ctx.strokeStyle = '#00cc00';
+            this.ctx.lineWidth   = 2;
+            this.ctx.fillStyle   = '#00cc00';
+        } else if(st === 'lost'){
+            this.ctx.strokeStyle = '#ff3333';
+            this.ctx.lineWidth   = 2;
+            this.ctx.fillStyle   = '#ff3333';
         } else {
-            this.ctx.strokeStyle=cl;this.ctx.lineWidth=2;this.ctx.fillStyle='#fff';
+            // نشطة – دائرة شفافة
+            this.ctx.strokeStyle = cl;
+            this.ctx.lineWidth   = 2;
+            this.ctx.fillStyle   = 'rgba(255,255,255,0.12)';
         }
-        this.ctx.beginPath();this.ctx.arc(ex,y,er,0,2*Math.PI);this.ctx.fill();this.ctx.stroke();
+        this.ctx.beginPath();
+        this.ctx.arc(ex, y, er, 0, 2 * Math.PI);
+        this.ctx.fill();
+        this.ctx.stroke();
 
-        // نص W / L داخل الدائرة
-        if(st==='won'||st==='lost'){
-            this.ctx.fillStyle='#fff';
-            this.ctx.font='bold 6px Arial';
-            this.ctx.textAlign='center';
-            this.ctx.textBaseline='middle';
-            this.ctx.fillText(st==='won'?'W':'L',ex,y);
-            this.ctx.textAlign='start';
-            this.ctx.textBaseline='alphabetic';
-        }
-
-        // ذيل إضافي (للصفقات بدون حالة أو نشطة)
-        if(!st||st==='active'){
-            this.ctx.strokeStyle=ib?"rgba(22,163,74,.5)":"rgba(255,59,59,.5)";
-            this.ctx.lineWidth=1.2;
-            this.ctx.beginPath();this.ctx.moveTo(ex+er,y);this.ctx.lineTo(ex+65,y);this.ctx.stroke();
-        }
         this.ctx.restore();
     }
 
@@ -728,7 +766,7 @@ class AdvancedTradingChart{
             const lx=this.indexToX(this.candles.length);
             lx>=-60&&lx<=this.w+60&&this.drawCandle(this.currentCandle,lx,1);
         }
-        for(let mk of this.markers)this.drawMarker(mk);
+        for(let mk of this.markers) this.drawMarker(mk);
         if(++this._fr%2===0){this.updatePriceScale();this.updateTimeLabels();}
         this.updatePriceLabel();this.updateCandleTimer();
     }
@@ -828,7 +866,7 @@ loadBalance();
 loadActiveTrades();
 
 /* ════════════════════════════════════════════════════════════════
-   TIME SELECTOR  (الكود الأصلي كاملاً)
+   TIME SELECTOR
    ════════════════════════════════════════════════════════════════ */
 const timeSelector    = document.getElementById("timeSelector");
 const timeDropdown    = document.getElementById("timeDropdown");
@@ -896,7 +934,7 @@ timeDisplay.addEventListener("blur", () => {
 });
 
 /* ════════════════════════════════════════════════════════════════
-   AMOUNT INPUT  (الكود الأصلي كاملاً)
+   AMOUNT INPUT
    ════════════════════════════════════════════════════════════════ */
 amountContainer.addEventListener("click", () => amountDisplay.focus());
 
@@ -920,7 +958,7 @@ amountDisplay.addEventListener("keydown", function(e){
 });
 
 /* ════════════════════════════════════════════════════════════════
-   BUY / SELL BUTTONS  →  يستدعيان openTrade
+   BUY / SELL BUTTONS
    ════════════════════════════════════════════════════════════════ */
 document.getElementById("buyBtn").addEventListener("click",  () => openTrade("buy"));
 document.getElementById("sellBtn").addEventListener("click", () => openTrade("sell"));
