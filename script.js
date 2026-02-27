@@ -117,10 +117,15 @@ async function openTrade(type) {
     const startTime  = Date.now();
     const endTime    = startTime + duration * 1000;
 
+    // ── أهم سطرين لحل مشكلة "نفس الشمعة" بعد إعادة التحميل ──
+    // نخزن Timestamp الشمعة نفسها (بداية الشمعة) + الإندكس وقت الفتح
+    const cc = window.chart.currentCandle;
+    const candleTimestamp = cc ? cc.timestamp : Math.floor(startTime / window.chart.timeframe) * window.chart.timeframe;
+    const candleIndex     = window.chart.candles.length; // شمعة الريل تايم بتترسم عند index = candles.length
+
     // ── احسب سعر العلامة مسبقاً بنفس منطق addMarker ──────────────
     // هذا يضمن عودة الماركر بنفس مكانه عند إعادة تحميل الصفحة
     let markerPrice = entryPrice;
-    const cc = window.chart.currentCandle;
     if (cc) {
         const bt = Math.max(cc.open, cc.close);
         const bb = Math.min(cc.open, cc.close);
@@ -136,7 +141,11 @@ async function openTrade(type) {
         type, pair: 'EUR/USD OTC', entryPrice, amount,
         duration, startTime, endTime,
         status: 'active', closePrice: null, pnl: null,
-        markerPrice: markerPrice   // ← يُخزَّن في Firebase لضمان ثبات الموضع
+
+        // ── مفاتيح تثبيت الماركر 100% ──
+        markerPrice: markerPrice,         // ثابت للـ Y
+        candleTimestamp: candleTimestamp, // ثابت للـ X (الشمعة)
+        candleIndex: candleIndex          // Backup (للجلسة نفسها)
     };
 
     try {
@@ -455,6 +464,29 @@ class AdvancedTradingChart{
     getCandleWidth(){return this.getSpacing()*.8}
     getMinOffset(){return this.w/2-this.candles.length*this.getSpacing()}
     getMaxOffset(){return this.w/2}
+
+    // ── (مهم جدًا) تحويل candleTimestamp إلى index ثابت ─────────────
+    // يضمن إن الماركر يرجع لنفس الشمعة بعد الريلود بدون أي انزياح
+    getIndexForCandleTimestamp(ts){
+        if(ts === undefined || ts === null) return null;
+
+        // لو هي الشمعة الحالية (Realtime candle)
+        if(this.currentCandle && this.currentCandle.timestamp === ts){
+            return this.candles.length;
+        }
+
+        // ابحث داخل الشموع المكتملة
+        for(let i=0; i<this.candles.length; i++){
+            if(this.candles[i].timestamp === ts) return i;
+        }
+
+        // fallback: حساب بالنسبة لأقدم شمعة (لو الشمعة موجودة ضمن النافذة الزمنية)
+        const tS = this.candles.length ? this.candles[0].timestamp : this.t0;
+        let idx = Math.round((ts - tS) / this.timeframe);
+        idx = Math.max(0, Math.min(idx, this.candles.length));
+        return idx;
+    }
+
     clampPan(){
         const mn=this.getMinOffset(),mx=this.getMaxOffset();
         this.targetOffsetX=Math.max(mn,Math.min(mx,this.targetOffsetX));
@@ -575,7 +607,7 @@ class AdvancedTradingChart{
 
     // إضافة علامة جديدة عند فتح صفقة
     addMarker(t, tradeData=null){
-        const op=this.currentPrice, c=this.currentCandle;
+        const c=this.currentCandle;
         if(!c) return null;
 
         // ── استخدم markerPrice المحسوب مسبقاً إن وجد لضمان ثبات الموضع ──
@@ -584,17 +616,33 @@ class AdvancedTradingChart{
             fp = tradeData.markerPrice;
         } else {
             const bt=Math.max(c.open,c.close), bb=Math.min(c.open,c.close);
+            const op=this.currentPrice;
             fp=op;
             if(op>bt) fp=bt;
             else if(op<bb) fp=bb;
         }
 
         const marker={
-            type:t, ts:Date.now(), price:fp,
-            candleIndex:this.candles.length, candleTimestamp:c.timestamp,
+            type:t,
+
+            // ts لازم يبقى نفس startTime للصفقة (لو موجود) عشان أي logic زمني يفضل صحيح
+            ts: tradeData ? (tradeData.startTime || Date.now()) : Date.now(),
+
+            // price ثابت من Firebase (markerPrice)
+            price:fp,
+
+            // ── أهم مفاتيح تثبيت نفس الشمعة ──
+            candleIndex: tradeData && tradeData.candleIndex !== undefined
+                ? tradeData.candleIndex
+                : this.candles.length,
+
+            candleTimestamp: tradeData && tradeData.candleTimestamp !== undefined
+                ? tradeData.candleTimestamp
+                : c.timestamp,
+
             tradeId:  tradeData?tradeData.id:null,
             endTime:  tradeData?tradeData.endTime:null,
-            status:   tradeData?'active':null,
+            status:   tradeData?(tradeData.status || 'active'):null,
             closePrice:null,
             duration: tradeData?tradeData.duration:null
         };
@@ -606,13 +654,14 @@ class AdvancedTradingChart{
     addMarkerForTrade(type, trade){ return this.addMarker(type, trade); }
 
     // ── إعادة تحميل علامة صفقة من Firebase عند فتح الصفحة ──────────
-    // يستخدم trade.markerPrice لضمان نفس الموضع بدقة صارمة
+    // يستخدم trade.candleTimestamp + trade.markerPrice لضمان نفس الموضع بدقة صارمة
     addMarkerFromTrade(trade){
-        const tS = this.candles.length ? this.candles[0].timestamp : this.t0;
+        // candleTimestamp: لازم يكون Timestamp بداية الشمعة
+        const candleTs = (trade.candleTimestamp !== undefined && trade.candleTimestamp !== null)
+            ? trade.candleTimestamp
+            : Math.floor((trade.startTime || Date.now()) / this.timeframe) * this.timeframe;
 
-        // احسب الإندكس من وقت فتح الصفقة مقارنةً بأقدم شمعة
-        const idx = Math.round((trade.startTime - tS) / this.timeframe);
-        const clampedIdx = Math.max(0, Math.min(idx, this.candles.length));
+        const idx = this.getIndexForCandleTimestamp(candleTs);
 
         // السعر: استخدم markerPrice المخزون إن وجد وإلا entryPrice
         const markerPrice = (trade.markerPrice !== undefined && trade.markerPrice !== null)
@@ -623,8 +672,11 @@ class AdvancedTradingChart{
             type:  trade.type,
             ts:    trade.startTime,
             price: markerPrice,
-            candleIndex:      clampedIdx,
-            candleTimestamp:  trade.startTime,   // يُستخدم كـ key للبحث الزمني
+
+            // ── ثبّت نفس الشمعة ──
+            candleIndex:      (idx !== null ? idx : (trade.candleIndex || 0)),
+            candleTimestamp:  candleTs,
+
             tradeId:    trade.id,
             endTime:    trade.endTime,
             status:     trade.status || 'active',
@@ -642,24 +694,12 @@ class AdvancedTradingChart{
     // ── رسم علامة الصفقة على الشارت ──────────────────────────────
     // لا يوجد أي نص أو مؤشرات – فقط: نقطة دخول + خط + نقطة نهاية
     drawMarker(m){
-        // ── تحديد الإندكس الصحيح بطريقة مزدوجة ──────────────────
-        let actualIdx = m.candleIndex;
+        // ── تحديد الإندكس الصحيح (أولوية قصوى: candleTimestamp) ──
+        let actualIdx = this.getIndexForCandleTimestamp(m.candleTimestamp);
 
-        // (1) بحث بالتايم ستامب أولاً (للصفقات المفتوحة في نفس الجلسة)
-        let found = false;
-        for(let i=0; i<this.candles.length; i++){
-            if(this.candles[i].timestamp === m.candleTimestamp){
-                actualIdx = i;
-                found = true;
-                break;
-            }
-        }
-
-        // (2) إن لم يُوجد، احسب من وقت الصفقة مقارنةً بأقدم شمعة (لإعادة التحميل)
-        if(!found && m.ts){
-            const tS = this.candles.length ? this.candles[0].timestamp : this.t0;
-            actualIdx = Math.round((m.ts - tS) / this.timeframe);
-            actualIdx = Math.max(0, Math.min(actualIdx, this.candles.length));
+        // fallback (نادر)
+        if(actualIdx === null || actualIdx === undefined){
+            actualIdx = (m.candleIndex !== undefined && m.candleIndex !== null) ? m.candleIndex : this.candles.length;
         }
 
         const x = this.indexToX(actualIdx);
