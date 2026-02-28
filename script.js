@@ -14,6 +14,25 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 /* ════════════════════════════════════════════════════════════════
+   ★ PAIR CONFIG  –  إعدادات كل زوج (سعر + بذرة + أرقام + تذبذب)
+   ════════════════════════════════════════════════════════════════ */
+const PAIR_CONFIG = {
+    'EUR/USD': { basePrice: 1.08540, seed: 11001, digits: 5, vb: 8e-4,  tb: 5e-5  },
+    'AUD/CAD': { basePrice: 0.89520, seed: 22002, digits: 5, vb: 7e-4,  tb: 4e-5  },
+    'AUD/CHF': { basePrice: 0.57480, seed: 33003, digits: 5, vb: 6e-4,  tb: 4e-5  },
+    'USD/CHF': { basePrice: 0.90520, seed: 44004, digits: 5, vb: 7e-4,  tb: 4e-5  },
+    'EUR/RUB': { basePrice: 95.5000, seed: 55005, digits: 3, vb: 0.08,  tb: 5e-3  },
+    'AED/CNY': { basePrice: 1.95300, seed: 66006, digits: 5, vb: 8e-4,  tb: 5e-5  },
+    'BHD/CNY': { basePrice: 18.5400, seed: 77007, digits: 4, vb: 0.015, tb: 1e-3  },
+    'KES/USD': { basePrice: 0.00771, seed: 88008, digits: 6, vb: 5e-5,  tb: 3e-6  },
+    'LBP/USD': { basePrice: 0.000067,seed: 99009, digits: 7, vb: 5e-7,  tb: 3e-8  },
+    'QAR/CNY': { basePrice: 1.97200, seed: 10010, digits: 5, vb: 8e-4,  tb: 5e-5  },
+    'SYP/TRY': { basePrice: 0.000950,seed: 21021, digits: 6, vb: 5e-6,  tb: 3e-7  },
+    'EGP/USD': { basePrice: 0.020500,seed: 32032, digits: 6, vb: 1e-4,  tb: 6e-6  },
+    'USD/INR': { basePrice: 83.5200, seed: 43043, digits: 4, vb: 0.07,  tb: 4e-3  }
+};
+
+/* ════════════════════════════════════════════════════════════════
    BALANCE MANAGEMENT
    ════════════════════════════════════════════════════════════════ */
 let currentBalance = 10000;
@@ -101,7 +120,7 @@ function fmtDate(ts) {
 let activeTrades = [];
 
 /* ════════════════════════════════════════════════════════════════
-   OPEN TRADE
+   OPEN TRADE  ★ يستخدم الزوج الحالي من الرسم البياني
    ════════════════════════════════════════════════════════════════ */
 async function openTrade(type) {
     const raw    = document.getElementById('amountDisplay').value.replace(/[^0-9.]/g, '');
@@ -116,6 +135,9 @@ async function openTrade(type) {
     const duration   = window.chart.selectedTime;
     const startTime  = Date.now();
     const endTime    = startTime + duration * 1000;
+
+    /* ★ الزوج الحالي من الرسم البياني */
+    const pairName = (window.chart.currentPair || 'EUR/USD') + ' OTC';
 
     const cc = window.chart.currentCandle;
     const candleTimestamp = cc ? cc.timestamp : Math.floor(startTime / window.chart.timeframe) * window.chart.timeframe;
@@ -133,7 +155,7 @@ async function openTrade(type) {
     updateBalanceDisplay();
 
     const tradeData = {
-        type, pair: 'EUR/USD OTC', entryPrice, amount,
+        type, pair: pairName, entryPrice, amount,
         duration, startTime, endTime,
         status: 'active', closePrice: null, pnl: null,
         markerPrice: markerPrice,
@@ -360,7 +382,7 @@ updateLiveTime();
 setInterval(updateLiveTime,1e3);
 
 /* ════════════════════════════════════════════════════════════════
-   ADVANCED TRADING CHART
+   ★★★  ADVANCED TRADING CHART  ★★★
    ════════════════════════════════════════════════════════════════ */
 class AdvancedTradingChart {
     constructor() {
@@ -372,14 +394,30 @@ class AdvancedTradingChart {
         this.priceLine         = document.getElementById("priceLine");
         this.priceScaleLabels  = document.getElementById("priceScaleLabels");
         this.currentPriceEl    = document.getElementById("currentPrice");
+
+        /* ── بيانات الشموع ── */
         this.candles           = [];
         this.currentCandle     = null;
         this.maxCandles        = 200;
-        this.basePrice         = 1.95;
-        this.currentPrice      = 1.9518;
-        this.seed              = 11001;
-        this.digits            = 5;
-        this.priceRange        = { min: 1.9, max: 2 };
+
+        /* ── ★ نظام الأزواج المستقلة ── */
+        this.currentPair       = 'EUR/USD';
+        this.pairStates        = new Map();   // حفظ حالة كل زوج
+        this._switching        = false;        // حارس أثناء التبديل
+
+        /* ── إعدادات الزوج الافتراضي (EUR/USD) ── */
+        const _cfg             = PAIR_CONFIG['EUR/USD'];
+        this.basePrice         = _cfg.basePrice;
+        this.seed              = _cfg.seed;
+        this.digits            = _cfg.digits;
+        this.vb                = _cfg.vb;      // تذبذب الجسم
+        this.tb                = _cfg.tb;      // تذبذب الترند
+
+        /* ── الأسعار ── */
+        this.currentPrice      = this.basePrice;
+
+        /* ── الرسم والتفاعل ── */
+        this.priceRange        = { min: this.basePrice * .99, max: this.basePrice * 1.01 };
         this.baseSpacing       = 12;
         this.zoom              = 1;
         this.targetZoom        = 1;
@@ -407,18 +445,18 @@ class AdvancedTradingChart {
         this._fr               = 0;
         this.markers           = [];
         this.selectedTime      = 5;
-        this._realtimeStarted  = false;   // ← حارس: startRealtime مرة واحدة فقط
+        this._realtimeStarted  = false;
 
         this.setup();
         this.initEvents();
         this.loop();
-        // ══ Firebase أولاً: تحقق من الشموع ثم ابدأ الريل تايم ══
+        /* ── تحميل شموع الزوج الافتراضي ── */
         this.loadCandlesFromFirebase();
     }
 
-    /* ──────────────────────────────────────────────────────────
+    /* ─────────────────────────────────────────────
        SETUP / RESIZE
-    ────────────────────────────────────────────────────────── */
+    ───────────────────────────────────────────── */
     setup() {
         const dpr = window.devicePixelRatio || 1, r = this.plot.getBoundingClientRect();
         this.w = r.width;
@@ -433,17 +471,20 @@ class AdvancedTradingChart {
         this.updateTimeLabels();
     }
 
-    /* ──────────────────────────────────────────────────────────
-       RANDOM HELPERS  (محتاجة لتوليد الشموع الوهمية)
-    ────────────────────────────────────────────────────────── */
+    /* ─────────────────────────────────────────────
+       RANDOM HELPERS
+    ───────────────────────────────────────────── */
     rnd(s)  { const x = Math.sin(s) * 1e4; return x - Math.floor(x); }
     rndG(s) {
         const u1 = this.rnd(s), u2 = this.rnd(s + 1e5);
         return Math.sqrt(-2 * Math.log(u1 + 1e-5)) * Math.cos(2 * Math.PI * u2);
     }
+
+    /* ★ genCandle يستخدم this.vb و this.tb الخاصَّين بالزوج الحالي */
     genCandle(t, o) {
+        const vb = this.vb || 8e-4,
+              tb = this.tb || 5e-5;
         const s  = this.seed + Math.floor(t / this.timeframe),
-              vb = 8e-4, tb = 5e-5,
               r1 = this.rndG(s), r2 = this.rndG(s+1), r3 = this.rndG(s+2),
               r4 = this.rnd(s+3), r5 = this.rnd(s+4), r6 = this.rnd(s+5),
               v  = vb * (.7 + Math.abs(r1) * .8),
@@ -464,53 +505,95 @@ class AdvancedTradingChart {
         };
     }
 
-    /* ══════════════════════════════════════════════════════════
-       ★ جديد: تحميل الشموع من Firebase أو توليدها إن لم توجد ★
-    ══════════════════════════════════════════════════════════ */
-    async loadCandlesFromFirebase() {
-        try {
-            // جلب آخر maxCandles شمعة مرتبة تنازلياً ثم عكسها
-            const snap = await db.collection('candles')
-                .orderBy('timestamp', 'desc')
-                .limit(this.maxCandles)
-                .get();
+    /* ═══════════════════════════════════════════
+       ★★ إدارة الأزواج المستقلة ★★
+    ═══════════════════════════════════════════ */
 
-            if (!snap.empty && snap.docs.length >= 30) {
-                /* ── يوجد شموع كافية → حمّلها ── */
-                this.candles      = snap.docs.map(d => d.data()).reverse();
-                this.currentPrice = this.candles[this.candles.length - 1].close;
+    /** اسم مجموعة Firebase للزوج المحدد */
+    getPairCollection(pair) {
+        return 'candles_' + (pair || this.currentPair).replace('/', '_');
+    }
 
-            } else {
-                /* ── لا يوجد شموع كافية → ولّد 30 وهمية واحفظها ── */
-                const batch   = db.batch();
-                const generated = [];
-                let   startP  = this.basePrice;
-                let   startT  = Math.floor(Date.now() / this.timeframe) * this.timeframe
-                                - 30 * this.timeframe;
+    /** حفظ الحالة الكاملة للزوج الحالي في الذاكرة */
+    _savePairState() {
+        this.pairStates.set(this.currentPair, {
+            candles:        this.candles.map(c => ({...c})),
+            currentCandle:  this.currentCandle ? {...this.currentCandle} : null,
+            currentPrice:   this.currentPrice,
+            basePrice:      this.basePrice,
+            seed:           this.seed,
+            digits:         this.digits,
+            vb:             this.vb,
+            tb:             this.tb,
+            t0:             this.t0,
+            markers:        this.markers.map(m => ({...m})),
+            zoom:           this.zoom,
+            targetZoom:     this.targetZoom,
+            offsetX:        this.offsetX,
+            targetOffsetX:  this.targetOffsetX,
+            smin:           this.smin,
+            smax:           this.smax,
+            savedAt:        Date.now()
+        });
+    }
 
-                for (let i = 0; i < 30; i++) {
-                    const c = this.genCandle(startT, startP);
-                    generated.push(c);
-                    startP  = c.close;
-                    startT += this.timeframe;
-                    batch.set(
-                        db.collection('candles').doc(String(c.timestamp)),
-                        c
-                    );
+    /** استعادة حالة زوج محفوظ + توليد الشموع الفائتة */
+    _restorePairState(pair) {
+        const state = this.pairStates.get(pair);
+        if (!state) return;
+
+        /* استعادة البيانات */
+        this.candles       = state.candles.map(c => ({...c}));
+        this.currentCandle = state.currentCandle ? {...state.currentCandle} : null;
+        this.currentPrice  = state.currentPrice;
+        this.t0            = state.t0;
+        this.markers       = state.markers.map(m => ({...m}));
+        this.zoom          = state.zoom;
+        this.targetZoom    = state.targetZoom;
+        this.offsetX       = state.offsetX;
+        this.targetOffsetX = state.targetOffsetX;
+        this.smin          = state.smin;
+        this.smax          = state.smax;
+
+        /* ── توليد الشموع الفائتة أثناء الغياب ── */
+        const now     = Date.now();
+        let   lastT   = state.t0;
+        let   lastP   = state.currentPrice;
+
+        /* إغلاق الشمعة الجارية إن انتهت */
+        if (this.currentCandle) {
+            if (lastT + this.timeframe <= now) {
+                const last = this.candles[this.candles.length - 1];
+                if (!last || last.timestamp !== this.currentCandle.timestamp) {
+                    this.candles.push({...this.currentCandle});
+                    if (this.candles.length > this.maxCandles) this.candles.shift();
                 }
-
-                await batch.commit();           // حفظ دفعة واحدة في Firebase
-                this.candles      = generated;
-                this.currentPrice = this.candles[this.candles.length - 1].close;
+                lastP = this.currentCandle.close;
+                lastT += this.timeframe;
             }
-
-        } catch (e) {
-            /* ── خطأ في Firebase → توليد محلي احتياطي ── */
-            console.error('loadCandlesFromFirebase:', e);
-            this._initLocalFallback();
         }
 
-        /* ── إعداد مشترك بعد جاهزية الشموع ── */
+        /* توليد الشموع الفائتة (حتى 300 شمعة) */
+        let catchUp = 0;
+        while (lastT + this.timeframe <= now && catchUp < 300) {
+            const c = this.genCandle(lastT, lastP);
+            this.candles.push(c);
+            if (this.candles.length > this.maxCandles) this.candles.shift();
+            lastP = c.close;
+            lastT += this.timeframe;
+            catchUp++;
+        }
+
+        /* تحديث الشمعة الجارية */
+        this.t0           = Math.floor(now / this.timeframe) * this.timeframe;
+        this.currentCandle = { open: lastP, close: lastP, high: lastP, low: lastP, timestamp: this.t0 };
+        this.currentPrice  = lastP;
+
+        this._afterCandlesLoaded();
+    }
+
+    /** إعداد مشترك بعد تحميل/استعادة الشموع */
+    _afterCandlesLoaded() {
         this.t0 = Math.floor(Date.now() / this.timeframe) * this.timeframe;
         this.snapToLive();
         this.updateTimeLabels();
@@ -519,10 +602,95 @@ class AdvancedTradingChart {
         this.smax = this.priceRange.max;
         this.updatePriceScale();
         this.updatePriceLabel();
-        this.startRealtime();          // ← يبدأ الريل تايم فقط هنا
     }
 
-    /* ── توليد محلي احتياطي (فقط عند فشل Firebase) ── */
+    /* ═══════════════════════════════════════════
+       ★ تبديل الزوج مع الحفاظ على كل البيانات ★
+    ═══════════════════════════════════════════ */
+    async switchPair(newPair) {
+        if (newPair === this.currentPair) return;
+
+        /* 1 ▸ حفظ حالة الزوج الحالي */
+        this._savePairState();
+
+        /* 2 ▸ تفعيل حارس التبديل */
+        this._switching = true;
+
+        /* 3 ▸ تحديث الزوج وإعداداته */
+        this.currentPair = newPair;
+        const cfg        = PAIR_CONFIG[newPair] || PAIR_CONFIG['EUR/USD'];
+        this.basePrice   = cfg.basePrice;
+        this.seed        = cfg.seed;
+        this.digits      = cfg.digits;
+        this.vb          = cfg.vb;
+        this.tb          = cfg.tb;
+
+        /* 4 ▸ تحميل / استعادة الزوج الجديد */
+        if (this.pairStates.has(newPair)) {
+            /* ── الزوج محفوظ في الذاكرة ← استعادة فورية ── */
+            this._restorePairState(newPair);
+        } else {
+            /* ── الزوج جديد ← تحميل من Firebase ── */
+            this.candles       = [];
+            this.currentCandle = null;
+            this.markers       = [];
+            this.smin          = null;
+            this.smax          = null;
+            await this.loadCandlesFromFirebase(newPair);
+        }
+
+        /* 5 ▸ رفع الحارس */
+        this._switching = false;
+    }
+
+    /* ═══════════════════════════════════════════
+       ★ تحميل الشموع من Firebase (يدعم تحديد الزوج)
+    ═══════════════════════════════════════════ */
+    async loadCandlesFromFirebase(pair = null) {
+        const targetPair = pair || this.currentPair;
+        const coll       = this.getPairCollection(targetPair);
+
+        try {
+            const snap = await db.collection(coll)
+                .orderBy('timestamp', 'desc')
+                .limit(this.maxCandles)
+                .get();
+
+            if (!snap.empty && snap.docs.length >= 10) {
+                /* ── يوجد شموع كافية ── */
+                this.candles      = snap.docs.map(d => d.data()).reverse();
+                this.currentPrice = this.candles[this.candles.length - 1].close;
+
+            } else {
+                /* ── لا يوجد شموع ← توليد 30 وحفظها ── */
+                const batch    = db.batch();
+                const generated = [];
+                let   startP   = this.basePrice;
+                let   startT   = Math.floor(Date.now() / this.timeframe) * this.timeframe
+                                 - 30 * this.timeframe;
+
+                for (let i = 0; i < 30; i++) {
+                    const c = this.genCandle(startT, startP);
+                    generated.push(c);
+                    startP  = c.close;
+                    startT += this.timeframe;
+                    batch.set(db.collection(coll).doc(String(c.timestamp)), c);
+                }
+                await batch.commit();
+                this.candles      = generated;
+                this.currentPrice = this.candles[this.candles.length - 1].close;
+            }
+
+        } catch (e) {
+            console.error('loadCandlesFromFirebase:', e);
+            this._initLocalFallback();
+        }
+
+        this._afterCandlesLoaded();
+        if (!this._realtimeStarted) this.startRealtime();
+    }
+
+    /** توليد شموع محلية احتياطية عند فشل Firebase */
     _initLocalFallback() {
         let p = this.basePrice;
         let t = Date.now() - 30 * this.timeframe;
@@ -535,19 +703,18 @@ class AdvancedTradingChart {
         this.currentPrice = this.candles[this.candles.length - 1].close;
     }
 
-    /* ══════════════════════════════════════════════════════════
-       ★ جديد: حفظ شمعة مغلقة في Firebase (fire-and-forget) ★
-    ══════════════════════════════════════════════════════════ */
-    saveCandleToFirebase(candle) {
-        db.collection('candles')
+    /** ★ حفظ شمعة مغلقة في مجموعة Firebase الخاصة بالزوج */
+    saveCandleToFirebase(candle, pair = null) {
+        const coll = this.getPairCollection(pair || this.currentPair);
+        db.collection(coll)
           .doc(String(candle.timestamp))
           .set(candle)
           .catch(e => console.warn('saveCandleToFirebase:', e));
     }
 
-    /* ──────────────────────────────────────────────────────────
-       PRICE / PAN / ZOOM HELPERS  (بدون تغيير)
-    ────────────────────────────────────────────────────────── */
+    /* ─────────────────────────────────────────────
+       PRICE / PAN / ZOOM
+    ───────────────────────────────────────────── */
     getSpacing()     { return this.baseSpacing * this.zoom; }
     getCandleWidth() { return this.getSpacing() * .8; }
     getMinOffset()   { return this.w / 2 - this.candles.length * this.getSpacing(); }
@@ -629,9 +796,9 @@ class AdvancedTradingChart {
         return { min: g0, max: g1, step: d, count: Math.round((g1 - g0) / d) };
     }
 
-    /* ──────────────────────────────────────────────────────────
+    /* ─────────────────────────────────────────────
        DRAW GRID
-    ────────────────────────────────────────────────────────── */
+    ───────────────────────────────────────────── */
     drawGrid() {
         const { min, max, step, count } = this.calcNiceGrid();
         for (let i = 0; i <= count; i++) {
@@ -658,9 +825,9 @@ class AdvancedTradingChart {
         }
     }
 
-    /* ──────────────────────────────────────────────────────────
+    /* ─────────────────────────────────────────────
        LABELS
-    ────────────────────────────────────────────────────────── */
+    ───────────────────────────────────────────── */
     updateTimeLabels() {
         const tl     = this.timeLabels; tl.innerHTML = "";
         const visC   = this.w / this.getSpacing(),
@@ -719,9 +886,9 @@ class AdvancedTradingChart {
         return this.h * (1 - n);
     }
 
-    /* ──────────────────────────────────────────────────────────
+    /* ─────────────────────────────────────────────
        DRAW CANDLE
-    ────────────────────────────────────────────────────────── */
+    ───────────────────────────────────────────── */
     drawCandle(c, x, glow) {
         const oy = this.priceToY(c.open),  cy = this.priceToY(c.close),
               hy = this.priceToY(c.high),  ly = this.priceToY(c.low),
@@ -740,9 +907,9 @@ class AdvancedTradingChart {
         if (glow) this.ctx.shadowBlur = 0;
     }
 
-    /* ──────────────────────────────────────────────────────────
-       MARKERS  (بدون تغيير)
-    ────────────────────────────────────────────────────────── */
+    /* ─────────────────────────────────────────────
+       MARKERS
+    ───────────────────────────────────────────── */
     addMarker(t, tradeData = null) {
         const c = this.currentCandle;
         if (!c) return null;
@@ -849,9 +1016,9 @@ class AdvancedTradingChart {
         this.ctx.restore();
     }
 
-    /* ──────────────────────────────────────────────────────────
+    /* ─────────────────────────────────────────────
        DRAW LOOP
-    ────────────────────────────────────────────────────────── */
+    ───────────────────────────────────────────── */
     draw() {
         this.tickZoom(); this.updatePan(); this.updatePriceRange(); this.tickSR();
         this.ctx.clearRect(0, 0, this.w, this.h);
@@ -871,14 +1038,17 @@ class AdvancedTradingChart {
         this.updatePriceLabel(); this.updateCandleTimer();
     }
 
-    /* ──────────────────────────────────────────────────────────
-       REALTIME CANDLE UPDATE
-    ────────────────────────────────────────────────────────── */
+    /* ─────────────────────────────────────────────
+       REALTIME
+    ───────────────────────────────────────────── */
     stepTowards(c, t, m) {
         const d = t - c;
         return Math.abs(d) <= m ? t : c + Math.sign(d) * m;
     }
+
+    /** ★ updateCurrentCandle يستخدم this.vb الخاص بالزوج */
     updateCurrentCandle() {
+        const vb = this.vb || 8e-4;
         if (!this.currentCandle) {
             const lp = this.candles.length ? this.candles[this.candles.length - 1].close : this.currentPrice;
             this.currentCandle       = this.genCandle(this.t0, lp);
@@ -889,9 +1059,9 @@ class AdvancedTradingChart {
         }
         const n   = Date.now(),
               r   = this.rnd(this.seed + n),
-              dir = (r - .5) * 4e-4,
+              dir = (r - .5) * vb * 0.5,
               t   = this.currentCandle.close + dir,
-              ms  = 8e-4 * .18,
+              ms  = vb * .18,
               nc  = +this.stepTowards(this.currentCandle.close, t, ms).toFixed(this.digits);
         this.currentCandle.close = nc;
         this.currentCandle.high  = +Math.max(this.currentCandle.high, nc).toFixed(this.digits);
@@ -899,14 +1069,15 @@ class AdvancedTradingChart {
         this.currentPrice        = nc;
     }
 
-    /* ══════════════════════════════════════════════════════════
-       ★ REALTIME: عند إغلاق كل شمعة → احفظها في Firebase ★
-    ══════════════════════════════════════════════════════════ */
+    /** ★ startRealtime: interval واحد يعمل على الزوج الحالي دائماً */
     startRealtime() {
-        if (this._realtimeStarted) return;   // لا تُشغّل مرتين
+        if (this._realtimeStarted) return;
         this._realtimeStarted = true;
 
         setInterval(() => {
+            /* تجاهل التحديث أثناء تحميل زوج جديد */
+            if (this._switching) return;
+
             const n = Date.now(), e = n - this.t0;
             if (e >= this.timeframe) {
                 if (this.currentCandle &&
@@ -917,8 +1088,8 @@ class AdvancedTradingChart {
                     this.candles.push(closedCandle);
                     if (this.candles.length > this.maxCandles) this.candles.shift();
 
-                    /* ★ حفظ الشمعة المغلقة في Firebase ★ */
-                    this.saveCandleToFirebase(closedCandle);
+                    /* ★ حفظ في Firebase بمجموعة الزوج الصحيح */
+                    this.saveCandleToFirebase(closedCandle, this.currentPair);
                 }
                 this.t0 = Math.floor(n / this.timeframe) * this.timeframe;
                 const lp = this.currentCandle ? this.currentCandle.close : this.currentPrice;
@@ -934,9 +1105,9 @@ class AdvancedTradingChart {
         }, 200);
     }
 
-    /* ──────────────────────────────────────────────────────────
+    /* ─────────────────────────────────────────────
        PRICE RANGE
-    ────────────────────────────────────────────────────────── */
+    ───────────────────────────────────────────── */
     updatePriceRange() {
         let v = [...this.candles];
         this.currentCandle &&
@@ -953,9 +1124,9 @@ class AdvancedTradingChart {
         this.priceRange = { min: mn - pd, max: mx + pd };
     }
 
-    /* ──────────────────────────────────────────────────────────
+    /* ─────────────────────────────────────────────
        EVENTS
-    ────────────────────────────────────────────────────────── */
+    ───────────────────────────────────────────── */
     initEvents() {
         addEventListener("resize", () => this.setup());
         this.canvas.addEventListener("wheel", e => {
@@ -1021,9 +1192,9 @@ class AdvancedTradingChart {
         }, { passive: false });
     }
 
-    /* ──────────────────────────────────────────────────────────
+    /* ─────────────────────────────────────────────
        RAF LOOP
-    ────────────────────────────────────────────────────────── */
+    ───────────────────────────────────────────── */
     loop() { this.draw(); requestAnimationFrame(() => this.loop()); }
 }
 
