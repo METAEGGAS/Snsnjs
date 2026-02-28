@@ -395,10 +395,11 @@ body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;direction:rtl;di
 
 <!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="script.js"></script>
 
-<!-- ACCOUNT SWITCHER + PAIR PANEL JS -->
+<!-- PAIR PANEL JS -->
 <script>
 (function(){
   /* ── بيانات الأزواج ── */
@@ -475,64 +476,9 @@ body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;direction:rtl;di
       pairPanel.classList.remove("on");
   });
 
-  /* ── Account Switcher ── */
-  const balanceBox=document.getElementById("balanceBox");
-  const accMenu=document.getElementById("accMenu");
-  const refillBtn=document.getElementById("refillBtn");
-  const balanceAmount=document.getElementById("balanceAmount");
-  const demoAmt=document.getElementById("demoAmt");
-  let bal=10000,aA="demo";
-
-  function upB(){
-    const s="$"+bal.toFixed(2);
-    if(balanceAmount) balanceAmount.textContent=s;
-    if(demoAmt) demoAmt.textContent=s;
-    // مزامنة مع script.js إذا كان يستخدم window.balance
-    if(typeof window.balance!=="undefined") window.balance=bal;
-  }
-  function upAI(){
-    const ic=document.getElementById("topAccIcon");
-    if(ic) ic.src=aA==="real"?"https://flagcdn.com/w40/us.png":"https://cdn-icons-png.flaticon.com/128/1344/1344761.png";
-  }
-
-  if(balanceBox) balanceBox.onclick=e=>{
-    if(e.target.closest(".accMenu"))return;
-    e.stopPropagation();
-    accMenu.classList.toggle("show");
-    balanceBox.classList.toggle("open");
-  };
-  document.addEventListener("click",e=>{
-    if(!e.target.closest("#balanceBox")){
-      if(accMenu) accMenu.classList.remove("show");
-      if(balanceBox) balanceBox.classList.remove("open");
-    }
-  });
-  if(refillBtn) refillBtn.onclick=()=>{
-    bal=10000;upB();
-    refillBtn.textContent="✅";
-    setTimeout(()=>refillBtn.textContent="🔄 Refill Demo Account",900);
-  };
-  document.querySelectorAll(".accSwitchBtn").forEach(bn=>bn.onclick=()=>{
-    aA=bn.dataset.acc;
-    document.querySelectorAll(".accSwitchBtn").forEach(x=>x.classList.toggle("active",x===bn));
-    document.querySelectorAll(".accItem").forEach(x=>x.classList.toggle("active",x.dataset.type===aA));
-    upB();upAI();
-  });
-  document.querySelectorAll(".accItem").forEach(it=>it.onclick=()=>{
-    aA=it.dataset.type;
-    document.querySelectorAll(".accItem").forEach(x=>x.classList.toggle("active",x===it));
-    upB();upAI();
-  });
-
   /* ── init ── */
   upPairHud("EUR/USD");
-  upAI();
-  upB();
-  // تعريض balance للخارج لو script.js يحتاجه
-  window._accState={get bal(){return bal},set bal(v){bal=v;upB()},get aA(){return aA}};
 })();
 </script>
 </body>
 </html>
-
- 
