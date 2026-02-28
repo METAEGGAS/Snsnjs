@@ -9,7 +9,6 @@
 html,body{height:100%;overflow:hidden}
 body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;direction:rtl;display:flex;flex-direction:column;font-size:12.6px}
 :root{--bg-card:#101a2f;--bg-secondary:#0d1117;--bg-overlay:rgba(10,22,40,.92);--border-primary:rgba(255,255,255,.10);--border-secondary:#1f2937;--text-primary:#fff;--accent-blue:#4299e1}
-/* HEADER */
 .header{flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;padding:4px 10px;background:#0f1d35;position:relative}
 .header::after{content:'';position:absolute;bottom:-8px;left:0;right:0;height:8px;background:linear-gradient(to bottom,#0f1d35,transparent);pointer-events:none;z-index:5}
 .header-left{display:flex;gap:8px;align-items:center}
@@ -17,34 +16,36 @@ body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;direction:rtl;di
 .header-right{display:flex;align-items:center;gap:8px}
 .icon-btn{width:38px;height:38px;background:rgba(255,255,255,.05);border-radius:8px;display:flex;align-items:center;justify-content:center;border:0;cursor:pointer;padding:0}
 .logo-btn img{width:100%;height:100%;display:block;object-fit:cover}
-/* ACCOUNT SWITCHER */
 .balance{display:flex;align-items:center;gap:7px;background:linear-gradient(135deg,var(--bg-card) 0%,var(--bg-secondary) 100%);border:1.5px solid var(--border-primary);border-radius:12px;padding:8px 12px;cursor:pointer;position:relative;transition:.2s;box-shadow:0 4px 12px rgba(0,0,0,.4);z-index:2601;min-width:190px}
 .balanceMain{display:flex;align-items:center;gap:7px;flex:1;min-width:0}
 .balance-amount{font-size:15px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff}
 .arrow-down{width:14px;height:14px;margin-right:2px;transition:transform .2s;flex-shrink:0}
 .balance.open .arrow-down{transform:rotate(180deg)}
 .flag-icon{width:20px;height:14px;border-radius:3px;box-shadow:0 2px 4px rgba(0,0,0,.3)}
-.accMenu{position:fixed;top:58px;right:8px;width:240px;background:linear-gradient(145deg,var(--bg-card) 0%,var(--bg-secondary) 100%);border:2px solid var(--border-primary);border-radius:16px;box-shadow:0 12px 32px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.05) inset;padding:10px;z-index:99999;display:none}
+.accMenu{position:fixed;top:58px;right:8px;width:250px;background:linear-gradient(145deg,var(--bg-card) 0%,var(--bg-secondary) 100%);border:2px solid var(--border-primary);border-radius:16px;box-shadow:0 12px 32px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.05) inset;padding:10px;z-index:99999;display:none}
 .accMenu.show{display:block}
-.accSwitch{display:flex;gap:8px;background:var(--bg-secondary);border-radius:10px;padding:4px;margin-bottom:12px}
-.accSwitchBtn{flex:1;padding:8px;border-radius:8px;font-size:11px;font-weight:900;transition:.2s;border:1.5px solid transparent;display:flex;align-items:center;justify-content:center;background:transparent;cursor:pointer}
-.accSwitchBtn.live{color:#00ff41}
-.accSwitchBtn.demo{color:#ffd700}
-.accSwitchBtn.active{background:rgba(255,255,255,.1);border-color:currentColor}
-.accItem{background:rgba(255,255,255,.03);border:1.3px solid var(--border-primary);border-radius:12px;padding:10px 12px;margin-bottom:9px;cursor:pointer;transition:.15s;display:flex;align-items:center;justify-content:space-between;gap:10px}
+/* ── دوائر الراديو ── */
+.accCircle{width:19px;height:19px;border-radius:50%;border:2.5px solid rgba(255,255,255,.25);flex-shrink:0;transition:all .2s;background:transparent}
+.accCircle.sel{background:#4299e1;border-color:#4299e1;box-shadow:0 0 10px rgba(66,153,225,.6)}
+/* ── عنصر الحساب ── */
+.accItem{background:rgba(255,255,255,.03);border:1.3px solid var(--border-primary);border-radius:12px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:.15s;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .accItem.active{background:linear-gradient(135deg,rgba(66,153,225,.15) 0%,rgba(49,130,206,.1) 100%);border-color:var(--accent-blue);box-shadow:0 0 12px rgba(66,153,225,.2)}
-.accL{display:flex;align-items:center;gap:10px;min-width:0}
-.accIco{width:22px;height:22px;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4))}
-.accAmt{font-size:16px;font-weight:900;color:#fff;white-space:nowrap}
-.refillBtn{width:100%;background:linear-gradient(135deg,var(--accent-blue) 0%,#3182ce 100%);border-radius:10px;padding:10px;font-size:12px;font-weight:900;color:#fff;letter-spacing:.5px;box-shadow:0 4px 12px rgba(66,153,225,.4);cursor:pointer;border:0}
-/* WALLET / ICONS */
+.accL{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.accIco{width:22px;height:22px;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));border-radius:4px}
+.accAmt{font-size:15px;font-weight:900;color:#fff;white-space:nowrap}
+/* ── صف التبديل والتعبئة ── */
+.refillRow{display:flex;gap:6px;margin:0 0 8px}
+.switchBtn{flex:1;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.18);border-radius:9px;padding:8px 5px;font-size:10px;font-weight:900;color:#fff;cursor:pointer;transition:.15s}
+.switchBtn:hover{background:rgba(255,255,255,.13)}
+.refillBtnEl{flex:1;background:linear-gradient(135deg,#4299e1,#3182ce);border:0;border-radius:9px;padding:8px 5px;font-size:10px;font-weight:900;color:#fff;cursor:pointer;box-shadow:0 3px 10px rgba(66,153,225,.35);transition:.15s}
+.refillBtnEl:active{transform:scale(.96)}
+/* ── avatar nav ── */
+.nav-avatar{width:22px;height:22px;border-radius:50%;object-fit:cover;border:1.5px solid rgba(255,255,255,.25)}
 .wallet-btn{width:38px;height:38px;background:#16a34a;border-radius:8px;border:2px solid rgba(255,255,255,.15);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;overflow:hidden}
 .wallet-btn img{width:100%;height:100%;display:block;object-fit:cover}
-/* TIME DISPLAY */
 .time-display{position:absolute;left:8px;top:calc(100% + 8px);font-size:11px;color:#8b9cb5;font-weight:700;letter-spacing:.4px;background:rgba(15,29,53,.95);padding:6px 12px;border-radius:6px;z-index:180;border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;gap:6px}
 .time-display::before{content:'';width:6px;height:6px;background:#0f0;border-radius:50%;box-shadow:0 0 8px #0f0;animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-/* CHART */
 .chart-container{flex:1 1 auto;min-height:0;background:#0a1628;position:relative;overflow:hidden}
 .quick-actions{position:absolute;top:52px;left:8px;display:flex;flex-direction:column;gap:6px;z-index:190;pointer-events:none}
 .quick-actions button{pointer-events:auto}
@@ -65,12 +66,10 @@ body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;direction:rtl;di
 #currentPrice{position:absolute;right:8px;transform:translateY(-50%);color:#000;font-size:10px;font-weight:900;white-space:nowrap;background:#ffd700!important;padding:4px 8px!important;border-radius:4px!important;box-shadow:0 0 10px rgba(255,215,0,.6)!important;text-shadow:none!important;border:1px solid rgba(255,215,0,.8)!important}
 #priceScale .pLabel{position:absolute;right:8px;transform:translateY(-50%);font-size:9px;font-weight:800;color:#fff;white-space:nowrap;background:transparent!important;box-shadow:none!important;border:none!important;text-shadow:0 0 6px rgba(255,255,255,.4)!important;padding:0!important;margin:0!important;filter:brightness(1.3)}
 #priceScale .pLabel.major{color:#fff;filter:brightness(1.5)}
-/* PAIR BOX */
 .pair-box{position:absolute;left:8px;bottom:28px;z-index:22;display:inline-flex;align-items:center;gap:6px;background:var(--bg-secondary);border:1.1px solid var(--border-secondary);border-radius:11px;padding:5px 10px;cursor:pointer;user-select:none}
 .pair-box .flags{display:flex;align-items:center}
 .pair-box .flags img{width:24px;height:24px;border-radius:999px;border:2px solid var(--bg-card);margin-left:-8px;background:var(--bg-card)}
 .pair-box .otc{padding:2px 6px;border-radius:999px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);font-size:11px;font-weight:900;letter-spacing:.4px}
-/* PAIR PANEL */
 .pairPanel{position:fixed;left:0;top:0;bottom:0;width:min(280px,85vw);background:rgba(10,22,40,.97);border-right:1.5px solid var(--border-primary);backdrop-filter:blur(12px);z-index:99998;transform:translateX(-105%);transition:transform .25s ease;box-shadow:4px 0 24px rgba(0,0,0,.6)}
 .pairPanel.on{transform:translateX(0)}
 .pairHead{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1.5px solid var(--border-primary);background:linear-gradient(to bottom,rgba(255,255,255,.03),transparent)}
@@ -85,7 +84,6 @@ body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;direction:rtl;di
 .fg img{width:24px;height:24px;border-radius:999px;border:2px solid var(--bg-card);margin-left:-8px;background:var(--bg-card)}
 .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:900;color:#fff}
 .bad{margin-inline-start:6px;padding:2px 6px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid var(--border-primary);font-size:11px;font-weight:900;color:rgba(217,230,255,.7)}
-/* CONTROLS */
 .controls{flex:0 0 auto;padding:9px 10.8px 0;background:#0f1d35}
 .timer-amount{display:flex;gap:7.2px;margin-bottom:9px}
 .control-group{flex:1;display:flex;flex-direction:column;gap:5.4px}
@@ -117,12 +115,10 @@ body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;direction:rtl;di
 .sell-btn:before{content:"↘";font-size:16.2px}
 .ai-trade-btn{flex:2;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff}
 .ai-trade-btn:before{content:"AI";margin-right:4.5px;font-weight:900}
-/* BOTTOM NAV */
 .bottom-nav{flex:0 0 auto;background:#0f1d35;display:flex;justify-content:space-around;padding:7.2px 0;border-top:1px solid rgba(255,255,255,.05)}
 .nav-item{display:flex;flex-direction:column;align-items:center;gap:3.6px;color:#6b7a94;font-size:9px;cursor:pointer}
 .nav-item.active{color:#3b82f6}
 .nav-icon{width:21.6px;height:21.6px;display:flex;align-items:center;justify-content:center;font-size:16.2px}
-/* ACTIVE TRADES */
 .active-trades-panel{position:absolute;top:10px;right:58px;z-index:185;display:flex;flex-direction:column;gap:5px;pointer-events:none;max-width:170px}
 .trade-card{background:rgba(10,22,40,.93);border-radius:8px;padding:7px 10px;border:1px solid rgba(255,255,255,.1);border-left:3px solid;pointer-events:auto;backdrop-filter:blur(6px);min-width:155px}
 .buy-card{border-left-color:#00cc00}
@@ -138,7 +134,6 @@ body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;direction:rtl;di
 .tc-pnl{font-size:11px;font-weight:900;text-align:right;margin-top:4px;padding-top:3px;border-top:1px solid rgba(255,255,255,.07)}
 .tc-win{color:#00cc00}
 .tc-lose{color:#ff3333}
-/* HISTORY PANEL */
 .history-panel{position:fixed;inset:0;background:#0a1628;z-index:400;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden}
 .history-panel.show{transform:translateY(0)}
 .history-header{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#0f1d35;border-bottom:1px solid rgba(255,255,255,.08)}
@@ -172,7 +167,6 @@ body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;direction:rtl;di
 .tr-detail-label{font-size:8px;color:#8b9cb5;font-weight:600}
 .tr-detail-value{font-size:9.5px;font-weight:700;color:#fff}
 .loading-text,.empty-history{text-align:center;color:#8b9cb5;padding:40px 20px;font-size:12px}
-/* RESULT TOAST */
 .result-toast{position:fixed;bottom:85px;left:50%;transform:translateX(-50%) translateY(150px);background:#0f1d35;border-radius:14px;padding:14px 24px;z-index:500;transition:transform .35s cubic-bezier(.34,1.56,.64,1),opacity .35s;border:2px solid transparent;min-width:220px;text-align:center;opacity:0;pointer-events:none}
 .result-toast.show{transform:translateX(-50%) translateY(0);opacity:1;pointer-events:auto}
 .result-toast.win{border-color:#00cc00;box-shadow:0 0 25px rgba(0,204,0,.3)}
@@ -181,7 +175,6 @@ body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;direction:rtl;di
 .toast-title{font-size:13px;font-weight:900;color:#fff;margin-bottom:4px}
 .toast-amount{font-size:20px;font-weight:900;margin-bottom:4px}
 .toast-price{font-size:9px;color:#8b9cb5}
-/* INFO TOAST */
 .info-toast{position:fixed;top:70px;left:50%;transform:translateX(-50%) translateY(-80px);background:#1a2942;border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 16px;z-index:500;transition:transform .3s ease,opacity .3s;font-size:11px;font-weight:700;color:#fff;opacity:0;pointer-events:none;white-space:nowrap;direction:rtl}
 .info-toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 .info-toast.buy{border-color:rgba(0,204,0,.5)}
@@ -191,37 +184,52 @@ body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;direction:rtl;di
 </head>
 <body>
 
-<!-- HEADER -->
 <div class="header">
   <div class="header-left">
-    <!-- ACCOUNT SWITCHER (مربع تبديل الحسابات) -->
     <div class="balance" id="balanceBox">
       <div class="balanceMain">
         <img class="flag-icon" id="topAccIcon" src="https://cdn-icons-png.flaticon.com/128/1344/1344761.png">
         <span class="balance-amount" id="balanceAmount">$10,000.00</span>
       </div>
       <svg class="arrow-down" viewBox="0 0 24 24" fill="#888"><path d="M7 10l5 5 5-5z"/></svg>
+
+      <!-- ══ ACCOUNT MENU ══ -->
       <div class="accMenu" id="accMenu">
-        <div class="accSwitch">
-          <button class="accSwitchBtn live" data-acc="real">LIVE</button>
-          <button class="accSwitchBtn demo active" data-acc="demo">Demo</button>
-        </div>
-        <div class="accItem" data-type="real">
+
+        <!-- حساب تجريبي -->
+        <div class="accItem active" id="accItemDemo">
           <div class="accL">
-            <img class="accIco" src="https://flagcdn.com/w40/us.png">
-            <div class="accAmt" id="realAmt">$0.00</div>
+            <div class="accCircle sel" id="circleDemo"></div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:9px;color:#8b9cb5;margin-bottom:1px">حساب تجريبي</div>
+              <div class="accAmt" id="demoAmt">$10,000.00</div>
+            </div>
           </div>
+          <span style="font-size:9px;font-weight:800;color:#ffd700;background:rgba(255,215,0,.1);padding:2px 7px;border-radius:5px;border:1px solid rgba(255,215,0,.25);white-space:nowrap">Demo USD</span>
         </div>
-        <div class="accItem active" data-type="demo">
+
+        <!-- صف تبديل + تعبئة (للتجريبي فقط) -->
+        <div class="refillRow" id="refillRow">
+          <button class="switchBtn" id="switchAccBtn">⇄ تبديل الحسابات</button>
+          <button class="refillBtnEl" id="refillBtn">🔄 تعبئة $10,000</button>
+        </div>
+
+        <!-- حساب حقيقي -->
+        <div class="accItem" id="accItemReal">
           <div class="accL">
-            <img class="accIco" src="https://cdn-icons-png.flaticon.com/128/1344/1344761.png">
-            <div class="accAmt" id="demoAmt">$10,000.00</div>
+            <div class="accCircle" id="circleReal"></div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:9px;color:#8b9cb5;margin-bottom:1px">حساب حقيقي</div>
+              <div class="accAmt" id="realAmt">$0.00</div>
+            </div>
           </div>
+          <img class="accIco" src="https://flagcdn.com/w40/us.png">
         </div>
-        <button class="refillBtn" id="refillBtn">🔄 Refill Demo Account</button>
-      </div>
+
+      </div><!-- /accMenu -->
     </div>
   </div>
+
   <div class="header-center">
     <button class="wallet-btn" aria-label="Wallet">
       <img src="https://cdn-icons-png.flaticon.com/128/10167/10167706.png" alt="Wallet">
@@ -265,7 +273,6 @@ body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;direction:rtl;di
         <div id="currentPrice"></div>
       </div>
       <div class="timeLabels" id="timeLabels"></div>
-      <!-- PAIR BOX (مربع الأزواج) -->
       <div class="pair-box" id="pairHud">
         <div class="flags" id="pairFlags"></div>
         <span id="pairHudTxt">EUR/USD</span>
@@ -276,7 +283,7 @@ body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;direction:rtl;di
   </div>
 </div>
 
-<!-- PAIR PANEL (لوحة الأزواج المنزلقة) -->
+<!-- PAIR PANEL -->
 <div class="pairPanel" id="pairPanel">
   <div class="pairHead">
     <b>الأزواج</b>
@@ -348,9 +355,11 @@ body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;direction:rtl;di
     </div>
     <div>History</div>
   </div>
-  <div class="nav-item">
-    <div class="nav-icon">
-      <svg width="21.6" height="21.6" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="12" cy="8" r="3" fill="currentColor"/><path d="M6 20c0-3.3 5-5 6-5s6 1.7 6 5" fill="currentColor"/></svg>
+  <!-- Profile nav - يدعم الأفاتار -->
+  <div class="nav-item" id="navProfile">
+    <div class="nav-icon" style="position:relative">
+      <svg id="profileNavSvg" width="21.6" height="21.6" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="12" cy="8" r="3" fill="currentColor"/><path d="M6 20c0-3.3 5-5 6-5s6 1.7 6 5" fill="currentColor"/></svg>
+      <img id="profileNavImg" class="nav-avatar" style="display:none;position:absolute;inset:0;width:100%;height:100%" src="" alt="avatar">
     </div>
     <div>Profile</div>
   </div>
@@ -388,96 +397,247 @@ body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;direction:rtl;di
   <div id="historyContent"><div class="empty-history">افتح الصفقة الأولى لتظهر هنا!</div></div>
 </div>
 
-<!-- RESULT TOAST -->
 <div class="result-toast" id="resultToast"></div>
-<!-- INFO TOAST -->
 <div class="info-toast" id="infoToast"></div>
 
-<!-- FIREBASE -->
+<!-- FIREBASE SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="script.js"></script>
 
-<!-- PAIR PANEL JS -->
+<!-- ══ PAIR PANEL JS ══ -->
 <script>
 (function(){
-  /* ── بيانات الأزواج ── */
   const fM={AED:"ae",CNY:"cn",AUD:"au",CAD:"ca",CHF:"ch",BHD:"bh",EUR:"eu",RUB:"ru",USD:"us",KES:"ke",LBP:"lb",QAR:"qa",TRY:"tr",SYP:"sy",EGP:"eg",INR:"in"};
   const mkF=c=>`https://flagcdn.com/w40/${(fM[c]||"un").toLowerCase()}.png`;
   const dP=[
-    {pair:"EUR/USD",flags:["EUR","USD"],payout:.92},
-    {pair:"AUD/CAD",flags:["AUD","CAD"],payout:.88},
-    {pair:"AUD/CHF",flags:["AUD","CHF"],payout:.92},
-    {pair:"USD/CHF",flags:["USD","CHF"],payout:.89},
-    {pair:"EUR/RUB",flags:["EUR","RUB"],payout:.77},
-    {pair:"AED/CNY",flags:["AED","CNY"],payout:.91},
-    {pair:"BHD/CNY",flags:["BHD","CNY"],payout:.86},
-    {pair:"KES/USD",flags:["KES","USD"],payout:.84},
-    {pair:"LBP/USD",flags:["LBP","USD"],payout:.79},
-    {pair:"QAR/CNY",flags:["QAR","CNY"],payout:.83},
-    {pair:"SYP/TRY",flags:["SYP","TRY"],payout:.87},
-    {pair:"EGP/USD",flags:["EGP","USD"],payout:.78},
+    {pair:"EUR/USD",flags:["EUR","USD"],payout:.92},{pair:"AUD/CAD",flags:["AUD","CAD"],payout:.88},
+    {pair:"AUD/CHF",flags:["AUD","CHF"],payout:.92},{pair:"USD/CHF",flags:["USD","CHF"],payout:.89},
+    {pair:"EUR/RUB",flags:["EUR","RUB"],payout:.77},{pair:"AED/CNY",flags:["AED","CNY"],payout:.91},
+    {pair:"BHD/CNY",flags:["BHD","CNY"],payout:.86},{pair:"KES/USD",flags:["KES","USD"],payout:.84},
+    {pair:"LBP/USD",flags:["LBP","USD"],payout:.79},{pair:"QAR/CNY",flags:["QAR","CNY"],payout:.83},
+    {pair:"SYP/TRY",flags:["SYP","TRY"],payout:.87},{pair:"EGP/USD",flags:["EGP","USD"],payout:.78},
     {pair:"USD/INR",flags:["USD","INR"],payout:.90}
   ];
-  const favs=new Set;
-  const fP=v=>Math.round(v*100)+"%";
-
-  /* ── تحديث أعلام مربع الزوج الحالي ── */
+  const favs=new Set,fP=v=>Math.round(v*100)+"%";
   function upPairHud(p){
     const m=dP.find(x=>x.pair===p)||dP[0];
-    const pf=document.getElementById("pairFlags");
-    const pt=document.getElementById("pairHudTxt");
-    if(pf) pf.innerHTML=m.flags.map(f=>`<img src="${mkF(f)}" alt="${f}">`).join("");
-    if(pt) pt.textContent=p;
+    const pf=document.getElementById("pairFlags"),pt=document.getElementById("pairHudTxt");
+    if(pf)pf.innerHTML=m.flags.map(f=>`<img src="${mkF(f)}" alt="${f}">`).join("");
+    if(pt)pt.textContent=p;
   }
-
-  /* ── رسم قائمة الأزواج ── */
   function rPP(){
-    const pl=document.getElementById("pairList");
-    if(!pl)return;
-    const sorted=[...dP].sort((a,b)=>{
-      const fa=favs.has(a.pair)?1:0,fb=favs.has(b.pair)?1:0;
-      return fa!==fb?fb-fa:a.pair.localeCompare(b.pair);
-    });
-    pl.innerHTML=sorted.map(x=>`
-      <button class="pit" data-p="${x.pair}">
-        <span class="pitL">
-          <span class="star" data-s="1">${favs.has(x.pair)?"★":"☆"}</span>
-          <span class="fg">${x.flags.map(f=>`<img src="${mkF(f)}" alt="${f}">`).join("")}</span>
-          <span class="nm">${x.pair}<span class="bad">OTC</span></span>
-        </span>
-        <span style="font-size:11px;font-weight:900;color:#00cc00">+${fP(x.payout)}</span>
-      </button>`).join("");
+    const pl=document.getElementById("pairList");if(!pl)return;
+    const s=[...dP].sort((a,b)=>{const fa=favs.has(a.pair)?1:0,fb=favs.has(b.pair)?1:0;return fa!==fb?fb-fa:a.pair.localeCompare(b.pair);});
+    pl.innerHTML=s.map(x=>`<button class="pit" data-p="${x.pair}"><span class="pitL"><span class="star" data-s="1">${favs.has(x.pair)?"★":"☆"}</span><span class="fg">${x.flags.map(f=>`<img src="${mkF(f)}" alt="${f}">`).join("")}</span><span class="nm">${x.pair}<span class="bad">OTC</span></span></span><span style="font-size:11px;font-weight:900;color:#00cc00">+${fP(x.payout)}</span></button>`).join("");
+  }
+  const pH=document.getElementById("pairHud"),pP=document.getElementById("pairPanel"),pC=document.getElementById("pairClose"),pL=document.getElementById("pairList");
+  if(pH)pH.onclick=e=>{e.stopPropagation();pP.classList.toggle("on");rPP()};
+  if(pC)pC.onclick=()=>pP.classList.remove("on");
+  if(pL)pL.onclick=async e=>{
+    const b=e.target.closest("button.pit");if(!b)return;
+    const p=b.getAttribute("data-p");
+    if(e.target.dataset.s){favs.has(p)?favs.delete(p):favs.add(p);rPP();return;}
+    pP.classList.remove("on");upPairHud(p);
+    if(window.chart&&window.chart.switchPair)await window.chart.switchPair(p);
+  };
+  document.addEventListener("click",e=>{if(pP&&pP.classList.contains("on")&&!e.target.closest("#pairPanel")&&!e.target.closest("#pairHud"))pP.classList.remove("on");});
+  upPairHud("EUR/USD");
+})();
+</script>
+
+<!-- ══ ACCOUNT MANAGER + FIREBASE FIELDS + AVATAR + BALANCE CHECK ══ -->
+<script>
+(function(){
+  /* ── انتظار تهيئة Firebase ── */
+  function waitFB(cb,n=0){
+    if(typeof firebase!=='undefined'&&firebase.apps&&firebase.apps.length)cb();
+    else if(n<60)setTimeout(()=>waitFB(cb,n+1),100);
+    else console.warn("Firebase not initialized");
   }
 
-  /* ── فتح/غلق لوحة الأزواج ── */
-  const pairHud=document.getElementById("pairHud");
-  const pairPanel=document.getElementById("pairPanel");
-  const pairClose=document.getElementById("pairClose");
-  const pairList=document.getElementById("pairList");
+  /* ── toast مساعد ── */
+  function toast(msg,type,dur=2600){
+    const t=document.getElementById('infoToast');
+    if(!t)return;
+    t.textContent=msg;
+    t.className='info-toast show '+(type||'');
+    clearTimeout(t._t);
+    t._t=setTimeout(()=>t.classList.remove('show'),dur);
+  }
 
-  if(pairHud) pairHud.onclick=e=>{e.stopPropagation();pairPanel.classList.toggle("on");rPP()};
-  if(pairClose) pairClose.onclick=()=>pairPanel.classList.remove("on");
-  if(pairList) pairList.onclick=async e=>{
-    const b=e.target.closest("button.pit");
-    if(!b)return;
-    const p=b.getAttribute("data-p");
-    if(e.target.dataset.s){
-      favs.has(p)?favs.delete(p):favs.add(p);
-      rPP();return;
+  /* ── تنسيق الرقم ── */
+  const fmt=v=>'$'+Number(v).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+  waitFB(function(){
+    const auth=firebase.auth(),db=firebase.firestore();
+    let uid=null,unsub=null;
+
+    /* ── الحالة الداخلية ── */
+    window._curAcc=localStorage.getItem('_curAcc')||'demo';
+    window._demoBalance=10000;
+    window._realBalance=0;
+
+    /* ── تحديث واجهة الرصيد ── */
+    function refreshUI(){
+      const ac=window._curAcc,db_=window._demoBalance,rb=window._realBalance;
+      const cur=ac==='demo'?db_:rb;
+      document.getElementById('balanceAmount').textContent=fmt(cur);
+      document.getElementById('demoAmt').textContent=fmt(db_);
+      document.getElementById('realAmt').textContent=fmt(rb);
+      /* دوائر الراديو */
+      document.getElementById('circleDemo').classList.toggle('sel',ac==='demo');
+      document.getElementById('circleReal').classList.toggle('sel',ac==='real');
+      /* تظليل العنصر النشط */
+      document.getElementById('accItemDemo').classList.toggle('active',ac==='demo');
+      document.getElementById('accItemReal').classList.toggle('active',ac==='real');
+      /* الأيقونة العلوية */
+      document.getElementById('topAccIcon').src=ac==='demo'
+        ?'https://cdn-icons-png.flaticon.com/128/1344/1344761.png'
+        :'https://flagcdn.com/w40/us.png';
+      /* صف التعبئة: يظهر فقط مع التجريبي */
+      document.getElementById('refillRow').style.display=ac==='demo'?'flex':'none';
     }
-    pairPanel.classList.remove("on");
-    upPairHud(p);
-    if(window.chart&&window.chart.switchPair) await window.chart.switchPair(p);
-  };
-  document.addEventListener("click",e=>{
-    if(pairPanel&&pairPanel.classList.contains("on")&&!e.target.closest("#pairPanel")&&!e.target.closest("#pairHud"))
-      pairPanel.classList.remove("on");
-  });
 
-  /* ── init ── */
-  upPairHud("EUR/USD");
+    /* ── تحديث الأفاتار ── */
+    function setAvatar(url){
+      const img=document.getElementById('profileNavImg'),svg=document.getElementById('profileNavSvg');
+      if(url&&url.startsWith('http')){
+        img.src=url;img.style.display='block';
+        if(svg)svg.style.display='none';
+      }else{
+        img.style.display='none';
+        if(svg)svg.style.display='block';
+      }
+    }
+
+    /* ── إنشاء/تحقق حقول المستخدم ── */
+    async function initFields(userId){
+      const ref=db.collection('users').doc(userId);
+      const snap=await ref.get();
+      const d=snap.exists?snap.data():{};
+      const up={};
+      if(d.demoBalance===undefined)up.demoBalance=10000;
+      if(d.realBalance===undefined)up.realBalance=0;
+      if(d.avatar===undefined)up.avatar='';
+      if(Object.keys(up).length)await ref.set(up,{merge:true});
+    }
+
+    /* ── الاستماع الفوري لتغييرات المستخدم ── */
+    function listenUser(userId){
+      if(unsub)unsub();
+      unsub=db.collection('users').doc(userId).onSnapshot(snap=>{
+        if(!snap.exists)return;
+        const d=snap.data();
+        if(typeof d.demoBalance==='number')window._demoBalance=d.demoBalance;
+        if(typeof d.realBalance==='number')window._realBalance=d.realBalance;
+        refreshUI();
+        setAvatar(d.avatar||'');
+      });
+    }
+
+    /* ── عند تسجيل الدخول ── */
+    auth.onAuthStateChanged(async user=>{
+      if(user){
+        uid=user.uid;
+        await initFields(uid);
+        listenUser(uid);
+        /* إذا كان للمستخدم صورة في Firebase Auth ── */
+        if(user.photoURL)setAvatar(user.photoURL);
+      }else{
+        uid=null;if(unsub)unsub();
+        window._demoBalance=10000;window._realBalance=0;
+        refreshUI();setAvatar('');
+      }
+    });
+
+    /* ── فتح/إغلاق القائمة ── */
+    const box=document.getElementById('balanceBox'),menu=document.getElementById('accMenu');
+    box.addEventListener('click',function(e){
+      if(e.target.closest('.accMenu'))return;
+      e.stopPropagation();
+      menu.classList.toggle('show');
+      box.classList.toggle('open');
+    });
+    document.addEventListener('click',e=>{
+      if(!e.target.closest('#balanceBox')){
+        menu.classList.remove('show');
+        box.classList.remove('open');
+      }
+    });
+
+    /* ── اختيار الحساب التجريبي ── */
+    document.getElementById('accItemDemo').addEventListener('click',e=>{
+      if(e.target.closest('#refillRow'))return;
+      window._curAcc='demo';localStorage.setItem('_curAcc','demo');
+      refreshUI();menu.classList.remove('show');box.classList.remove('open');
+    });
+
+    /* ── اختيار الحساب الحقيقي ── */
+    document.getElementById('accItemReal').addEventListener('click',()=>{
+      window._curAcc='real';localStorage.setItem('_curAcc','real');
+      refreshUI();menu.classList.remove('show');box.classList.remove('open');
+    });
+
+    /* ── زر تبديل الحسابات ── */
+    document.getElementById('switchAccBtn').addEventListener('click',e=>{
+      e.stopPropagation();
+      window._curAcc=window._curAcc==='demo'?'real':'demo';
+      localStorage.setItem('_curAcc',window._curAcc);
+      refreshUI();
+      toast(window._curAcc==='demo'?'✅ تم التبديل إلى الحساب التجريبي':'✅ تم التبديل إلى الحساب الحقيقي');
+    });
+
+    /* ── زر تعبئة الرصيد التجريبي ── */
+    document.getElementById('refillBtn').addEventListener('click',async e=>{
+      e.stopPropagation();
+      if(!uid){toast('❌ يجب تسجيل الدخول أولاً','error');return;}
+      await db.collection('users').doc(uid).update({demoBalance:10000});
+      window._demoBalance=10000;refreshUI();
+      toast('✅ تم تعبئة الحساب التجريبي بـ $10,000');
+    });
+
+    /* ── منع الصفقات بحساب فارغ (capture phase) ── */
+    document.addEventListener('click',e=>{
+      const bb=document.getElementById('buyBtn'),sb=document.getElementById('sellBtn');
+      if(e.target!==bb&&e.target!==sb)return;
+      const bal=window._curAcc==='demo'?window._demoBalance:window._realBalance;
+      const amt=parseFloat((document.getElementById('amountDisplay').value||'0').replace(/[^0-9.]/g,''))||0;
+      if(bal<=0){
+        e.stopImmediatePropagation();
+        toast('❌ الرصيد فارغ! قم بتعبئة الحساب أولاً','error');
+        return;
+      }
+      if(amt>bal){
+        e.stopImmediatePropagation();
+        toast('❌ المبلغ أكبر من رصيدك المتاح!','error');
+      }
+    },true);
+
+    /* ── دوال عالمية لـ script.js ── */
+    window.getCurrentBalance=()=>window._curAcc==='demo'?window._demoBalance:window._realBalance;
+    window.getCurrentAccount=()=>window._curAcc;
+    window.deductBalance=async amt=>{
+      if(!uid)return;
+      const f=window._curAcc==='demo'?'demoBalance':'realBalance';
+      const cur=window._curAcc==='demo'?window._demoBalance:window._realBalance;
+      const nv=Math.max(0,cur-amt);
+      await db.collection('users').doc(uid).update({[f]:nv});
+    };
+    window.addBalance=async amt=>{
+      if(!uid)return;
+      const f=window._curAcc==='demo'?'demoBalance':'realBalance';
+      const cur=window._curAcc==='demo'?window._demoBalance:window._realBalance;
+      await db.collection('users').doc(uid).update({[f]:cur+amt});
+    };
+    window.setUserAvatar=async url=>{
+      if(!uid)return;
+      await db.collection('users').doc(uid).update({avatar:url});
+    };
+
+    refreshUI();
+  });
 })();
 </script>
 </body>
