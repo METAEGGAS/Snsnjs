@@ -24,22 +24,18 @@ body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;direction:rtl;di
 .flag-icon{width:20px;height:14px;border-radius:3px;box-shadow:0 2px 4px rgba(0,0,0,.3)}
 .accMenu{position:fixed;top:58px;right:8px;width:250px;background:linear-gradient(145deg,var(--bg-card) 0%,var(--bg-secondary) 100%);border:2px solid var(--border-primary);border-radius:16px;box-shadow:0 12px 32px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.05) inset;padding:10px;z-index:99999;display:none}
 .accMenu.show{display:block}
-/* ── دوائر الراديو ── */
 .accCircle{width:19px;height:19px;border-radius:50%;border:2.5px solid rgba(255,255,255,.25);flex-shrink:0;transition:all .2s;background:transparent}
 .accCircle.sel{background:#4299e1;border-color:#4299e1;box-shadow:0 0 10px rgba(66,153,225,.6)}
-/* ── عنصر الحساب ── */
 .accItem{background:rgba(255,255,255,.03);border:1.3px solid var(--border-primary);border-radius:12px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:.15s;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .accItem.active{background:linear-gradient(135deg,rgba(66,153,225,.15) 0%,rgba(49,130,206,.1) 100%);border-color:var(--accent-blue);box-shadow:0 0 12px rgba(66,153,225,.2)}
 .accL{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
 .accIco{width:22px;height:22px;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));border-radius:4px}
 .accAmt{font-size:15px;font-weight:900;color:#fff;white-space:nowrap}
-/* ── صف التبديل والتعبئة ── */
 .refillRow{display:flex;gap:6px;margin:0 0 8px}
 .switchBtn{flex:1;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.18);border-radius:9px;padding:8px 5px;font-size:10px;font-weight:900;color:#fff;cursor:pointer;transition:.15s}
 .switchBtn:hover{background:rgba(255,255,255,.13)}
 .refillBtnEl{flex:1;background:linear-gradient(135deg,#4299e1,#3182ce);border:0;border-radius:9px;padding:8px 5px;font-size:10px;font-weight:900;color:#fff;cursor:pointer;box-shadow:0 3px 10px rgba(66,153,225,.35);transition:.15s}
 .refillBtnEl:active{transform:scale(.96)}
-/* ── avatar nav ── */
 .nav-avatar{width:22px;height:22px;border-radius:50%;object-fit:cover;border:1.5px solid rgba(255,255,255,.25)}
 .wallet-btn{width:38px;height:38px;background:#16a34a;border-radius:8px;border:2px solid rgba(255,255,255,.15);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;overflow:hidden}
 .wallet-btn img{width:100%;height:100%;display:block;object-fit:cover}
@@ -208,7 +204,7 @@ body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;direction:rtl;di
           <span style="font-size:9px;font-weight:800;color:#ffd700;background:rgba(255,215,0,.1);padding:2px 7px;border-radius:5px;border:1px solid rgba(255,215,0,.25);white-space:nowrap">Demo USD</span>
         </div>
 
-        <!-- صف تبديل + تعبئة (للتجريبي فقط) -->
+        <!-- صف تبديل + تعبئة -->
         <div class="refillRow" id="refillRow">
           <button class="switchBtn" id="switchAccBtn">⇄ تبديل الحسابات</button>
           <button class="refillBtnEl" id="refillBtn">🔄 تعبئة $10,000</button>
@@ -234,8 +230,9 @@ body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;direction:rtl;di
     <button class="wallet-btn" aria-label="Wallet">
       <img src="https://cdn-icons-png.flaticon.com/128/10167/10167706.png" alt="Wallet">
     </button>
-    <button class="icon-btn logo-btn" aria-label="QT">
-      <img src="https://cdn-icons-png.flaticon.com/128/18921/18921105.png" alt="QT">
+    <!-- ★ اللوجو العلوي — يتغير عند إضافة أفاتار -->
+    <button class="icon-btn logo-btn" id="topLogoBtn" aria-label="QT">
+      <img id="topLogoImg" src="https://cdn-icons-png.flaticon.com/128/18921/18921105.png" alt="QT">
     </button>
   </div>
   <div class="time-display" id="liveTime">00:00:00 UTC+3</div>
@@ -355,11 +352,9 @@ body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;direction:rtl;di
     </div>
     <div>History</div>
   </div>
-  <!-- Profile nav - يدعم الأفاتار -->
   <div class="nav-item" id="navProfile">
     <div class="nav-icon" style="position:relative">
       <svg id="profileNavSvg" width="21.6" height="21.6" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="12" cy="8" r="3" fill="currentColor"/><path d="M6 20c0-3.3 5-5 6-5s6 1.7 6 5" fill="currentColor"/></svg>
-      <img id="profileNavImg" class="nav-avatar" style="display:none;position:absolute;inset:0;width:100%;height:100%" src="" alt="avatar">
     </div>
     <div>Profile</div>
   </div>
@@ -447,198 +442,5 @@ body{font-family:Arial,sans-serif;background:#0a1628;color:#fff;direction:rtl;di
 })();
 </script>
 
-<!-- ══ ACCOUNT MANAGER + FIREBASE FIELDS + AVATAR + BALANCE CHECK ══ -->
-<script>
-(function(){
-  /* ── انتظار تهيئة Firebase ── */
-  function waitFB(cb,n=0){
-    if(typeof firebase!=='undefined'&&firebase.apps&&firebase.apps.length)cb();
-    else if(n<60)setTimeout(()=>waitFB(cb,n+1),100);
-    else console.warn("Firebase not initialized");
-  }
-
-  /* ── toast مساعد ── */
-  function toast(msg,type,dur=2600){
-    const t=document.getElementById('infoToast');
-    if(!t)return;
-    t.textContent=msg;
-    t.className='info-toast show '+(type||'');
-    clearTimeout(t._t);
-    t._t=setTimeout(()=>t.classList.remove('show'),dur);
-  }
-
-  /* ── تنسيق الرقم ── */
-  const fmt=v=>'$'+Number(v).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
-
-  waitFB(function(){
-    const auth=firebase.auth(),db=firebase.firestore();
-    let uid=null,unsub=null;
-
-    /* ── الحالة الداخلية ── */
-    window._curAcc=localStorage.getItem('_curAcc')||'demo';
-    window._demoBalance=10000;
-    window._realBalance=0;
-
-    /* ── تحديث واجهة الرصيد ── */
-    function refreshUI(){
-      const ac=window._curAcc,db_=window._demoBalance,rb=window._realBalance;
-      const cur=ac==='demo'?db_:rb;
-      document.getElementById('balanceAmount').textContent=fmt(cur);
-      document.getElementById('demoAmt').textContent=fmt(db_);
-      document.getElementById('realAmt').textContent=fmt(rb);
-      /* دوائر الراديو */
-      document.getElementById('circleDemo').classList.toggle('sel',ac==='demo');
-      document.getElementById('circleReal').classList.toggle('sel',ac==='real');
-      /* تظليل العنصر النشط */
-      document.getElementById('accItemDemo').classList.toggle('active',ac==='demo');
-      document.getElementById('accItemReal').classList.toggle('active',ac==='real');
-      /* الأيقونة العلوية */
-      document.getElementById('topAccIcon').src=ac==='demo'
-        ?'https://cdn-icons-png.flaticon.com/128/1344/1344761.png'
-        :'https://flagcdn.com/w40/us.png';
-      /* صف التعبئة: يظهر فقط مع التجريبي */
-      document.getElementById('refillRow').style.display=ac==='demo'?'flex':'none';
-    }
-
-    /* ── تحديث الأفاتار ── */
-    function setAvatar(url){
-      const img=document.getElementById('profileNavImg'),svg=document.getElementById('profileNavSvg');
-      if(url&&url.startsWith('http')){
-        img.src=url;img.style.display='block';
-        if(svg)svg.style.display='none';
-      }else{
-        img.style.display='none';
-        if(svg)svg.style.display='block';
-      }
-    }
-
-    /* ── إنشاء/تحقق حقول المستخدم ── */
-    async function initFields(userId){
-      const ref=db.collection('users').doc(userId);
-      const snap=await ref.get();
-      const d=snap.exists?snap.data():{};
-      const up={};
-      if(d.demoBalance===undefined)up.demoBalance=10000;
-      if(d.realBalance===undefined)up.realBalance=0;
-      if(d.avatar===undefined)up.avatar='';
-      if(Object.keys(up).length)await ref.set(up,{merge:true});
-    }
-
-    /* ── الاستماع الفوري لتغييرات المستخدم ── */
-    function listenUser(userId){
-      if(unsub)unsub();
-      unsub=db.collection('users').doc(userId).onSnapshot(snap=>{
-        if(!snap.exists)return;
-        const d=snap.data();
-        if(typeof d.demoBalance==='number')window._demoBalance=d.demoBalance;
-        if(typeof d.realBalance==='number')window._realBalance=d.realBalance;
-        refreshUI();
-        setAvatar(d.avatar||'');
-      });
-    }
-
-    /* ── عند تسجيل الدخول ── */
-    auth.onAuthStateChanged(async user=>{
-      if(user){
-        uid=user.uid;
-        await initFields(uid);
-        listenUser(uid);
-        /* إذا كان للمستخدم صورة في Firebase Auth ── */
-        if(user.photoURL)setAvatar(user.photoURL);
-      }else{
-        uid=null;if(unsub)unsub();
-        window._demoBalance=10000;window._realBalance=0;
-        refreshUI();setAvatar('');
-      }
-    });
-
-    /* ── فتح/إغلاق القائمة ── */
-    const box=document.getElementById('balanceBox'),menu=document.getElementById('accMenu');
-    box.addEventListener('click',function(e){
-      if(e.target.closest('.accMenu'))return;
-      e.stopPropagation();
-      menu.classList.toggle('show');
-      box.classList.toggle('open');
-    });
-    document.addEventListener('click',e=>{
-      if(!e.target.closest('#balanceBox')){
-        menu.classList.remove('show');
-        box.classList.remove('open');
-      }
-    });
-
-    /* ── اختيار الحساب التجريبي ── */
-    document.getElementById('accItemDemo').addEventListener('click',e=>{
-      if(e.target.closest('#refillRow'))return;
-      window._curAcc='demo';localStorage.setItem('_curAcc','demo');
-      refreshUI();menu.classList.remove('show');box.classList.remove('open');
-    });
-
-    /* ── اختيار الحساب الحقيقي ── */
-    document.getElementById('accItemReal').addEventListener('click',()=>{
-      window._curAcc='real';localStorage.setItem('_curAcc','real');
-      refreshUI();menu.classList.remove('show');box.classList.remove('open');
-    });
-
-    /* ── زر تبديل الحسابات ── */
-    document.getElementById('switchAccBtn').addEventListener('click',e=>{
-      e.stopPropagation();
-      window._curAcc=window._curAcc==='demo'?'real':'demo';
-      localStorage.setItem('_curAcc',window._curAcc);
-      refreshUI();
-      toast(window._curAcc==='demo'?'✅ تم التبديل إلى الحساب التجريبي':'✅ تم التبديل إلى الحساب الحقيقي');
-    });
-
-    /* ── زر تعبئة الرصيد التجريبي ── */
-    document.getElementById('refillBtn').addEventListener('click',async e=>{
-      e.stopPropagation();
-      if(!uid){toast('❌ يجب تسجيل الدخول أولاً','error');return;}
-      await db.collection('users').doc(uid).update({demoBalance:10000});
-      window._demoBalance=10000;refreshUI();
-      toast('✅ تم تعبئة الحساب التجريبي بـ $10,000');
-    });
-
-    /* ── منع الصفقات بحساب فارغ (capture phase) ── */
-    document.addEventListener('click',e=>{
-      const bb=document.getElementById('buyBtn'),sb=document.getElementById('sellBtn');
-      if(e.target!==bb&&e.target!==sb)return;
-      const bal=window._curAcc==='demo'?window._demoBalance:window._realBalance;
-      const amt=parseFloat((document.getElementById('amountDisplay').value||'0').replace(/[^0-9.]/g,''))||0;
-      if(bal<=0){
-        e.stopImmediatePropagation();
-        toast('❌ الرصيد فارغ! قم بتعبئة الحساب أولاً','error');
-        return;
-      }
-      if(amt>bal){
-        e.stopImmediatePropagation();
-        toast('❌ المبلغ أكبر من رصيدك المتاح!','error');
-      }
-    },true);
-
-    /* ── دوال عالمية لـ script.js ── */
-    window.getCurrentBalance=()=>window._curAcc==='demo'?window._demoBalance:window._realBalance;
-    window.getCurrentAccount=()=>window._curAcc;
-    window.deductBalance=async amt=>{
-      if(!uid)return;
-      const f=window._curAcc==='demo'?'demoBalance':'realBalance';
-      const cur=window._curAcc==='demo'?window._demoBalance:window._realBalance;
-      const nv=Math.max(0,cur-amt);
-      await db.collection('users').doc(uid).update({[f]:nv});
-    };
-    window.addBalance=async amt=>{
-      if(!uid)return;
-      const f=window._curAcc==='demo'?'demoBalance':'realBalance';
-      const cur=window._curAcc==='demo'?window._demoBalance:window._realBalance;
-      await db.collection('users').doc(uid).update({[f]:cur+amt});
-    };
-    window.setUserAvatar=async url=>{
-      if(!uid)return;
-      await db.collection('users').doc(uid).update({avatar:url});
-    };
-
-    refreshUI();
-  });
-})();
-</script>
 </body>
 </html>
