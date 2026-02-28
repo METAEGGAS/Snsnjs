@@ -11,7 +11,8 @@ const firebaseConfig = {
     measurementId: "G-DBDSVVF7PS"
 };
 firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+const db   = firebase.firestore();
+const auth = firebase.auth();
 
 /* ════════════════════════════════════════════════════════════════
    ★ PAIR CONFIG
@@ -33,31 +34,259 @@ const PAIR_CONFIG = {
 };
 
 /* ════════════════════════════════════════════════════════════════
-   BALANCE MANAGEMENT
+   ★ ACCOUNT MANAGER
+   – نظام إدارة الحسابات (تجريبي / حقيقي) مع Firebase Auth
+   – حفظ: demoBalance · realBalance · avatar · email
+   – الأفاتار يغيّر اللوجو العلوي (#topLogoImg) فقط
    ════════════════════════════════════════════════════════════════ */
-let currentBalance = 10000;
 
-async function loadBalance() {
-    try {
-        const snap = await db.collection('account').doc('balance').get();
-        if (snap.exists) {
-            currentBalance = snap.data().amount;
-        } else {
-            await db.collection('account').doc('balance').set({ amount: 10000 });
+/* ── حالة الحسابات ── */
+window._curAcc      = localStorage.getItem('_curAcc') || 'demo';
+window._demoBalance = 10000;
+window._realBalance = 0;
+
+let _uid      = null;
+let _userUnsub = null;
+
+const _fmtBal = v =>
+    '$' + Number(v).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/* ── تحديث واجهة الرصيد بالكامل ── */
+function refreshUI() {
+    const ac  = window._curAcc;
+    const cur = ac === 'demo' ? window._demoBalance : window._realBalance;
+
+    const el = id => document.getElementById(id);
+
+    /* الرصيد الرئيسي في الهيدر */
+    if (el('balanceAmount')) el('balanceAmount').textContent = _fmtBal(cur);
+    /* أرقام القائمة */
+    if (el('demoAmt'))       el('demoAmt').textContent       = _fmtBal(window._demoBalance);
+    if (el('realAmt'))       el('realAmt').textContent       = _fmtBal(window._realBalance);
+
+    /* دوائر الراديو */
+    if (el('circleDemo')) el('circleDemo').classList.toggle('sel', ac === 'demo');
+    if (el('circleReal')) el('circleReal').classList.toggle('sel', ac === 'real');
+
+    /* تظليل العنصر النشط */
+    if (el('accItemDemo')) el('accItemDemo').classList.toggle('active', ac === 'demo');
+    if (el('accItemReal')) el('accItemReal').classList.toggle('active', ac === 'real');
+
+    /* الأيقونة العلوية في صندوق الرصيد */
+    if (el('topAccIcon')) el('topAccIcon').src = ac === 'demo'
+        ? 'https://cdn-icons-png.flaticon.com/128/1344/1344761.png'
+        : 'https://flagcdn.com/w40/us.png';
+
+    /* صف التعبئة: يظهر فقط مع التجريبي */
+    if (el('refillRow')) el('refillRow').style.display = ac === 'demo' ? 'flex' : 'none';
+}
+
+/* ★ الأفاتار → يغيّر اللوجو العلوي (#topLogoImg) فقط — لا يمسّ البروفايل السفلي */
+function setAvatar(url) {
+    const logoImg = document.getElementById('topLogoImg');
+    if (!logoImg) return;
+    logoImg.src = (url && url.startsWith('http'))
+        ? url
+        : 'https://cdn-icons-png.flaticon.com/128/18921/18921105.png';
+}
+
+/* ── للتوافق مع الاستدعاءات القديمة في openTrade/closeTrade ── */
+function updateBalanceDisplay() { refreshUI(); }
+
+/* ════════════════════════════════════════════
+   Firebase Auth — تهيئة حقول المستخدم
+   ════════════════════════════════════════════ */
+async function _initUserFields(userId) {
+    const ref  = db.collection('users').doc(userId);
+    const snap = await ref.get();
+    const d    = snap.exists ? snap.data() : {};
+    const up   = {};
+    if (d.demoBalance === undefined) up.demoBalance = 10000;
+    if (d.realBalance === undefined) up.realBalance = 0;
+    if (d.avatar      === undefined) up.avatar      = '';
+    if (d.email       === undefined) up.email       = '';
+    if (Object.keys(up).length) await ref.set(up, { merge: true });
+}
+
+/* ── الاستماع الفوري لتغييرات بيانات المستخدم ── */
+function _listenUser(userId) {
+    if (_userUnsub) _userUnsub();
+    _userUnsub = db.collection('users').doc(userId).onSnapshot(snap => {
+        if (!snap.exists) return;
+        const d = snap.data();
+        if (typeof d.demoBalance === 'number') window._demoBalance = d.demoBalance;
+        if (typeof d.realBalance === 'number') window._realBalance = d.realBalance;
+        refreshUI();
+        setAvatar(d.avatar || '');
+    });
+}
+
+/* ── تغيير حالة تسجيل الدخول ── */
+auth.onAuthStateChanged(async user => {
+    if (user) {
+        _uid = user.uid;
+        /* حفظ البريد الإلكتروني */
+        await db.collection('users').doc(_uid).set(
+            { email: user.email || '' }, { merge: true }
+        );
+        await _initUserFields(_uid);
+        _listenUser(_uid);
+        /* إذا كان للمستخدم صورة في Firebase Auth */
+        if (user.photoURL) setAvatar(user.photoURL);
+    } else {
+        _uid = null;
+        if (_userUnsub) { _userUnsub(); _userUnsub = null; }
+        window._demoBalance = 10000;
+        window._realBalance = 0;
+        refreshUI();
+        setAvatar('');
+    }
+});
+
+/* ════════════════════════════════════════════
+   أحداث صندوق الرصيد
+   ════════════════════════════════════════════ */
+const _balBox  = document.getElementById('balanceBox');
+const _accMenu = document.getElementById('accMenu');
+
+if (_balBox) {
+    _balBox.addEventListener('click', function(e) {
+        if (e.target.closest('.accMenu')) return;
+        e.stopPropagation();
+        _accMenu.classList.toggle('show');
+        _balBox.classList.toggle('open');
+    });
+}
+document.addEventListener('click', e => {
+    if (!e.target.closest('#balanceBox')) {
+        if (_accMenu) _accMenu.classList.remove('show');
+        if (_balBox)  _balBox.classList.remove('open');
+    }
+});
+
+/* ── اختيار الحساب التجريبي ── */
+const _accItemDemo = document.getElementById('accItemDemo');
+if (_accItemDemo) {
+    _accItemDemo.addEventListener('click', e => {
+        if (e.target.closest('#refillRow')) return;
+        window._curAcc = 'demo';
+        localStorage.setItem('_curAcc', 'demo');
+        refreshUI();
+        if (_accMenu) _accMenu.classList.remove('show');
+        if (_balBox)  _balBox.classList.remove('open');
+    });
+}
+
+/* ── اختيار الحساب الحقيقي ── */
+const _accItemReal = document.getElementById('accItemReal');
+if (_accItemReal) {
+    _accItemReal.addEventListener('click', () => {
+        window._curAcc = 'real';
+        localStorage.setItem('_curAcc', 'real');
+        refreshUI();
+        if (_accMenu) _accMenu.classList.remove('show');
+        if (_balBox)  _balBox.classList.remove('open');
+    });
+}
+
+/* ── زر تبديل الحسابات ── */
+const _switchAccBtn = document.getElementById('switchAccBtn');
+if (_switchAccBtn) {
+    _switchAccBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        window._curAcc = window._curAcc === 'demo' ? 'real' : 'demo';
+        localStorage.setItem('_curAcc', window._curAcc);
+        refreshUI();
+        showInfoToast(
+            window._curAcc === 'demo'
+                ? '✅ تم التبديل إلى الحساب التجريبي'
+                : '✅ تم التبديل إلى الحساب الحقيقي'
+        );
+    });
+}
+
+/* ── زر تعبئة الرصيد التجريبي ── */
+const _refillBtn = document.getElementById('refillBtn');
+if (_refillBtn) {
+    _refillBtn.addEventListener('click', async e => {
+        e.stopPropagation();
+        if (!_uid) {
+            showInfoToast('❌ يجب تسجيل الدخول أولاً', 'error');
+            return;
         }
-    } catch (e) { console.warn('loadBalance:', e); }
-    updateBalanceDisplay();
+        window._demoBalance = 10000;
+        refreshUI();
+        try {
+            await db.collection('users').doc(_uid).update({ demoBalance: 10000 });
+            showInfoToast('✅ تم تعبئة الحساب التجريبي بـ $10,000');
+        } catch (e) {
+            console.warn('refill:', e);
+        }
+    });
 }
 
-async function saveBalance() {
-    try { await db.collection('account').doc('balance').set({ amount: currentBalance }); }
-    catch (e) { console.warn('saveBalance:', e); }
-}
+/* ── منع الصفقات عند عدم كفاية الرصيد (capture phase) ── */
+document.addEventListener('click', e => {
+    const buyB  = document.getElementById('buyBtn');
+    const sellB = document.getElementById('sellBtn');
+    if (e.target !== buyB && e.target !== sellB) return;
+    const bal = window.getCurrentBalance();
+    const amt = parseFloat(
+        (document.getElementById('amountDisplay').value || '0').replace(/[^0-9.]/g, '')
+    ) || 0;
+    if (bal <= 0) {
+        e.stopImmediatePropagation();
+        showInfoToast('❌ الرصيد فارغ! قم بتعبئة الحساب أولاً', 'error');
+        return;
+    }
+    if (amt > bal) {
+        e.stopImmediatePropagation();
+        showInfoToast('❌ المبلغ أكبر من رصيدك المتاح!', 'error');
+    }
+}, true);
 
-function updateBalanceDisplay() {
-    const el = document.getElementById('balanceAmount');
-    if (el) el.textContent = '$' + currentBalance.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-}
+/* ════════════════════════════════════════════
+   دوال عالمية يستخدمها نظام الصفقات
+   ════════════════════════════════════════════ */
+window.getCurrentBalance = () =>
+    window._curAcc === 'demo' ? window._demoBalance : window._realBalance;
+
+window.getCurrentAccount = () => window._curAcc;
+
+/* خصم الرصيد: تحديث فوري + حفظ Firebase */
+window.deductBalance = async amt => {
+    if (window._curAcc === 'demo') window._demoBalance = Math.max(0, window._demoBalance - amt);
+    else                           window._realBalance  = Math.max(0, window._realBalance  - amt);
+    refreshUI();
+    if (!_uid) return;
+    const field = window._curAcc === 'demo' ? 'demoBalance' : 'realBalance';
+    const val   = window._curAcc === 'demo' ? window._demoBalance : window._realBalance;
+    try { await db.collection('users').doc(_uid).update({ [field]: val }); }
+    catch (e) { console.warn('deductBalance:', e); }
+};
+
+/* إضافة الرصيد: تحديث فوري + حفظ Firebase */
+window.addBalance = async amt => {
+    if (window._curAcc === 'demo') window._demoBalance += amt;
+    else                           window._realBalance  += amt;
+    refreshUI();
+    if (!_uid) return;
+    const field = window._curAcc === 'demo' ? 'demoBalance' : 'realBalance';
+    const val   = window._curAcc === 'demo' ? window._demoBalance : window._realBalance;
+    try { await db.collection('users').doc(_uid).update({ [field]: val }); }
+    catch (e) { console.warn('addBalance:', e); }
+};
+
+/* تحديث الأفاتار: يحفظ في Firebase ويغيّر اللوجو العلوي */
+window.setUserAvatar = async url => {
+    setAvatar(url);
+    if (!_uid) return;
+    try { await db.collection('users').doc(_uid).update({ avatar: url }); }
+    catch (e) { console.warn('setUserAvatar:', e); }
+};
+
+/* عرض مبدئي بالقيم الافتراضية */
+refreshUI();
 
 /* ════════════════════════════════════════════════════════════════
    TOAST NOTIFICATIONS
@@ -125,11 +354,12 @@ let activeTrades = [];
 async function openTrade(type) {
     const raw    = document.getElementById('amountDisplay').value.replace(/[^0-9.]/g, '');
     const amount = parseFloat(raw) || 50;
+    const bal    = window.getCurrentBalance();
 
-    if (amount <= 0)              return showInfoToast('❌ مبلغ غير صالح', 'error');
-    if (amount > currentBalance)  return showInfoToast('❌ رصيد غير كافٍ', 'error');
+    if (amount <= 0)  return showInfoToast('❌ مبلغ غير صالح', 'error');
+    if (amount > bal) return showInfoToast('❌ رصيد غير كافٍ', 'error');
     if (!window.chart || !window.chart.currentCandle)
-                                  return showInfoToast('⏳ الرسم غير جاهز', 'error');
+                      return showInfoToast('⏳ الرسم غير جاهز', 'error');
 
     const entryPrice = window.chart.currentPrice;
     const duration   = window.chart.selectedTime;
@@ -150,8 +380,8 @@ async function openTrade(type) {
         else if (markerPrice < bb) markerPrice = bb;
     }
 
-    currentBalance -= amount;
-    updateBalanceDisplay();
+    /* ★ خصم الرصيد فورياً + حفظ Firebase */
+    await window.deductBalance(amount);
 
     const tradeData = {
         type, pair: pairName, entryPrice, amount,
@@ -171,9 +401,7 @@ async function openTrade(type) {
         activeTrades.push(trade);
 
         window.chart.addMarkerForTrade(type, trade);
-
         renderActiveTrades();
-        saveBalance();
 
         const rem = Math.max(0, endTime - Date.now());
         setTimeout(() => closeTrade(trade), rem);
@@ -182,8 +410,8 @@ async function openTrade(type) {
         showInfoToast(`${dir}  $${amount}  @  ${entryPrice.toFixed(5)}`, type, 2500);
 
     } catch (e) {
-        currentBalance += amount;
-        updateBalanceDisplay();
+        /* استرداد الرصيد عند فشل حفظ الصفقة */
+        await window.addBalance(amount);
         console.error('openTrade:', e);
         showInfoToast('❌ خطأ في فتح الصفقة', 'error');
     }
@@ -200,13 +428,12 @@ async function closeTrade(trade) {
         ? closePrice > trade.entryPrice
         : closePrice < trade.entryPrice;
 
-    const profit   = won ? +(trade.amount * 0.8).toFixed(2) : 0;
-    const pnl      = won ? profit : -trade.amount;
+    const profit    = won ? +(trade.amount * 0.8).toFixed(2) : 0;
+    const pnl       = won ? profit : -trade.amount;
     const newStatus = won ? 'won' : 'lost';
 
-    if (won) currentBalance += trade.amount + profit;
-    updateBalanceDisplay();
-    saveBalance();
+    /* ★ إضافة الأرباح فورياً + حفظ Firebase */
+    if (won) await window.addBalance(trade.amount + profit);
 
     try {
         await db.collection('trades').doc(trade.id).update({
@@ -294,7 +521,7 @@ async function loadHistory() {
         if(se('statTotal')) se('statTotal').textContent = allT.length;
         if(se('statWon'))   se('statWon').textContent   = wonT.length;
         if(se('statLost'))  se('statLost').textContent  = lostT.length;
-        if(se('statPnl'))   {
+        if(se('statPnl')) {
             se('statPnl').textContent = (netPnl>=0?'+':'')+`$${netPnl.toFixed(2)}`;
             se('statPnl').style.color = netPnl>=0?'#00cc00':'#ff5555';
         }
@@ -375,41 +602,27 @@ function updateLiveTime() {
     const d=new Date,u=d.getTime()+d.getTimezoneOffset()*6e4,t=new Date(u+108e5),
           h=String(t.getHours()).padStart(2,"0"),m=String(t.getMinutes()).padStart(2,"0"),
           s=String(t.getSeconds()).padStart(2,"0");
-    document.getElementById("liveTime").textContent=`${h}:${m}:${s} UTC+3`;
+    const el = document.getElementById("liveTime");
+    if (el) el.textContent=`${h}:${m}:${s} UTC+3`;
 }
 updateLiveTime();
 setInterval(updateLiveTime,1e3);
 
 /* ════════════════════════════════════════════════════════════════
    ★★★  CHART MASTER MANAGER
-   نظام المدير المركزي للرسم البياني
-   ────────────────────────────────────────────────────────────────
-   • كل زوج له مدير مستقل في Firestore: chart_control/master_{PAIR}
-   • المدير يرسل نبضة قلب (heartbeat) كل 3 ثوانٍ
-   • إذا توقفت النبضة > 12 ثانية → يُعيَّن مشاهد جديد مديراً
-   • جميع الشموع عامة (global) مشتركة بين جميع المستخدمين
-   • توليد الشموع حتمي (deterministic) ⇒ كل المستخدمين يرون نفس السعر
-   • المدير فقط هو من يحفظ الشموع في Firebase
-   • عند فتح الشارت تُولَّد شموع لملء الفجوات التي حدثت أثناء الغياب
    ════════════════════════════════════════════════════════════════ */
 class ChartMasterManager {
     constructor() {
-        /* معرّف جلسة فريد */
         this.sessionId   = Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
-        /* الأزواج التي هذه الجلسة مديرة لها */
         this.masterPairs = new Set();
-        /* مؤقتات النبضة لكل زوج */
         this._hbTimers   = {};
-        /* مؤقتات مراقبة المدير الميت لكل زوج */
         this._watchTimers = {};
-        /* مرجع وثيقة الجلسة */
         this._sessionRef = db.collection('chart_sessions').doc(this.sessionId);
 
         this._registerSession();
         window.addEventListener('beforeunload', () => this._cleanup());
     }
 
-    /* ── تسجيل الجلسة مع نبضة دورية ── */
     _registerSession() {
         this._sessionRef.set({
             sessionId: this.sessionId,
@@ -424,7 +637,6 @@ class ChartMasterManager {
         }, 5000);
     }
 
-    /* ── مراجع Firebase ── */
     _masterRef(pair) {
         return db.collection('chart_control').doc('master_' + pair.replace('/', '_'));
     }
@@ -432,7 +644,6 @@ class ChartMasterManager {
         return db.collection('chart_control').doc('live_' + pair.replace('/', '_'));
     }
 
-    /* ── محاولة الاستحواذ على منصب المدير لزوج معين (Transaction آمن) ── */
     async claimMaster(pair) {
         const ref = this._masterRef(pair);
         let claimed = false;
@@ -457,7 +668,7 @@ class ChartMasterManager {
             });
         } catch (e) {
             console.warn('claimMaster error, assuming master:', e);
-            claimed = true; /* fallback: نفترض أننا المدير عند الخطأ */
+            claimed = true;
         }
 
         if (claimed) {
@@ -472,7 +683,6 @@ class ChartMasterManager {
         return claimed;
     }
 
-    /* ── إرسال النبضة الدورية (Master فقط) ── */
     _startHeartbeat(pair) {
         if (this._hbTimers[pair]) clearInterval(this._hbTimers[pair]);
         this._hbTimers[pair] = setInterval(() => {
@@ -488,7 +698,6 @@ class ChartMasterManager {
         }, 3000);
     }
 
-    /* ── مراقبة حياة المدير الحالي وتولي المنصب عند موته (Viewer فقط) ── */
     _startWatch(pair) {
         if (this._watchTimers[pair]) return;
         this._watchTimers[pair] = setInterval(async () => {
@@ -510,7 +719,7 @@ class ChartMasterManager {
                         window.chart._onBecameMaster(pair);
                     }
                 }
-            } catch (e) { /* تجاهل أخطاء الشبكة المؤقتة */ }
+            } catch (e) { }
         }, 7000);
     }
 
@@ -521,12 +730,10 @@ class ChartMasterManager {
         }
     }
 
-    /* ── هل هذه الجلسة مديرة للزوج؟ ── */
     isMaster(pair) {
         return this.masterPairs.has(pair);
     }
 
-    /* ── بثّ الشمعة الحية (المدير فقط، محدودة بـ 500ms) ── */
     broadcastLiveCandle(candle, pair) {
         if (!this.masterPairs.has(pair) || !candle) return;
         const now = Date.now();
@@ -540,7 +747,6 @@ class ChartMasterManager {
         }).catch(() => {});
     }
 
-    /* ── الاشتراك في الشمعة الحية (Viewer فقط) ── */
     subscribeToLiveCandle(pair, callback) {
         if (this._liveUnsub) {
             this._liveUnsub();
@@ -562,7 +768,6 @@ class ChartMasterManager {
         }
     }
 
-    /* ── الإفراج عن منصب المدير لزوج معين ── */
     releaseMaster(pair) {
         if (!this.masterPairs.has(pair)) return;
         this.masterPairs.delete(pair);
@@ -574,7 +779,6 @@ class ChartMasterManager {
         this._startWatch(pair);
     }
 
-    /* ── تنظيف عند إغلاق الصفحة ── */
     _cleanup() {
         this.masterPairs.forEach(pair => {
             try { this._masterRef(pair).update({ isActive: false }); } catch (e) {}
@@ -598,17 +802,14 @@ class AdvancedTradingChart {
         this.priceScaleLabels  = document.getElementById("priceScaleLabels");
         this.currentPriceEl    = document.getElementById("currentPrice");
 
-        /* ── بيانات الشموع ── */
         this.candles           = [];
         this.currentCandle     = null;
         this.maxCandles        = 200;
 
-        /* ── نظام الأزواج المستقلة ── */
         this.currentPair       = 'EUR/USD';
         this.pairStates        = new Map();
         this._switching        = false;
 
-        /* ── إعدادات الزوج الافتراضي ── */
         const _cfg             = PAIR_CONFIG['EUR/USD'];
         this.basePrice         = _cfg.basePrice;
         this.seed              = _cfg.seed;
@@ -616,10 +817,8 @@ class AdvancedTradingChart {
         this.vb                = _cfg.vb;
         this.tb                = _cfg.tb;
 
-        /* ── الأسعار ── */
         this.currentPrice      = this.basePrice;
 
-        /* ── الرسم والتفاعل ── */
         this.priceRange        = { min: this.basePrice * .99, max: this.basePrice * 1.01 };
         this.baseSpacing       = 12;
         this.zoom              = 1;
@@ -650,19 +849,14 @@ class AdvancedTradingChart {
         this.selectedTime      = 5;
         this._realtimeStarted  = false;
 
-        /* ── وضع العرض ── */
-        this._isViewerMode     = false;  /* true = مشاهد يستقبل من Firebase */
-        this._viewerUnsub      = null;   /* إلغاء الاشتراك عند التحويل */
+        this._isViewerMode     = false;
+        this._viewerUnsub      = null;
 
         this.setup();
         this.initEvents();
         this.loop();
-        /* ★ لا نُحمّل الشموع هنا — سيتم التحميل عبر initChartSystem() */
     }
 
-    /* ─────────────────────────────────────────────
-       SETUP / RESIZE
-    ───────────────────────────────────────────── */
     setup() {
         const dpr = window.devicePixelRatio || 1, r = this.plot.getBoundingClientRect();
         this.w = r.width;
@@ -677,9 +871,6 @@ class AdvancedTradingChart {
         this.updateTimeLabels();
     }
 
-    /* ─────────────────────────────────────────────
-       RANDOM HELPERS
-    ───────────────────────────────────────────── */
     rnd(s)  { const x = Math.sin(s) * 1e4; return x - Math.floor(x); }
     rndG(s) {
         const u1 = this.rnd(s), u2 = this.rnd(s + 1e5);
@@ -710,9 +901,6 @@ class AdvancedTradingChart {
         };
     }
 
-    /* ════════════════════════════════════════════
-       ★ إدارة الأزواج المستقلة
-    ════════════════════════════════════════════ */
     getPairCollection(pair) {
         return 'candles_' + (pair || this.currentPair).replace('/', '_');
     }
@@ -740,9 +928,6 @@ class AdvancedTradingChart {
         });
     }
 
-    /* ════════════════════════════════════════════
-       ★ استعادة حالة زوج محفوظ + توليد الشموع الفائتة
-    ════════════════════════════════════════════ */
     _restorePairState(pair) {
         const state = this.pairStates.get(pair);
         if (!state) return;
@@ -759,7 +944,6 @@ class AdvancedTradingChart {
         this.smin          = state.smin;
         this.smax          = state.smax;
 
-        /* ── توليد الشموع الفائتة ── */
         const now     = Date.now();
         let   lastT   = state.t0;
         let   lastP   = state.currentPrice;
@@ -786,11 +970,9 @@ class AdvancedTradingChart {
             catchUp++;
         }
 
-        /* حفظ الشموع الفائتة في Firebase إذا كنا المدير */
         if (gaps.length > 0 && window.masterManager && window.masterManager.isMaster(pair)) {
             const coll  = this.getPairCollection(pair);
             this._batchSaveCandles(coll, gaps);
-            if (gaps.length > 0) console.log(`📊 [Gap-Fill/Restore] ${pair}: +${gaps.length} شمعة`);
         }
 
         this.t0            = Math.floor(now / this.timeframe) * this.timeframe;
@@ -800,36 +982,20 @@ class AdvancedTradingChart {
         this._afterCandlesLoaded();
     }
 
-    /* ══════════════════════════════════════════════════════════
-       ★ يُستدعى عند ترقية هذه الجلسة من مشاهد → مدير
-    ══════════════════════════════════════════════════════════ */
     _onBecameMaster(pair) {
         if (pair !== this.currentPair) return;
-
-        /* إيقاف الاستماع للشمعة الحية (كنا مشاهدين) */
         this._stopViewerListener();
         this._isViewerMode = false;
-
         console.log(`🎯 [Chart] ترقية إلى مدير لـ ${pair}`);
-        /* لا حاجة لإعادة تشغيل الـ interval — saveCandleToFirebase ستتحقق تلقائياً */
     }
 
-    /* ════════════════════════════════════════════
-       ★ تبديل الزوج مع الحفاظ على كل البيانات
-    ════════════════════════════════════════════ */
     async switchPair(newPair) {
         if (newPair === this.currentPair) return;
 
-        /* 1▸ حفظ حالة الزوج الحالي */
         this._savePairState();
-
-        /* 2▸ إيقاف الاستماع للشمعة الحية إن كنا مشاهدين */
         this._stopViewerListener();
-
-        /* 3▸ تفعيل حارس التبديل */
         this._switching = true;
 
-        /* 4▸ تحديث الزوج والإعدادات */
         this.currentPair = newPair;
         const cfg        = PAIR_CONFIG[newPair] || PAIR_CONFIG['EUR/USD'];
         this.basePrice   = cfg.basePrice;
@@ -838,12 +1004,10 @@ class AdvancedTradingChart {
         this.vb          = cfg.vb;
         this.tb          = cfg.tb;
 
-        /* 5▸ طلب منصب المدير للزوج الجديد */
         const isMaster = window.masterManager
             ? await window.masterManager.claimMaster(newPair)
             : true;
 
-        /* 6▸ تحميل / استعادة بيانات الزوج الجديد */
         if (this.pairStates.has(newPair)) {
             this.candles       = [];
             this.currentCandle = null;
@@ -851,7 +1015,6 @@ class AdvancedTradingChart {
             this.smin          = null;
             this.smax          = null;
             this._restorePairState(newPair);
-            /* إذا أصبحنا مديرين لكن كنا مشاهدين سابقاً، نضمن إيقاف الـ listener */
             this._isViewerMode = !isMaster;
             if (!isMaster) this._startViewerListener(newPair);
         } else {
@@ -863,13 +1026,9 @@ class AdvancedTradingChart {
             await this.loadCandlesFromFirebase(newPair, isMaster);
         }
 
-        /* 7▸ رفع الحارس */
         this._switching = false;
     }
 
-    /* ════════════════════════════════════════════
-       ★ تحميل الشموع من Firebase مع ملء الفجوات
-    ════════════════════════════════════════════ */
     async loadCandlesFromFirebase(pair = null, isMaster = true) {
         const targetPair = pair || this.currentPair;
         const coll       = this.getPairCollection(targetPair);
@@ -881,12 +1040,9 @@ class AdvancedTradingChart {
                 .get();
 
             if (!snap.empty && snap.docs.length >= 10) {
-                /* ── يوجد شموع كافية ── */
                 this.candles      = snap.docs.map(d => d.data()).reverse();
                 this.currentPrice = this.candles[this.candles.length - 1].close;
-
             } else {
-                /* ── لا يوجد شموع ← توليد 30 وحفظها (المدير فقط) ── */
                 const generated = [];
                 let   startP    = this.basePrice;
                 let   startT    = Math.floor(Date.now() / this.timeframe) * this.timeframe
@@ -907,7 +1063,6 @@ class AdvancedTradingChart {
                 this.currentPrice = this.candles[this.candles.length - 1].close;
             }
 
-            /* ★ ملء الفجوات الزمنية (Backfill) */
             await this._fillAndSaveGaps(coll, isMaster);
 
         } catch (e) {
@@ -915,22 +1070,16 @@ class AdvancedTradingChart {
             this._initLocalFallback();
         }
 
-        /* ── إعداد وضع العرض ── */
         this._isViewerMode = !isMaster;
-
         this._afterCandlesLoaded();
 
         if (!this._realtimeStarted) this.startRealtime();
 
-        /* مشاهد → الاستماع للشمعة الحية من المدير */
         if (!isMaster) {
             this._startViewerListener(targetPair);
         }
     }
 
-    /* ════════════════════════════════════════════
-       ★ ملء الفجوات الزمنية وحفظها (المدير فقط)
-    ════════════════════════════════════════════ */
     async _fillAndSaveGaps(coll, isMaster) {
         if (!this.candles.length) return;
 
@@ -959,15 +1108,12 @@ class AdvancedTradingChart {
             if (isMaster) {
                 await this._batchSaveCandles(coll, gaps);
             }
-
             console.log(`📊 [Gap-Fill] ${coll}: +${gaps.length} شمعة`);
         }
     }
 
-    /* ── حفظ مجموعة شموع في Firebase على دفعات (batch) ── */
     async _batchSaveCandles(coll, candles) {
         if (!candles || !candles.length) return;
-        /* Firestore batch limit = 500 عملية */
         const chunks = [];
         for (let i = 0; i < candles.length; i += 499) {
             chunks.push(candles.slice(i, i + 499));
@@ -985,7 +1131,6 @@ class AdvancedTradingChart {
         }
     }
 
-    /* ── Fallback محلي عند فشل Firebase ── */
     _initLocalFallback() {
         let p = this.basePrice;
         let t = Date.now() - 30 * this.timeframe;
@@ -998,12 +1143,8 @@ class AdvancedTradingChart {
         this.currentPrice = this.candles[this.candles.length - 1].close;
     }
 
-    /* ════════════════════════════════════════════
-       ★ حفظ شمعة مغلقة (المدير فقط)
-    ════════════════════════════════════════════ */
     saveCandleToFirebase(candle, pair = null) {
         const targetPair = pair || this.currentPair;
-        /* تحقق من أن هذه الجلسة هي المدير للزوج */
         if (window.masterManager && !window.masterManager.isMaster(targetPair)) return;
 
         const coll = this.getPairCollection(targetPair);
@@ -1013,15 +1154,11 @@ class AdvancedTradingChart {
           .catch(e => console.warn('saveCandleToFirebase:', e));
     }
 
-    /* ════════════════════════════════════════════
-       ★ وضع المشاهد – الاستماع للشمعة الحية
-    ════════════════════════════════════════════ */
     _startViewerListener(pair) {
         this._stopViewerListener();
         if (!window.masterManager) return;
 
         this._viewerUnsub = window.masterManager._candleRef(pair).onSnapshot(snap => {
-            /* تجاهل إذا كنا المدير الآن أو جاري التبديل */
             if (this._switching) return;
             if (window.masterManager && window.masterManager.isMaster(pair)) return;
             if (!snap.exists) return;
@@ -1040,11 +1177,9 @@ class AdvancedTradingChart {
         }
     }
 
-    /* ── تطبيق الشمعة القادمة من المدير على الرسم البياني ── */
     _applyRemoteCandle(remote) {
         if (!remote) return;
 
-        /* إذا تغير الـ timestamp → شمعة جديدة بدأت → أغلق القديمة */
         if (this.currentCandle && this.currentCandle.timestamp !== remote.timestamp) {
             const prev = { ...this.currentCandle };
             const last = this.candles[this.candles.length - 1];
@@ -1059,9 +1194,6 @@ class AdvancedTradingChart {
         this.t0            = remote.timestamp;
     }
 
-    /* ─────────────────────────────────────────────
-       SETUP AFTER CANDLES LOADED
-    ───────────────────────────────────────────── */
     _afterCandlesLoaded() {
         this.t0 = Math.floor(Date.now() / this.timeframe) * this.timeframe;
         this.snapToLive();
@@ -1073,9 +1205,6 @@ class AdvancedTradingChart {
         this.updatePriceLabel();
     }
 
-    /* ─────────────────────────────────────────────
-       PRICE / PAN / ZOOM
-    ───────────────────────────────────────────── */
     getSpacing()     { return this.baseSpacing * this.zoom; }
     getCandleWidth() { return this.getSpacing() * .8; }
     getMinOffset()   { return this.w / 2 - this.candles.length * this.getSpacing(); }
@@ -1157,9 +1286,6 @@ class AdvancedTradingChart {
         return { min: g0, max: g1, step: d, count: Math.round((g1 - g0) / d) };
     }
 
-    /* ─────────────────────────────────────────────
-       DRAW GRID
-    ───────────────────────────────────────────── */
     drawGrid() {
         const { min, max, step, count } = this.calcNiceGrid();
         for (let i = 0; i <= count; i++) {
@@ -1186,9 +1312,6 @@ class AdvancedTradingChart {
         }
     }
 
-    /* ─────────────────────────────────────────────
-       LABELS
-    ───────────────────────────────────────────── */
     updateTimeLabels() {
         const tl     = this.timeLabels; tl.innerHTML = "";
         const visC   = this.w / this.getSpacing(),
@@ -1247,9 +1370,6 @@ class AdvancedTradingChart {
         return this.h * (1 - n);
     }
 
-    /* ─────────────────────────────────────────────
-       DRAW CANDLE
-    ───────────────────────────────────────────── */
     drawCandle(c, x, glow) {
         const oy = this.priceToY(c.open),  cy = this.priceToY(c.close),
               hy = this.priceToY(c.high),  ly = this.priceToY(c.low),
@@ -1268,9 +1388,6 @@ class AdvancedTradingChart {
         if (glow) this.ctx.shadowBlur = 0;
     }
 
-    /* ─────────────────────────────────────────────
-       MARKERS
-    ───────────────────────────────────────────── */
     addMarker(t, tradeData = null) {
         const c = this.currentCandle;
         if (!c) return null;
@@ -1377,9 +1494,6 @@ class AdvancedTradingChart {
         this.ctx.restore();
     }
 
-    /* ─────────────────────────────────────────────
-       DRAW LOOP
-    ───────────────────────────────────────────── */
     draw() {
         this.tickZoom(); this.updatePan(); this.updatePriceRange(); this.tickSR();
         this.ctx.clearRect(0, 0, this.w, this.h);
@@ -1399,9 +1513,6 @@ class AdvancedTradingChart {
         this.updatePriceLabel(); this.updateCandleTimer();
     }
 
-    /* ─────────────────────────────────────────────
-       REALTIME ENGINE
-    ───────────────────────────────────────────── */
     stepTowards(c, t, m) {
         const d = t - c;
         return Math.abs(d) <= m ? t : c + Math.sign(d) * m;
@@ -1429,24 +1540,17 @@ class AdvancedTradingChart {
         this.currentPrice        = nc;
     }
 
-    /* ════════════════════════════════════════════
-       ★ startRealtime – يعمل للجميع (مدير ومشاهد)
-         المدير يحفظ الشموع | المشاهد يستقبلها من Firebase
-    ════════════════════════════════════════════ */
     startRealtime() {
         if (this._realtimeStarted) return;
         this._realtimeStarted = true;
 
         setInterval(() => {
             if (this._switching) return;
-
-            /* المشاهد لا يولّد شموعاً محلياً — يستقبلها من Firebase */
             if (this._isViewerMode) return;
 
             const n = Date.now(), e = n - this.t0;
 
             if (e >= this.timeframe) {
-                /* ── إغلاق الشمعة الحالية ── */
                 if (this.currentCandle &&
                     (!this.candles.length ||
                      this.candles[this.candles.length - 1].timestamp !== this.currentCandle.timestamp)) {
@@ -1455,16 +1559,13 @@ class AdvancedTradingChart {
                     this.candles.push(closedCandle);
                     if (this.candles.length > this.maxCandles) this.candles.shift();
 
-                    /* ★ حفظ في Firebase (المدير فقط) */
                     this.saveCandleToFirebase(closedCandle, this.currentPair);
 
-                    /* ★ بثّ الشمعة الحية للمشاهدين */
                     if (window.masterManager && window.masterManager.isMaster(this.currentPair)) {
                         window.masterManager.broadcastLiveCandle(closedCandle, this.currentPair);
                     }
                 }
 
-                /* ── بدء شمعة جديدة ── */
                 this.t0 = Math.floor(n / this.timeframe) * this.timeframe;
                 const lp = this.currentCandle ? this.currentCandle.close : this.currentPrice;
                 this.currentCandle       = this.genCandle(this.t0, lp);
@@ -1475,10 +1576,8 @@ class AdvancedTradingChart {
                 this.currentPrice        = lp;
 
             } else {
-                /* ── تحديث الشمعة الحالية ── */
                 this.updateCurrentCandle();
 
-                /* ★ بثّ الشمعة الحية للمشاهدين (مقيّد بـ 500ms) */
                 if (this.currentCandle && window.masterManager &&
                     window.masterManager.isMaster(this.currentPair)) {
                     window.masterManager.broadcastLiveCandle(
@@ -1490,9 +1589,6 @@ class AdvancedTradingChart {
         }, 200);
     }
 
-    /* ─────────────────────────────────────────────
-       PRICE RANGE
-    ───────────────────────────────────────────── */
     updatePriceRange() {
         let v = [...this.candles];
         this.currentCandle &&
@@ -1509,9 +1605,6 @@ class AdvancedTradingChart {
         this.priceRange = { min: mn - pd, max: mx + pd };
     }
 
-    /* ─────────────────────────────────────────────
-       EVENTS
-    ───────────────────────────────────────────── */
     initEvents() {
         addEventListener("resize", () => this.setup());
         this.canvas.addEventListener("wheel", e => {
@@ -1577,9 +1670,6 @@ class AdvancedTradingChart {
         }, { passive: false });
     }
 
-    /* ─────────────────────────────────────────────
-       RAF LOOP
-    ───────────────────────────────────────────── */
     loop() { this.draw(); requestAnimationFrame(() => this.loop()); }
 }
 
@@ -1589,24 +1679,20 @@ class AdvancedTradingChart {
 window.chart         = new AdvancedTradingChart();
 window.masterManager = new ChartMasterManager();
 
-/* تهيئة الشارت مع نظام المدير */
 async function initChartSystem() {
     try {
-        /* طلب منصب المدير للزوج الافتراضي */
         const isMaster = await window.masterManager.claimMaster(window.chart.currentPair);
-        /* تحميل الشموع مع ملء الفجوات */
         await window.chart.loadCandlesFromFirebase(null, isMaster);
         console.log(`✅ Chart ready | ${isMaster ? '🎯 Master' : '👁️ Viewer'} | ${window.chart.currentPair}`);
     } catch (e) {
         console.error('initChartSystem error:', e);
-        /* fallback: تشغيل كمدير محلي */
         await window.chart.loadCandlesFromFirebase(null, true);
     }
 }
 
 initChartSystem();
-loadBalance();
 loadActiveTrades();
+/* ★ loadBalance() حُذف — الرصيد يُحمَّل تلقائياً عبر auth.onAuthStateChanged */
 
 /* ════════════════════════════════════════════════════════════════
    TIME SELECTOR
