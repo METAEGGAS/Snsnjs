@@ -675,11 +675,6 @@ setInterval(updateLiveTime,1e3);
 
 /* ════════════════════════════════════════════════════════════════
    ★★★  CHART MASTER MANAGER
-   ════════════════════════════════════════════════════════════════
-   ✅ إصلاحات مهمة حسب طلبك:
-   - ضمان مدير واحد لكل زوج (بدون افتراض Master عند خطأ)
-   - ترقية Viewer إلى Master بسرعة (فحص كل 2s)
-   - لو مفيش Master: الشمعة تتجمد تلقائياً (لأن مفيش بث)
    ════════════════════════════════════════════════════════════════ */
 class ChartMasterManager {
     constructor() {
@@ -710,7 +705,6 @@ class ChartMasterManager {
     _masterRef(pair) {
         return db.collection('chart_control').doc('master_' + pair.replace('/', '_'));
     }
-
     _candleRef(pair) {
         return db.collection('chart_control').doc('live_' + pair.replace('/', '_'));
     }
@@ -722,15 +716,10 @@ class ChartMasterManager {
             await db.runTransaction(async tx => {
                 const snap = await tx.get(ref);
                 const now  = Date.now();
-                const lastHB = snap.exists && snap.data().lastHeartbeat
-                    ? snap.data().lastHeartbeat.toMillis()
-                    : 0;
-
-                // Heartbeat كل 3s => اعتبره ميت بعد ~8s
                 const isDeadOrAbsent =
                     !snap.exists ||
                     !snap.data().isActive ||
-                    (now - lastHB) > 8000;
+                    (now - (snap.data().lastHeartbeat ? snap.data().lastHeartbeat.toMillis() : 0)) > 12000;
 
                 if (isDeadOrAbsent) {
                     tx.set(ref, {
@@ -738,14 +727,13 @@ class ChartMasterManager {
                         lastHeartbeat: firebase.firestore.FieldValue.serverTimestamp(),
                         isActive:      true,
                         claimedAt:     now
-                    }, { merge: true });
+                    });
                     claimed = true;
                 }
             });
         } catch (e) {
-            // مهم: ماينفعش نفترض إننا Master عند أي خطأ
-            console.warn('claimMaster tx error -> stay viewer:', e);
-            claimed = false;
+            console.warn('claimMaster error, assuming master:', e);
+            claimed = true;
         }
 
         if (claimed) {
@@ -785,13 +773,10 @@ class ChartMasterManager {
             try {
                 const snap = await this._masterRef(pair).get();
                 const now  = Date.now();
-                const lastHB = snap.exists && snap.data().lastHeartbeat
-                    ? snap.data().lastHeartbeat.toMillis()
-                    : 0;
                 const isDead =
                     !snap.exists ||
                     !snap.data().isActive ||
-                    (now - lastHB) > 8000;
+                    (now - (snap.data().lastHeartbeat ? snap.data().lastHeartbeat.toMillis() : 0)) > 12000;
 
                 if (isDead) {
                     const became = await this.claimMaster(pair);
@@ -800,7 +785,7 @@ class ChartMasterManager {
                     }
                 }
             } catch (e) { }
-        }, 2000); // ✅ أسرع بدل 7000ms
+        }, 7000);
     }
 
     _stopWatch(pair) {
@@ -814,19 +799,18 @@ class ChartMasterManager {
         return this.masterPairs.has(pair);
     }
 
-    // ✅ بث لحظي: وثيقة واحدة فقط لكل زوج (live_pair)
+    /* ★ تحسين البث: تقليل throttle من 500ms إلى 200ms لضمان مزامنة أدق */
     broadcastLiveCandle(candle, pair) {
         if (!this.masterPairs.has(pair) || !candle) return;
         const now = Date.now();
-        if (this._lastBroadcast && (now - this._lastBroadcast) < 150) return;
+        if (this._lastBroadcast && (now - this._lastBroadcast) < 200) return;
         this._lastBroadcast = now;
 
         this._candleRef(pair).set({
             candle:    { ...candle },
             pair:      pair,
-            masterSessionId: this.sessionId,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true }).catch(() => {});
+        }).catch(() => {});
     }
 
     subscribeToLiveCandle(pair, callback) {
@@ -838,7 +822,7 @@ class ChartMasterManager {
             if (!snap.exists) return;
             const data = snap.data();
             if (data && data.pair === pair && data.candle) {
-                callback(data.candle, data);
+                callback(data.candle);
             }
         });
     }
@@ -872,15 +856,6 @@ class ChartMasterManager {
 
 /* ════════════════════════════════════════════════════════════════
    ★★★  ADVANCED TRADING CHART  ★★★
-   ════════════════════════════════════════════════════════════════
-   ✅ المطلوب اللي اتنفّذ هنا:
-   1) مدير واحد فقط يبث شمعة واحدة (وثيقة live_...)
-   2) المشاهدين يشوفوا نفس الشمعة ونفس السعر لحظي (بدون توليد محلي)
-   3) لو مفيش مدير: الشمعة تتجمد (لا تحديث)
-   4) أول ما مدير يدخل/يتعيّن: يفك التجميد فوراً ويكمل
-   5) حفظ الشموع المقفولة فقط في candles_* بدقة (timestamp كمفتاح)
-   6) Gap-fill قوي: لو غياب 10 دقائق => يولّد 10 شمعات ويحفظهم فوراً
-   7) Skeleton رمادي واضح بتموج يمين/يسار أثناء تحميل الزوج
    ════════════════════════════════════════════════════════════════ */
 class AdvancedTradingChart {
     constructor() {
@@ -951,7 +926,9 @@ class AdvancedTradingChart {
     }
 
     /* ════════════════════════════
-       ★ SKELETON LOADING SYSTEM (رمادي واضح + تموج يمين/يسار)
+       ★ LOADING OVERLAY (GIF)
+       - يغطي الشارت بالكامل
+       - حواف لازقة: top/right/bottom/left = 0
        ════════════════════════════ */
     _injectSkeletonStyles() {
         if (document.getElementById('_skelCSS')) return;
@@ -959,25 +936,16 @@ class AdvancedTradingChart {
         s.id = '_skelCSS';
         s.textContent = `
         #chartSkeleton{
-            position:absolute;inset:0;z-index:9999;
-            display:flex;align-items:flex-end;
-            gap:4px;padding:20px 14px 10px;
-            background:#141414;
+            position:absolute;
+            inset:0;
+            z-index:9999;
+            background: url("https://xdcbitr.com/h5/chart-loading-animation.gif") center center / 100% 100% no-repeat;
             pointer-events:none;
+            opacity:1;
             transition:opacity .25s ease;
         }
-        #chartSkeleton.sk-hidden{opacity:0;}
-        .sk-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;}
-        .sk-wick,.sk-body{
-            background:linear-gradient(90deg,#2b2b2b 0%,#4a4a4a 50%,#2b2b2b 100%);
-            background-size:250% 100%;
-            animation:skShimmerX 1.15s ease-in-out infinite;
-        }
-        .sk-wick{width:2px;border-radius:1px;opacity:.95;}
-        .sk-body{width:100%;border-radius:2px;opacity:1;}
-        @keyframes skShimmerX{
-            0%  {background-position:200% 0}
-            100%{background-position:-200% 0}
+        #chartSkeleton.sk-hidden{
+            opacity:0;
         }`;
         document.head.appendChild(s);
     }
@@ -988,43 +956,9 @@ class AdvancedTradingChart {
             return;
         }
         this._injectSkeletonStyles();
+
         const sk = document.createElement('div');
         sk.id = 'chartSkeleton';
-
-        const bodies  = [55,38,70,48,62,35,80,52,68,42,
-                         75,45,60,50,72,38,85,55,65,40,
-                         78,48,58,44,70,36,82,60,74,46];
-        const wicks_t = [15,10,18,12,16, 8,20,14,17,11,
-                         19,13,16,15,18,10,22,15,17,12,
-                         20,13,15,12,18, 9,21,16,19,13];
-        const wicks_b = [10, 8,12, 9,11, 6,14,10,12, 8,
-                         13, 9,11,10,12, 7,15,10,12, 9,
-                         14, 9,11, 8,12, 6,14,11,13, 9];
-
-        bodies.forEach((bh, i) => {
-            const col = document.createElement('div');
-            col.className = 'sk-col';
-
-            const wt = document.createElement('div');
-            wt.className = 'sk-wick';
-            wt.style.height = wicks_t[i] + '%';
-            wt.style.animationDelay = (i * 0.04) + 's';
-
-            const body = document.createElement('div');
-            body.className = 'sk-body';
-            body.style.height = bh + '%';
-            body.style.animationDelay = (i * 0.04) + 's';
-
-            const wb = document.createElement('div');
-            wb.className = 'sk-wick';
-            wb.style.height = wicks_b[i] + '%';
-            wb.style.animationDelay = (i * 0.04) + 's';
-
-            col.appendChild(wt);
-            col.appendChild(body);
-            col.appendChild(wb);
-            sk.appendChild(col);
-        });
 
         if (getComputedStyle(this.plot).position === 'static') {
             this.plot.style.position = 'relative';
@@ -1096,24 +1030,14 @@ class AdvancedTradingChart {
         this._stopViewerListener();
         this._isViewerMode = false;
         console.log(`🎯 [Chart] ترقية إلى مدير لـ ${pair}`);
-
-        // أول ما نبقى Master: نعمل Recover+GapFill ونبث فورا
-        this._recoverAndGapFillFromLive(pair).catch(() => {});
     }
 
-    // ✅ مهم: لما تغيّر الزوج، لازم تسيب إدارة الزوج القديم (لو كنت Master) عشان مايبقاش عندك أكتر من شمعة نشطة/زوج
     async switchPair(newPair) {
         if (newPair === this.currentPair) return;
 
-        const oldPair = this.currentPair;
         this._stopViewerListener();
         this._switching = true;
         this.showSkeleton();
-
-        // ✅ Release إدارة الزوج القديم لو كنت Master
-        if (window.masterManager && window.masterManager.isMaster(oldPair)) {
-            window.masterManager.releaseMaster(oldPair);
-        }
 
         this.currentPair = newPair;
         const cfg        = PAIR_CONFIG[newPair] || PAIR_CONFIG['EUR/USD'];
@@ -1135,130 +1059,6 @@ class AdvancedTradingChart {
 
         await this.loadCandlesFromFirebase(newPair, isMaster);
         this._switching = false;
-    }
-
-    async _fetchLiveCandle(pair) {
-        if (!window.masterManager) return null;
-        try {
-            const snap = await window.masterManager._candleRef(pair).get();
-            if (!snap.exists) return null;
-            const d = snap.data();
-            if (!d || !d.candle) return null;
-            const c = d.candle;
-            if (!c || c.timestamp === undefined || c.timestamp === null) return null;
-            // أمان: تحويل للأرقام
-            return {
-                open: +c.open,
-                close: +c.close,
-                high: +c.high,
-                low: +c.low,
-                timestamp: +c.timestamp
-            };
-        } catch (e) {
-            return null;
-        }
-    }
-
-    // ✅ Recover + GapFill + حفظ الشموع الناقصة في Firebase (لـ Master فقط)
-    async _recoverAndGapFillFromLive(pair) {
-        const coll = this.getPairCollection(pair);
-
-        // 1) لو في شمعة متجمدة في live_... استخدمها كـ currentCandle
-        const live = await this._fetchLiveCandle(pair);
-        const lastSavedTs = this.candles.length ? this.candles[this.candles.length - 1].timestamp : null;
-
-        if (live && (lastSavedTs === null || live.timestamp >= lastSavedTs)) {
-            // لو عندنا شمعة بنفس التايمستامب في candles (نادر)، نشيلها عشان دي active
-            this.candles = this.candles.filter(c => c.timestamp !== live.timestamp);
-            this.currentCandle = { ...live };
-            this.currentPrice  = live.close;
-            this.t0            = live.timestamp;
-        }
-
-        // 2) GapFill حسب الوقت الحالي
-        const now       = Date.now();
-        const currentT0 = Math.floor(now / this.timeframe) * this.timeframe;
-
-        // لو مفيش currentCandle اصلاً: ابنِ واحدة على أساس آخر شمعة محفوظة
-        if (!this.currentCandle) {
-            const last = this.candles.length ? this.candles[this.candles.length - 1] : null;
-            const lp   = last ? last.close : this.basePrice;
-            this.currentCandle = {
-                open: lp, close: lp, high: lp, low: lp, timestamp: currentT0
-            };
-            this.currentPrice = lp;
-            this.t0 = currentT0;
-        }
-
-        // لو الشمعة المتجمدة قديمة (مثلاً غياب 10 دقائق): لازم نقفلها + نولد شمعات لكل دقيقة
-        const missing = [];
-        let baseClose = this.currentCandle.close;
-
-        if (this.currentCandle.timestamp < currentT0) {
-            // (a) اقفل الشمعة المتجمدة عند آخر close وصلنا له (تجميد)
-            const frozenClosed = {
-                ...this.currentCandle,
-                open: +this.currentCandle.open,
-                close: +this.currentCandle.close,
-                high: +this.currentCandle.high,
-                low: +this.currentCandle.low,
-                timestamp: +this.currentCandle.timestamp
-            };
-
-            // إدراج/استبدال في candles ثم حفظ
-            this._upsertClosedCandleLocal(frozenClosed);
-            missing.push(frozenClosed);
-
-            // (b) توليد الشموع الناقصة لكل دقيقة
-            let t = frozenClosed.timestamp + this.timeframe;
-            let p = frozenClosed.close;
-            let safety = 0;
-
-            while (t < currentT0 && safety < 2000) {
-                const c = this.genCandle(t, p);
-                missing.push(c);
-                p = c.close;
-                t += this.timeframe;
-                safety++;
-            }
-
-            // حفظ كل الشموع الناقصة دفعة واحدة
-            if (missing.length) {
-                await this._batchSaveCandles(coll, missing);
-            }
-
-            // تحديث local candles
-            missing.forEach(c => this._upsertClosedCandleLocal(c));
-            baseClose = missing[missing.length - 1].close;
-
-            // (c) فتح شمعة جديدة في الدقيقة الحالية
-            this.currentCandle = {
-                open: baseClose,
-                close: baseClose,
-                high: baseClose,
-                low:  baseClose,
-                timestamp: currentT0
-            };
-            this.currentPrice = baseClose;
-            this.t0 = currentT0;
-        }
-
-        // 3) بث الشمعة الحالية فوراً (فك التجميد للمشاهدين)
-        if (window.masterManager && window.masterManager.isMaster(pair)) {
-            window.masterManager.broadcastLiveCandle({ ...this.currentCandle }, pair);
-        }
-    }
-
-    _upsertClosedCandleLocal(candle) {
-        if (!candle) return;
-        const ts = candle.timestamp;
-        const i = this.candles.findIndex(x => x.timestamp === ts);
-        if (i >= 0) this.candles[i] = { ...candle };
-        else this.candles.push({ ...candle });
-
-        // حافظ على الترتيب
-        this.candles.sort((a,b)=>a.timestamp-b.timestamp);
-        if (this.candles.length > this.maxCandles) this.candles = this.candles.slice(-this.maxCandles);
     }
 
     async loadCandlesFromFirebase(pair = null, isMaster = true) {
@@ -1295,18 +1095,7 @@ class AdvancedTradingChart {
                 this.currentPrice = this.candles[this.candles.length - 1].close;
             }
 
-            // ✅ بدل fill gaps القديم: Recover + GapFill من live candle (مهم جداً لفك التجميد وتوليد الناقص)
-            if (isMaster) {
-                await this._recoverAndGapFillFromLive(targetPair);
-            } else {
-                // Viewer: لو في شمعة live موجودة، اعرضها فوراً (بدون توليد محلي)
-                const live = await this._fetchLiveCandle(targetPair);
-                if (live) {
-                    this.currentCandle = { ...live };
-                    this.currentPrice  = live.close;
-                    this.t0            = live.timestamp;
-                }
-            }
+            await this._fillAndSaveGaps(coll, isMaster);
 
         } catch (e) {
             console.error('loadCandlesFromFirebase:', e);
@@ -1320,6 +1109,38 @@ class AdvancedTradingChart {
 
         if (!isMaster) {
             this._startViewerListener(targetPair);
+        }
+    }
+
+    async _fillAndSaveGaps(coll, isMaster) {
+        if (!this.candles.length) return;
+
+        const lastCandle  = this.candles[this.candles.length - 1];
+        const now         = Date.now();
+        const currentT0   = Math.floor(now / this.timeframe) * this.timeframe;
+
+        let t = lastCandle.timestamp + this.timeframe;
+        let p = lastCandle.close;
+        const gaps = [];
+
+        while (t < currentT0 && gaps.length < 300) {
+            const c = this.genCandle(t, p);
+            gaps.push(c);
+            p = c.close;
+            t += this.timeframe;
+        }
+
+        if (gaps.length > 0) {
+            this.candles.push(...gaps);
+            if (this.candles.length > this.maxCandles) {
+                this.candles = this.candles.slice(-this.maxCandles);
+            }
+            this.currentPrice = this.candles[this.candles.length - 1].close;
+
+            if (isMaster) {
+                await this._batchSaveCandles(coll, gaps);
+            }
+            console.log(`📊 [Gap-Fill] ${coll}: +${gaps.length} شمعة`);
         }
     }
 
@@ -1356,6 +1177,7 @@ class AdvancedTradingChart {
 
     saveCandleToFirebase(candle, pair = null) {
         const targetPair = pair || this.currentPair;
+        /* ✅ الشرط الأساسي: فقط الماستر هو اللي يحفظ */
         if (window.masterManager && !window.masterManager.isMaster(targetPair)) return;
 
         const coll = this.getPairCollection(targetPair);
@@ -1368,15 +1190,6 @@ class AdvancedTradingChart {
     _startViewerListener(pair) {
         this._stopViewerListener();
         if (!window.masterManager) return;
-
-        // Get مرة أولى + onSnapshot (عشان يظهر فوراً حتى لو مفيش تحديث جديد)
-        window.masterManager._candleRef(pair).get().then(snap => {
-            if (!snap.exists) return;
-            const data = snap.data();
-            if (data && data.pair === pair && data.candle) {
-                this._applyRemoteCandle(data.candle);
-            }
-        }).catch(() => {});
 
         this._viewerUnsub = window.masterManager._candleRef(pair).onSnapshot(snap => {
             if (this._switching) return;
@@ -1400,16 +1213,7 @@ class AdvancedTradingChart {
     _applyRemoteCandle(remote) {
         if (!remote) return;
 
-        const rc = {
-            open: +remote.open,
-            close: +remote.close,
-            high: +remote.high,
-            low: +remote.low,
-            timestamp: +remote.timestamp
-        };
-
-        // لو حصل انتقال تايمستامب: ادخل القديمة ضمن candles مرة واحدة فقط
-        if (this.currentCandle && this.currentCandle.timestamp !== rc.timestamp) {
+        if (this.currentCandle && this.currentCandle.timestamp !== remote.timestamp) {
             const prev = { ...this.currentCandle };
             const last = this.candles[this.candles.length - 1];
             if (!last || last.timestamp !== prev.timestamp) {
@@ -1418,9 +1222,9 @@ class AdvancedTradingChart {
             }
         }
 
-        this.currentCandle = { ...rc };
-        this.currentPrice  = rc.close;
-        this.t0            = rc.timestamp;
+        this.currentCandle = { ...remote };
+        this.currentPrice  = remote.close;
+        this.t0            = remote.timestamp;
     }
 
     _afterCandlesLoaded() {
@@ -1440,7 +1244,7 @@ class AdvancedTradingChart {
             this.currentPrice = last.close;
         }
 
-        this.t0 = this.currentCandle ? this.currentCandle.timestamp : Math.floor(Date.now() / this.timeframe) * this.timeframe;
+        this.t0 = Math.floor(Date.now() / this.timeframe) * this.timeframe;
         this.snapToLive();
         this.updateTimeLabels();
         this.updatePriceRange();
@@ -1796,73 +1600,73 @@ class AdvancedTradingChart {
         this.currentPrice        = nc;
     }
 
-    /* ★ حفظ الشمعة عند انتهائها + مزامنة المشاهدين */
+    /* ✅ تعديل مهم: حفظ الشموع بدقة حتى لو التاب اتجمّد/اتخنق
+       - فقط الماستر يحفظ
+       - يقفل ويحفظ كل الشموع اللي عدّت (catch-up) */
     startRealtime() {
         if (this._realtimeStarted) return;
         this._realtimeStarted = true;
 
-        setInterval(async () => {
-            if (this._switching) return;
+        const MAX_CATCHUP_CANDLES_PER_TICK = 20;
 
-            // ✅ Viewer: لا توليد محلي نهائياً (كده التجميد يشتغل تلقائياً)
+        setInterval(() => {
+            if (this._switching) return;
             if (this._isViewerMode) return;
 
-            // ✅ لو مش Master فعلياً (حتى لو _isViewerMode غلط لأي سبب): ماينفعش يحدث
-            if (window.masterManager && !window.masterManager.isMaster(this.currentPair)) {
-                return;
+            const now = Date.now();
+
+            // تأكد إن عندنا currentCandle سليمة
+            if (!this.currentCandle) {
+                const lastClose = this.candles.length
+                    ? this.candles[this.candles.length - 1].close
+                    : this.currentPrice;
+
+                this.t0 = Math.floor(now / this.timeframe) * this.timeframe;
+                this.currentCandle = {
+                    open: lastClose, close: lastClose,
+                    high: lastClose, low: lastClose,
+                    timestamp: this.t0
+                };
+                this.currentPrice = lastClose;
             }
 
-            const n = Date.now();
+            // 1) Catch-up: اقفل واحفظ كل الشموع اللي عدّت
+            let catchupCount = 0;
+            while ((now - this.t0) >= this.timeframe && catchupCount < MAX_CATCHUP_CANDLES_PER_TICK) {
+                const closedCandle = { ...this.currentCandle };
 
-            // لو المدير اتعيّن بعد تجميد طويل: اعمل GapFill سريع مرة واحدة
-            // (دي حماية إضافية)
-            if (!this._lastGapCheck || (n - this._lastGapCheck) > 5000) {
-                this._lastGapCheck = n;
-                await this._recoverAndGapFillFromLive(this.currentPair).catch(()=>{});
-            }
-
-            const e = n - this.t0;
-
-            if (e >= this.timeframe) {
-                if (this.currentCandle &&
-                    (!this.candles.length ||
-                     this.candles[this.candles.length - 1].timestamp !== this.currentCandle.timestamp)) {
-
-                    const closedCandle = { ...this.currentCandle };
+                if (!this.candles.length || this.candles[this.candles.length - 1].timestamp !== closedCandle.timestamp) {
                     this.candles.push(closedCandle);
                     if (this.candles.length > this.maxCandles) this.candles.shift();
-
-                    /* حفظ الشمعة المغلقة (بدقة) */
-                    this.saveCandleToFirebase(closedCandle, this.currentPair);
                 }
 
-                /* إنشاء الشمعة الجديدة */
-                this.t0 = Math.floor(n / this.timeframe) * this.timeframe;
-                const lp = this.currentCandle ? this.currentCandle.close : this.currentPrice;
-                this.currentCandle = {
-                    open: lp, close: lp, high: lp, low: lp, timestamp: this.t0
-                };
+                // حفظ الشمعة (فقط master)
+                this.saveCandleToFirebase(closedCandle, this.currentPair);
+
+                // بث للمشاهدين
+                if (window.masterManager && window.masterManager.isMaster(this.currentPair)) {
+                    window.masterManager.broadcastLiveCandle({ ...closedCandle }, this.currentPair);
+                }
+
+                // شمعة جديدة
+                this.t0 += this.timeframe;
+                const lp = closedCandle.close;
+                this.currentCandle = { open: lp, close: lp, high: lp, low: lp, timestamp: this.t0 };
                 this.currentPrice = lp;
 
-                /* بث الشمعة الجديدة */
                 if (window.masterManager && window.masterManager.isMaster(this.currentPair)) {
-                    window.masterManager.broadcastLiveCandle(
-                        { ...this.currentCandle },
-                        this.currentPair
-                    );
+                    window.masterManager.broadcastLiveCandle({ ...this.currentCandle }, this.currentPair);
                 }
 
-            } else {
-                this.updateCurrentCandle();
-
-                if (this.currentCandle && window.masterManager &&
-                    window.masterManager.isMaster(this.currentPair)) {
-                    window.masterManager.broadcastLiveCandle(
-                        { ...this.currentCandle },
-                        this.currentPair
-                    );
-                }
+                catchupCount++;
             }
+
+            // 2) تحديث الشمعة الحالية داخل الدقيقة
+            this.updateCurrentCandle();
+            if (this.currentCandle && window.masterManager && window.masterManager.isMaster(this.currentPair)) {
+                window.masterManager.broadcastLiveCandle({ ...this.currentCandle }, this.currentPair);
+            }
+
         }, 200);
     }
 
