@@ -1,15 +1,12 @@
 /* ════════════════════════════════════════════════════════════════
-   DRAWINGS / INDICATORS PANEL  v3.0
+   DRAWINGS / INDICATORS PANEL  v3.1
    ✅ ثيم ذهبي كامل
-   ✅ خط الاتجاه يظهر فورًا عند الضغط على الاسم (بدون سحب)
-   ✅ خط واحد فقط لكل ضغطة (بدون تكرار أثناء السحب)
-   ✅ Badge يظهر عند تحديد الخط تلقائيًا
-   ✅ الشارت لا يتحرك أثناء سحب/مط الخط
-   ✅ مساحة سحب أكبر + مخفية (hit area)
-   ✅ Bollinger Bands يغطي كل الشموع (بدون فلترة)
-   ✅ Bollinger Bands يتفعل تلقائيًا باللون الأزرق
-   ✅ مؤشر فراكتالز (Williams Fractals) مع سهام ▲▼
-   ✅ أسماء العناصر أصغر وأوضح
+   ✅ خط الاتجاه يظهر فورًا في منتصف الشارت المرئي الحالي
+   ✅ لا يظهر أي نص تعليمات عند إضافة خط الاتجاه
+   ✅ Badge صغير جداً وواضح — عند إغلاقه يُحذف الخط كليًا
+   ✅ الشارت يتوقف تمامًا أثناء سحب/مط الخط
+   ✅ Bollinger Bands يتفعل باللون الأزرق (ثاني من اليمين)
+   ✅ مؤشر فراكتالز (Williams Fractals)
 ════════════════════════════════════════════════════════════════ */
 (function () {
   "use strict";
@@ -102,7 +99,6 @@
     });
   }
 
-  /* ★ جديد: استخراج الـ Highs و Lows للفراكتالز */
   function getHighsLows(chart) {
     const data = chart.candles || chart.data || chart.ohlc || [];
     const highs = [], lows = [];
@@ -172,7 +168,7 @@
   }
 
   /* ══════════════════════════════════════════════
-     CSS  — ثيم ذهبي كامل
+     CSS
   ══════════════════════════════════════════════ */
   function injectCSS() {
     if (document.getElementById("__dw_css")) return;
@@ -338,36 +334,58 @@
   outline-offset:2px;
 }
 
-/* ────── Active Tool Badge ────── */
+/* ════════════════════════════════════════════
+   ★ BADGE — صغير جداً وواضح
+════════════════════════════════════════════ */
 #dwBadge{
-  position:absolute;top:50px;left:58px;
-  z-index:270;display:none;
-  align-items:center;gap:8px;
-  padding:7px 10px;border-radius:12px;
-  border:2px solid rgba(255,215,0,.38);
-  background:linear-gradient(135deg,#0c1120,#070d1a);
-  box-shadow:0 8px 26px rgba(0,0,0,.6),0 0 0 1px rgba(255,215,0,.07);
+  position:absolute;
+  top:8px;
+  left:8px;
+  z-index:270;
+  display:none;
+  align-items:center;
+  gap:5px;
+  padding:3px 7px 3px 5px;
+  border-radius:7px;
+  border:1px solid rgba(255,215,0,.45);
+  background:rgba(7,13,26,0.88);
+  box-shadow:0 3px 12px rgba(0,0,0,.55),0 0 0 1px rgba(255,215,0,.06);
+  backdrop-filter:blur(8px);
+  pointer-events:auto;
 }
 #dwBadge.show{display:flex;}
 
 #dwBadgeName{
-  font-size:11px;font-weight:900;color:#ffd700;
-  white-space:nowrap;cursor:pointer;
+  font-size:9px;
+  font-weight:800;
+  color:#ffd700;
+  white-space:nowrap;
+  cursor:pointer;
   user-select:none;
+  letter-spacing:.3px;
 }
 #dwBadgeX{
-  width:23px;height:23px;border-radius:8px;
-  border:1.5px solid rgba(255,215,0,.26);
-  background:rgba(255,215,0,.07);
-  color:#ffd700;font-weight:900;font-size:14px;
-  cursor:pointer;display:grid;place-items:center;line-height:1;
+  width:16px;height:16px;
+  border-radius:5px;
+  border:1px solid rgba(255,80,80,.40);
+  background:rgba(255,80,80,.10);
+  color:#ff7777;
+  font-weight:900;
+  font-size:11px;
+  cursor:pointer;
+  display:grid;
+  place-items:center;
+  line-height:1;
+  flex-shrink:0;
+  transition:background .14s;
 }
-#dwBadgeX:active{transform:scale(.95);}
+#dwBadgeX:hover{background:rgba(255,80,80,.22);}
+#dwBadgeX:active{transform:scale(.93);}
 
 /* ────── Popover Settings ────── */
 #dwPop{
-  position:absolute;top:calc(100% + 8px);left:0;
-  width:268px;border-radius:13px;
+  position:absolute;top:calc(100% + 6px);left:0;
+  width:260px;border-radius:13px;
   border:1.5px solid rgba(255,215,0,.22);
   background:linear-gradient(175deg,#0c1120,#070d1a);
   box-shadow:0 16px 45px rgba(0,0,0,.7);
@@ -476,9 +494,8 @@
       </div>`
     ).join("");
 
-    /* ── Fill Indicators List (BB + Fractals) ── */
+    /* ── Fill Indicators List ── */
     const dwIndList = overlay.querySelector("#dwIndList");
-    /* ★ BB default selected = index 1 (أزرق) */
     dwIndList.innerHTML = `
       <!-- Bollinger Bands -->
       <div class="dwItem" data-ind="bb" style="flex-direction:column;align-items:stretch;gap:0;">
@@ -504,7 +521,7 @@
         </div>
       </div>
 
-      <!-- Fractals (فراكتالز) -->
+      <!-- Fractals -->
       <div class="dwItem" data-ind="frac" style="flex-direction:column;align-items:stretch;gap:0;">
         <div style="display:flex;align-items:center;gap:9px;width:100%;">
           <div class="ico" style="font-size:12px;font-weight:900;color:rgba(255,215,0,.72);">⟨⟩</div>
@@ -523,8 +540,8 @@
     const badge = document.createElement("div");
     badge.id = "dwBadge";
     badge.innerHTML = `
-      <div id="dwBadgeName" title="اضغط للإعدادات">خط الاتجاه</div>
-      <button id="dwBadgeX" aria-label="إلغاء التحديد">×</button>
+      <div id="dwBadgeName" title="اضغط للإعدادات">✏️ خط الاتجاه</div>
+      <button id="dwBadgeX" aria-label="حذف الخط" title="حذف الخط">×</button>
       <div id="dwPop">
         <div class="pRow">
           <div class="pLabel">السُمك</div>
@@ -547,10 +564,10 @@
           <div class="pBtns" style="width:100%;justify-content:space-between;">
             <button class="pBtn" id="pBtnCopy">نسخ</button>
             <button class="pBtn prim" id="pBtnDup">تكرار</button>
-            <button class="pBtn dng" id="pBtnClose">إغلاق</button>
+            <button class="pBtn dng" id="pBtnClose">إخفاء</button>
           </div>
         </div>
-        <div class="pNote">💡 اسحب الدائرتين الجانبيتين لتمديد • اسحب الوسط للتحريك</div>
+        <div class="pNote">💡 اسحب الدائرتين لتمديد • اسحب الوسط للتحريك</div>
       </div>
     `;
     plot.appendChild(badge);
@@ -582,23 +599,35 @@
     el.closeBtn.addEventListener("click",  () => hideOverlay(el));
     el.backdrop.addEventListener("click",  () => hideOverlay(el));
 
-    /* ── Badge events ── */
+    /* ── Badge name click → toggle popover ── */
     el.badgeName.addEventListener("click", (e) => {
       e.stopPropagation();
       el.pop.classList.toggle("show");
     });
+
+    /* ── "إخفاء" button inside popover → just close popover ── */
     el.pBtnClose.addEventListener("click", (e) => {
       e.stopPropagation();
       el.pop.classList.remove("show");
     });
 
-    /* ★ زر X في Badge → إلغاء التحديد (بدون حذف الخط) */
+    /* ════════════════════════════════════════════
+       ★ زر X في Badge → يحذف الخط كليًا من الشارت
+    ════════════════════════════════════════════ */
     el.badgeX.addEventListener("click", (e) => {
       e.stopPropagation();
       el.pop.classList.remove("show");
+
+      if (window.__drawings && window.__drawings.drawing) {
+        const eng   = window.__drawings.drawing;
+        const selId = eng.state.selectedId;
+        if (selId) {
+          /* حذف الخط من المصفوفة */
+          eng.state.drawings = eng.state.drawings.filter((d) => d.id !== selId);
+        }
+        eng.deselect();
+      }
       hideBadge(el);
-      if (window.__drawings && window.__drawings.drawing)
-        window.__drawings.drawing.deselect();
     });
 
     /* ── BB Toggle ── */
@@ -675,8 +704,7 @@
   }
 
   /* ══════════════════════════════════════════════
-     BOLLINGER BANDS — رسم
-     ★ FIX: بدون فلترة النطاق — يغطي كل الشموع
+     BOLLINGER BANDS — رسم (بدون فلترة)
   ══════════════════════════════════════════════ */
   function drawBollingerBands(ctx, chart, indState) {
     if (!indState.bb.active) return;
@@ -690,20 +718,15 @@
     const fillColor = indState.bb.fill;
     const lineColor = indState.bb.line;
 
-    /* ★ لا فلترة — كل النقاط (canvas يقطع تلقائيًا) */
-    const vu = upper;
-    const vl = lower;
-    const vm = mid;
-
     ctx.save();
 
-    /* fill بين الخطين */
+    /* fill */
     ctx.beginPath();
-    vu.forEach((p, idx) => {
+    upper.forEach((p, idx) => {
       const x = chart.indexToX(p.i), y = chart.priceToY(p.v);
       idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     });
-    [...vl].reverse().forEach((p) =>
+    [...lower].reverse().forEach((p) =>
       ctx.lineTo(chart.indexToX(p.i), chart.priceToY(p.v))
     );
     ctx.closePath();
@@ -712,7 +735,7 @@
 
     /* الخط العلوي */
     ctx.beginPath();
-    vu.forEach((p, idx) => {
+    upper.forEach((p, idx) => {
       const x = chart.indexToX(p.i), y = chart.priceToY(p.v);
       idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     });
@@ -722,7 +745,7 @@
 
     /* الخط السفلي */
     ctx.beginPath();
-    vl.forEach((p, idx) => {
+    lower.forEach((p, idx) => {
       const x = chart.indexToX(p.i), y = chart.priceToY(p.v);
       idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     });
@@ -732,7 +755,7 @@
 
     /* الوسط — متقطع */
     ctx.beginPath();
-    vm.forEach((p, idx) => {
+    mid.forEach((p, idx) => {
       const x = chart.indexToX(p.i), y = chart.priceToY(p.v);
       idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     });
@@ -746,16 +769,15 @@
   }
 
   /* ══════════════════════════════════════════════
-     FRACTALS (فراكتالز) — حساب ورسم
+     FRACTALS — حساب ورسم
   ══════════════════════════════════════════════ */
   function calcFractals(chart) {
     const { highs, lows } = getHighsLows(chart);
-    const bullFractals = []; // نقاط قيعان (▲ تحت الشمعة)
-    const bearFractals = []; // نقاط قمم (▼ فوق الشمعة)
+    const bullFractals = [];
+    const bearFractals = [];
 
     for (let i = 2; i < highs.length - 2; i++) {
       const h = highs[i];
-      /* قمة فراكتال: أعلى من جارَيه من كل جهة */
       if (
         h > 0 &&
         h > highs[i - 1] && h > highs[i - 2] &&
@@ -763,9 +785,7 @@
       ) {
         bearFractals.push({ i, v: h });
       }
-
       const l = lows[i];
-      /* قاع فراكتال: أدنى من جارَيه من كل جهة */
       if (
         l > 0 &&
         l < lows[i - 1] && l < lows[i - 2] &&
@@ -777,32 +797,29 @@
     return { bullFractals, bearFractals };
   }
 
-  /* سهم ▲ (نحو الأعلى) تحت القاع */
   function drawArrowUp(ctx, x, y, sz, color) {
     ctx.save();
     ctx.globalAlpha = 0.92;
     ctx.beginPath();
-    ctx.moveTo(x,      y - sz * 1.1);   /* رأس السهم */
-    ctx.lineTo(x - sz, y + sz * 0.55);  /* يسار */
-    ctx.lineTo(x + sz, y + sz * 0.55);  /* يمين */
+    ctx.moveTo(x,      y - sz * 1.1);
+    ctx.lineTo(x - sz, y + sz * 0.55);
+    ctx.lineTo(x + sz, y + sz * 0.55);
     ctx.closePath();
     ctx.fillStyle = color;
     ctx.fill();
-    /* خط رفيع */
     ctx.strokeStyle = "rgba(0,0,0,0.30)";
     ctx.lineWidth = 0.7;
     ctx.stroke();
     ctx.restore();
   }
 
-  /* سهم ▼ (نحو الأسفل) فوق القمة */
   function drawArrowDown(ctx, x, y, sz, color) {
     ctx.save();
     ctx.globalAlpha = 0.92;
     ctx.beginPath();
-    ctx.moveTo(x,      y + sz * 1.1);   /* رأس السهم */
-    ctx.lineTo(x - sz, y - sz * 0.55);  /* يسار */
-    ctx.lineTo(x + sz, y - sz * 0.55);  /* يمين */
+    ctx.moveTo(x,      y + sz * 1.1);
+    ctx.lineTo(x - sz, y - sz * 0.55);
+    ctx.lineTo(x + sz, y - sz * 0.55);
     ctx.closePath();
     ctx.fillStyle = color;
     ctx.fill();
@@ -816,19 +833,17 @@
     if (!indState.frac.active) return;
 
     const { bullFractals, bearFractals } = calcFractals(chart);
-    const SZ     = 5.5;   /* حجم السهم */
-    const OFFSET = 12;    /* بُعد السهم عن الشمعة بالـpx */
+    const SZ     = 5.5;
+    const OFFSET = 12;
 
     ctx.save();
 
-    /* ▼ فوق القمم — أحمر */
     for (const f of bearFractals) {
       const x = chart.indexToX(f.i);
       const y = chart.priceToY(f.v) - OFFSET;
       drawArrowDown(ctx, x, y, SZ, "#ff4444");
     }
 
-    /* ▲ تحت القيعان — أخضر */
     for (const f of bullFractals) {
       const x = chart.indexToX(f.i);
       const y = chart.priceToY(f.v) + OFFSET;
@@ -842,7 +857,6 @@
      DRAWING ENGINE
   ══════════════════════════════════════════════ */
   function buildDrawingEngine(chart, ui, indState) {
-    /* ── State ── */
     const state = {
       tool: TOOL.NONE,
       drawings: [],
@@ -900,7 +914,6 @@
     /* ── select / deselect ── */
     function select(id) {
       state.selectedId = id;
-      /* ★ Badge يظهر عند تحديد أي خط */
       if (id) {
         const d = state.drawings.find((dd) => dd.id === id);
         if (d && d.type === "trendline")
@@ -925,7 +938,6 @@
       );
     }
 
-    /* ★ setTool — مُبسَّط، لا يوجد وضع رسم بالسحب */
     function setTool(name) {
       state.tool = TOOL.NONE;
       state.dragging = null;
@@ -950,20 +962,27 @@
       return d;
     }
 
-    /* ★ createDefaultLine — يضع الخط فورًا في مركز الشارت */
+    /* ════════════════════════════════════════════
+       ★ createDefaultLine
+       يضع الخط في منتصف المنطقة المرئية الحالية
+       بدقة باستخدام toData() مباشرة
+    ════════════════════════════════════════════ */
     function createDefaultLine() {
       try {
-        const sp  = Math.max(getSpacing(chart), 1);
-        const off = getOffset(chart);
-        const cw  = chart.w || (chart.canvas ? chart.canvas.width : 800);
-        const vis = Math.ceil(cw / sp);
-        const mid = Math.floor(off + vis / 2);
-        const span = Math.max(Math.floor(vis / 5), 4);
+        const cw   = chart.canvas ? chart.canvas.width  : (chart.w || 800);
+        const ch   = chart.canvas ? chart.canvas.height : (chart.h || 400);
 
-        const pr = getPR() || { min: 0, max: 100 };
-        const mp  = (pr.min + pr.max) / 2;
+        /* مركز الشارت بالبكسل */
+        const cx   = cw / 2;
+        const cy   = ch / 2;
+        /* امتداد أفقي (ربع العرض من كل طرف) */
+        const span = Math.max(cw / 5, 60);
 
-        return addLine({ i: mid - span, p: mp }, { i: mid + span, p: mp });
+        /* تحويل البكسل → إحداثيات البيانات */
+        const a = toData(cx - span, cy);
+        const b = toData(cx + span, cy);
+
+        return addLine(a, b);
       } catch (_) {
         return addLine({ i: 10, p: 100 }, { i: 30, p: 100 });
       }
@@ -981,29 +1000,25 @@
       };
       state.drawings.push(copy);
       select(copy.id);
-      if (window.showInfoToast) window.showInfoToast("✅ تم تكرار الخط", "info", 2000);
     }
 
     function copyLine() {
       const sel = state.drawings.find((d) => d.id === state.selectedId);
       if (!sel) return;
-      safeClipboard(JSON.stringify(sel, null, 2)).then(() => {
-        if (window.showInfoToast) window.showInfoToast("✅ تم نسخ الإعدادات", "info", 2000);
-      });
+      safeClipboard(JSON.stringify(sel, null, 2));
     }
 
-    /* ── Menu click ──
-       ★ خط الاتجاه يظهر فورًا عند الضغط (بدون سحب)
-       ★ لا يُنشأ خط إضافي بالسحب على الشارت  */
+    /* ════════════════════════════════════════════
+       ★ Menu click — لا يظهر أي toast
+    ════════════════════════════════════════════ */
     ui.dwList.addEventListener("click", (e) => {
       const row = e.target.closest(".dwItem");
       if (!row) return;
       const key = row.getAttribute("data-key");
       if (key === "trendline") {
-        createDefaultLine();        /* ★ يظهر فورًا */
+        createDefaultLine();   /* ← يضهر فوراً في المكان الحالي */
         hideOverlay(ui);
-        if (window.showInfoToast)
-          window.showInfoToast("✅ تم إضافة خط الاتجاه — اسحب الدوائر لضبطه", "info", 2800);
+        /* ★ لا showInfoToast هنا إطلاقاً */
       } else {
         if (window.showInfoToast)
           window.showInfoToast("⏳ ستتوفر هذه الأداة قريبًا", "info", 2000);
@@ -1029,7 +1044,7 @@
       sel.color = dot.dataset.c;
       syncPop();
     });
-    ui.pBtnDup.addEventListener("click", (e)  => { e.stopPropagation(); duplicate(); });
+    ui.pBtnDup.addEventListener("click",  (e) => { e.stopPropagation(); duplicate(); });
     ui.pBtnCopy.addEventListener("click", (e) => { e.stopPropagation(); copyLine();  });
 
     /* ══ RENDER ══ */
@@ -1099,9 +1114,7 @@
       ctx.restore();
     }
 
-    /* ══ POINTER HANDLERS ══
-       ★ لا يوجد وضع createB (drag-to-create) بعد الآن
-       ★ السحب فقط لتحريك/تمديد الخطوط الموجودة  */
+    /* ══ POINTER HANDLERS ══ */
     function onPointerDown(x, y) {
       if (ui.overlay.classList.contains("show")) return { consumed: false };
 
@@ -1174,12 +1187,16 @@
 
   /* ══════════════════════════════════════════════
      POINTER HANDLERS
-     ★ Blocker overlay يمنع تحريك الشارت أثناء السحب
+     ★ يوقف الشارت تمامًا أثناء السحب:
+       1- stopImmediatePropagation في capture phase
+       2- canvas.style.pointerEvents = "none" أثناء الدراج
+       3- Blocker يستلم كل الأحداث
   ══════════════════════════════════════════════ */
   function hookPointerHandlers(chart, drawing, ui) {
     const canvas  = chart.canvas;
     const plot    = chart.plot;
 
+    /* ── Blocker div ── */
     const blocker = document.createElement("div");
     Object.assign(blocker.style, {
       position:    "absolute",
@@ -1191,13 +1208,23 @@
     });
     plot.appendChild(blocker);
 
+    /* ════════════════════════════════════════════
+       ★ activate: يعطّل أحداث الـ canvas تمامًا
+         حتى لا يتحرك الشارت أثناء السحب
+    ════════════════════════════════════════════ */
     function activate(pid) {
       blocker.style.display = "block";
+      /* منع الشارت من استقبال أي حدث pointermove/pointerup */
+      canvas.style.pointerEvents = "none";
       try { blocker.setPointerCapture(pid); } catch (e) {}
     }
-    function deactivate() { blocker.style.display = "none"; }
 
-    /* canvas: pointerdown */
+    function deactivate() {
+      blocker.style.display   = "none";
+      canvas.style.pointerEvents = "auto";
+    }
+
+    /* ── canvas: pointerdown (capture phase أعلى أولوية) ── */
     canvas.addEventListener(
       "pointerdown",
       (e) => {
@@ -1214,7 +1241,7 @@
       { capture: true, passive: false }
     );
 
-    /* canvas: pointermove (دفاع مضاعف) */
+    /* ── canvas: pointermove — يمنع التحريك عند الدراج ── */
     canvas.addEventListener(
       "pointermove",
       (e) => {
@@ -1227,7 +1254,7 @@
       { capture: true, passive: false }
     );
 
-    /* blocker: pointermove */
+    /* ── blocker: pointermove ── */
     blocker.addEventListener(
       "pointermove",
       (e) => {
@@ -1240,7 +1267,7 @@
       { passive: false }
     );
 
-    /* blocker: pointerup */
+    /* ── blocker: pointerup ── */
     blocker.addEventListener(
       "pointerup",
       (e) => {
@@ -1252,12 +1279,13 @@
       { passive: false }
     );
 
+    /* ── blocker: pointercancel ── */
     blocker.addEventListener("pointercancel", () => {
       drawing.onPointerUp();
       deactivate();
     });
 
-    /* ESC */
+    /* ── ESC ── */
     window.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
         ui.overlay.classList.remove("show");
