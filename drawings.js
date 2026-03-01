@@ -1,11 +1,14 @@
 /* ════════════════════════════════════════════════════════════════
-   DRAWINGS / INDICATORS PANEL  v2.0
+   DRAWINGS / INDICATORS PANEL  v3.0
    ✅ ثيم ذهبي كامل
-   ✅ Badge يظهر فورًا عند الضغط على خط الاتجاه
-   ✅ خط واحد فقط لكل سحبة (بدون تكرار)
+   ✅ خط الاتجاه يظهر فورًا عند الضغط على الاسم (بدون سحب)
+   ✅ خط واحد فقط لكل ضغطة (بدون تكرار أثناء السحب)
+   ✅ Badge يظهر عند تحديد الخط تلقائيًا
    ✅ الشارت لا يتحرك أثناء سحب/مط الخط
    ✅ مساحة سحب أكبر + مخفية (hit area)
-   ✅ مؤشر Bollinger Bands مع اختيار اللون
+   ✅ Bollinger Bands يغطي كل الشموع (بدون فلترة)
+   ✅ Bollinger Bands يتفعل تلقائيًا باللون الأزرق
+   ✅ مؤشر فراكتالز (Williams Fractals) مع سهام ▲▼
    ✅ أسماء العناصر أصغر وأوضح
 ════════════════════════════════════════════════════════════════ */
 (function () {
@@ -14,35 +17,35 @@
   /* ══════════════════════════════════════════════
      CONSTANTS
   ══════════════════════════════════════════════ */
-  const TOOL = { NONE: "none", TRENDLINE: "trendline" };
+  const TOOL = { NONE: "none" };
 
   const LINE_COLORS = [
-    { name: "ذهبي",   value: "#ffd700" },
-    { name: "أبيض",   value: "#ffffff" },
-    { name: "أخضر",  value: "#00dd00" },
-    { name: "أحمر",  value: "#ff3333" },
-    { name: "أزرق",  value: "#4aa3ff" },
-    { name: "وردي",  value: "#ff69b4" },
+    { name: "ذهبي",  value: "#ffd700" },
+    { name: "أبيض",  value: "#ffffff" },
+    { name: "أخضر", value: "#00dd00" },
+    { name: "أحمر", value: "#ff3333" },
+    { name: "أزرق", value: "#4aa3ff" },
+    { name: "وردي", value: "#ff69b4" },
   ];
 
   const BB_FILL_COLORS = [
     { name: "ذهبي",    fill: "rgba(255,215,0,0.10)",  line: "rgba(255,215,0,0.75)"  },
-    { name: "أزرق",    fill: "rgba(74,163,255,0.10)",  line: "rgba(74,163,255,0.75)" },
+    { name: "أزرق",    fill: "rgba(74,163,255,0.10)",  line: "rgba(74,163,255,0.80)" },
     { name: "أخضر",   fill: "rgba(0,221,0,0.10)",     line: "rgba(0,221,0,0.75)"    },
     { name: "بنفسجي", fill: "rgba(160,80,255,0.10)",  line: "rgba(160,80,255,0.75)" },
     { name: "رمادي",  fill: "rgba(180,180,200,0.08)", line: "rgba(180,180,200,0.5)" },
   ];
 
   const DRAWINGS_MENU = [
-    { key: "hline",     label: "خط أفقي",           icon: "—•—"  },
-    { key: "vline",     label: "خط رأسي",            icon: "│•"   },
-    { key: "ray",       label: "شعاع",               icon: "⟍•"  },
-    { key: "fib",       label: "ارتدادات فيبوناتشي", icon: "≋"    },
-    { key: "fan",       label: "مروحة فيبوناتشي",    icon: "⟋⟋"  },
-    { key: "trendline", label: "خط الاتجاه",         icon: "⟍•"  },
-    { key: "parallel",  label: "قناة موازية",        icon: "∥"    },
-    { key: "rect",      label: "مستطيل",             icon: "▭"    },
-    { key: "pitchfork", label: "شوكة أندروز",         icon: "⑂"    },
+    { key: "hline",     label: "خط أفقي",           icon: "—•—" },
+    { key: "vline",     label: "خط رأسي",            icon: "│•"  },
+    { key: "ray",       label: "شعاع",               icon: "⟍•" },
+    { key: "fib",       label: "ارتدادات فيبوناتشي", icon: "≋"   },
+    { key: "fan",       label: "مروحة فيبوناتشي",    icon: "⟋⟋" },
+    { key: "trendline", label: "خط الاتجاه",         icon: "⟍•" },
+    { key: "parallel",  label: "قناة موازية",        icon: "∥"   },
+    { key: "rect",      label: "مستطيل",             icon: "▭"   },
+    { key: "pitchfork", label: "شوكة أندروز",         icon: "⑂"   },
   ];
 
   /* ══════════════════════════════════════════════
@@ -79,8 +82,7 @@
       ta.value = text;
       ta.style.cssText = "position:fixed;left:-9999px;top:-9999px;";
       document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
+      ta.focus(); ta.select();
       try { document.execCommand("copy"); } catch (e) {}
       document.body.removeChild(ta);
       res();
@@ -98,6 +100,19 @@
       if (!c) return 0;
       return typeof c === "number" ? c : c.close || c.c || c[4] || c[3] || 0;
     });
+  }
+
+  /* ★ جديد: استخراج الـ Highs و Lows للفراكتالز */
+  function getHighsLows(chart) {
+    const data = chart.candles || chart.data || chart.ohlc || [];
+    const highs = [], lows = [];
+    data.forEach((c) => {
+      if (!c) { highs.push(0); lows.push(0); return; }
+      if (typeof c === "number") { highs.push(c); lows.push(c); return; }
+      highs.push(c.high || c.h || c[2] || c.close || c.c || 0);
+      lows.push(c.low  || c.l || c[3] || c.close || c.c || 0);
+    });
+    return { highs, lows };
   }
 
   function getSpacing(chart) {
@@ -133,16 +148,19 @@
     ensureRelative(chart.plot);
     injectCSS();
 
-    // indicators state
+    /* ★ BB يتفعل تلقائيًا باللون الأزرق (index 1) */
     const indState = {
       bb: {
+        active: true,
+        fill: BB_FILL_COLORS[1].fill,
+        line: BB_FILL_COLORS[1].line,
+      },
+      frac: {
         active: false,
-        fill: BB_FILL_COLORS[0].fill,
-        line: BB_FILL_COLORS[0].line,
       },
     };
 
-    const ui = buildUI(chart, indState);
+    const ui      = buildUI(chart, indState);
     const drawing = buildDrawingEngine(chart, ui, indState);
 
     patchChartDraw(chart, drawing, indState);
@@ -242,7 +260,7 @@
   display:flex;flex-direction:column;gap:3px;
 }
 
-/* ────── Menu Item (أصغر) ────── */
+/* ────── Menu Item ────── */
 .dwItem{
   display:flex;align-items:center;gap:9px;
   padding:7px 10px;border-radius:10px;
@@ -262,7 +280,6 @@
   color:rgba(255,215,0,.72);
   flex-shrink:0;
 }
-/* ★ الأسماء أصغر بكثير لكن واضحة */
 .dwItem .lbl{
   font-size:11.5px;font-weight:700;
   flex:1;letter-spacing:.1px;
@@ -298,7 +315,7 @@
 }
 .tgBtn.on::after{transform:translateX(15px);background:#000;}
 
-/* ────── BB color dots (inside panel) ────── */
+/* ────── BB color dots ────── */
 .bbColorRow{
   display:none;
   gap:6px;padding:5px 0 2px 0;
@@ -369,7 +386,6 @@
 }
 .pBtns{display:flex;gap:6px;align-items:center;}
 
-/* ★ أزرار الـ Popover بإطار ذهبي */
 .pBtn{
   padding:6px 10px;border-radius:9px;
   border:1.5px solid rgba(255,215,0,.25);
@@ -406,12 +422,11 @@
   color:rgba(170,190,255,.6);line-height:1.5;
 }
 
-/* ── مربعات النصوص الذهبية (inputs) ── */
+/* ── مربعات النصوص الذهبية ── */
 .dw-input{
   background:rgba(255,215,0,.04);
   border:1.5px solid rgba(255,215,0,.28);
-  border-radius:8px;
-  color:#ffd700;
+  border-radius:8px;color:#ffd700;
   padding:5px 9px;
   font-size:11px;font-weight:700;
   outline:none;
@@ -461,9 +476,11 @@
       </div>`
     ).join("");
 
-    /* ── Fill Indicators List (BB) ── */
+    /* ── Fill Indicators List (BB + Fractals) ── */
     const dwIndList = overlay.querySelector("#dwIndList");
+    /* ★ BB default selected = index 1 (أزرق) */
     dwIndList.innerHTML = `
+      <!-- Bollinger Bands -->
       <div class="dwItem" data-ind="bb" style="flex-direction:column;align-items:stretch;gap:0;">
         <div style="display:flex;align-items:center;gap:9px;width:100%;">
           <div class="ico" style="font-size:9px;font-weight:900;letter-spacing:-0.5px;color:rgba(255,215,0,.72);">BB</div>
@@ -472,18 +489,32 @@
             <span style="font-size:9px;opacity:.5;font-weight:600;">(20, 2)</span>
           </div>
           <div class="tgWrap">
-            <div class="tgBtn" id="bbToggle"></div>
+            <div class="tgBtn ${indState.bb.active ? 'on' : ''}" id="bbToggle"></div>
           </div>
         </div>
-        <div class="bbColorRow" id="bbColors">
-          <span class="cLbl">لون التعبئة:</span>
+        <div class="bbColorRow ${indState.bb.active ? 'show' : ''}" id="bbColors">
+          <span class="cLbl">لون:</span>
           ${BB_FILL_COLORS.map(
             (c, i) => `
-            <div class="bbCDot ${i === 0 ? "sel" : ""}"
+            <div class="bbCDot ${i === 1 ? "sel" : ""}"
                  data-fill="${c.fill}" data-line="${c.line}"
                  title="${c.name}"
                  style="background:${c.line};"></div>`
           ).join("")}
+        </div>
+      </div>
+
+      <!-- Fractals (فراكتالز) -->
+      <div class="dwItem" data-ind="frac" style="flex-direction:column;align-items:stretch;gap:0;">
+        <div style="display:flex;align-items:center;gap:9px;width:100%;">
+          <div class="ico" style="font-size:12px;font-weight:900;color:rgba(255,215,0,.72);">⟨⟩</div>
+          <div class="lbl" style="flex:1;">
+            فراكتالز
+            <span style="font-size:9px;opacity:.5;font-weight:600;">(Williams)</span>
+          </div>
+          <div class="tgWrap">
+            <div class="tgBtn" id="fracToggle"></div>
+          </div>
         </div>
       </div>
     `;
@@ -493,7 +524,7 @@
     badge.id = "dwBadge";
     badge.innerHTML = `
       <div id="dwBadgeName" title="اضغط للإعدادات">خط الاتجاه</div>
-      <button id="dwBadgeX" aria-label="إلغاء الأداة">×</button>
+      <button id="dwBadgeX" aria-label="إلغاء التحديد">×</button>
       <div id="dwPop">
         <div class="pRow">
           <div class="pLabel">السُمك</div>
@@ -527,28 +558,29 @@
     /* ── Gather refs ── */
     const el = {
       overlay,
-      panel: overlay.querySelector("#dwPanel"),
-      backdrop: overlay.querySelector("#dwBackdrop"),
-      closeBtn: overlay.querySelector("#dwCloseBtn"),
+      panel:       overlay.querySelector("#dwPanel"),
+      backdrop:    overlay.querySelector("#dwBackdrop"),
+      closeBtn:    overlay.querySelector("#dwCloseBtn"),
       dwList,
       dwIndList,
       badge,
-      badgeName: badge.querySelector("#dwBadgeName"),
-      badgeX: badge.querySelector("#dwBadgeX"),
-      pop: badge.querySelector("#dwPop"),
-      pwMinus: badge.querySelector("#pwMinus"),
-      pwPlus: badge.querySelector("#pwPlus"),
-      pColorDots: badge.querySelector("#pColorDots"),
-      pBtnCopy: badge.querySelector("#pBtnCopy"),
-      pBtnDup: badge.querySelector("#pBtnDup"),
-      pBtnClose: badge.querySelector("#pBtnClose"),
-      bbToggle: dwIndList.querySelector("#bbToggle"),
-      bbColors: dwIndList.querySelector("#bbColors"),
+      badgeName:   badge.querySelector("#dwBadgeName"),
+      badgeX:      badge.querySelector("#dwBadgeX"),
+      pop:         badge.querySelector("#dwPop"),
+      pwMinus:     badge.querySelector("#pwMinus"),
+      pwPlus:      badge.querySelector("#pwPlus"),
+      pColorDots:  badge.querySelector("#pColorDots"),
+      pBtnCopy:    badge.querySelector("#pBtnCopy"),
+      pBtnDup:     badge.querySelector("#pBtnDup"),
+      pBtnClose:   badge.querySelector("#pBtnClose"),
+      bbToggle:    dwIndList.querySelector("#bbToggle"),
+      bbColors:    dwIndList.querySelector("#bbColors"),
+      fracToggle:  dwIndList.querySelector("#fracToggle"),
     };
 
     /* ── Panel events ── */
-    el.closeBtn.addEventListener("click", () => hideOverlay(el));
-    el.backdrop.addEventListener("click", () => hideOverlay(el));
+    el.closeBtn.addEventListener("click",  () => hideOverlay(el));
+    el.backdrop.addEventListener("click",  () => hideOverlay(el));
 
     /* ── Badge events ── */
     el.badgeName.addEventListener("click", (e) => {
@@ -559,12 +591,14 @@
       e.stopPropagation();
       el.pop.classList.remove("show");
     });
+
+    /* ★ زر X في Badge → إلغاء التحديد (بدون حذف الخط) */
     el.badgeX.addEventListener("click", (e) => {
       e.stopPropagation();
       el.pop.classList.remove("show");
       hideBadge(el);
       if (window.__drawings && window.__drawings.drawing)
-        window.__drawings.drawing.setTool(TOOL.NONE);
+        window.__drawings.drawing.deselect();
     });
 
     /* ── BB Toggle ── */
@@ -579,12 +613,17 @@
     el.bbColors.addEventListener("click", (e) => {
       const dot = e.target.closest(".bbCDot");
       if (!dot) return;
-      el.bbColors.querySelectorAll(".bbCDot").forEach((d) =>
-        d.classList.remove("sel")
-      );
+      el.bbColors.querySelectorAll(".bbCDot").forEach((d) => d.classList.remove("sel"));
       dot.classList.add("sel");
       indState.bb.fill = dot.dataset.fill;
       indState.bb.line = dot.dataset.line;
+    });
+
+    /* ── Fractals Toggle ── */
+    el.fracToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      indState.frac.active = !indState.frac.active;
+      el.fracToggle.classList.toggle("on", indState.frac.active);
     });
 
     return el;
@@ -592,19 +631,12 @@
 
   function showOverlay(ui) { ui.overlay.classList.add("show"); }
   function hideOverlay(ui) { ui.overlay.classList.remove("show"); }
-
-  function showBadge(ui, name) {
-    ui.badgeName.textContent = name;
-    ui.badge.classList.add("show");
-  }
-  function hideBadge(ui) {
-    ui.badge.classList.remove("show");
-  }
+  function showBadge(ui, name) { ui.badgeName.textContent = name; ui.badge.classList.add("show"); }
+  function hideBadge(ui)       { ui.badge.classList.remove("show"); }
 
   function hookIndicatorsButton(ui) {
     const btn =
-      document.querySelector('.quick-actions button[aria-label="Options"]') ||
-      null;
+      document.querySelector('.quick-actions button[aria-label="Options"]') || null;
     if (!btn) { console.warn("[drawings] Options button not found"); return; }
     btn.addEventListener("click", (e) => {
       e.preventDefault();
@@ -625,7 +657,7 @@
   }
 
   /* ══════════════════════════════════════════════
-     BOLLINGER BANDS — حساب ورسم
+     BOLLINGER BANDS — حساب
   ══════════════════════════════════════════════ */
   function calcBB(closes, period, mult) {
     const upper = [], lower = [], mid = [];
@@ -642,6 +674,10 @@
     return { upper, lower, mid };
   }
 
+  /* ══════════════════════════════════════════════
+     BOLLINGER BANDS — رسم
+     ★ FIX: بدون فلترة النطاق — يغطي كل الشموع
+  ══════════════════════════════════════════════ */
   function drawBollingerBands(ctx, chart, indState) {
     if (!indState.bb.active) return;
 
@@ -654,22 +690,14 @@
     const fillColor = indState.bb.fill;
     const lineColor = indState.bb.line;
 
-    /* visible range */
-    const sp = getSpacing(chart);
-    const off = getOffset(chart);
-    const cw = chart.w || (chart.canvas ? chart.canvas.width : 800);
-    const s0 = Math.max(0, Math.floor(off) - 2);
-    const s1 = s0 + Math.ceil(cw / sp) + 6;
-
-    const vu = upper.filter((p) => p.i >= s0 && p.i <= s1);
-    const vl = lower.filter((p) => p.i >= s0 && p.i <= s1);
-    const vm = mid.filter((p) => p.i >= s0 && p.i <= s1);
-
-    if (vu.length < 2) return;
+    /* ★ لا فلترة — كل النقاط (canvas يقطع تلقائيًا) */
+    const vu = upper;
+    const vl = lower;
+    const vm = mid;
 
     ctx.save();
 
-    /* fill */
+    /* fill بين الخطين */
     ctx.beginPath();
     vu.forEach((p, idx) => {
       const x = chart.indexToX(p.i), y = chart.priceToY(p.v);
@@ -682,7 +710,7 @@
     ctx.fillStyle = fillColor;
     ctx.fill();
 
-    /* upper band */
+    /* الخط العلوي */
     ctx.beginPath();
     vu.forEach((p, idx) => {
       const x = chart.indexToX(p.i), y = chart.priceToY(p.v);
@@ -692,7 +720,7 @@
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    /* lower band */
+    /* الخط السفلي */
     ctx.beginPath();
     vl.forEach((p, idx) => {
       const x = chart.indexToX(p.i), y = chart.priceToY(p.v);
@@ -702,18 +730,110 @@
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    /* middle SMA — dashed */
+    /* الوسط — متقطع */
     ctx.beginPath();
     vm.forEach((p, idx) => {
       const x = chart.indexToX(p.i), y = chart.priceToY(p.v);
       idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     });
-    /* لون الوسط أخف */
-    ctx.strokeStyle = lineColor.replace(/[\d.]+\)$/, "0.38)");
+    ctx.strokeStyle = lineColor.replace(/[\d.]+\)$/, "0.35)");
     ctx.lineWidth = 1;
     ctx.setLineDash([5, 5]);
     ctx.stroke();
     ctx.setLineDash([]);
+
+    ctx.restore();
+  }
+
+  /* ══════════════════════════════════════════════
+     FRACTALS (فراكتالز) — حساب ورسم
+  ══════════════════════════════════════════════ */
+  function calcFractals(chart) {
+    const { highs, lows } = getHighsLows(chart);
+    const bullFractals = []; // نقاط قيعان (▲ تحت الشمعة)
+    const bearFractals = []; // نقاط قمم (▼ فوق الشمعة)
+
+    for (let i = 2; i < highs.length - 2; i++) {
+      const h = highs[i];
+      /* قمة فراكتال: أعلى من جارَيه من كل جهة */
+      if (
+        h > 0 &&
+        h > highs[i - 1] && h > highs[i - 2] &&
+        h > highs[i + 1] && h > highs[i + 2]
+      ) {
+        bearFractals.push({ i, v: h });
+      }
+
+      const l = lows[i];
+      /* قاع فراكتال: أدنى من جارَيه من كل جهة */
+      if (
+        l > 0 &&
+        l < lows[i - 1] && l < lows[i - 2] &&
+        l < lows[i + 1] && l < lows[i + 2]
+      ) {
+        bullFractals.push({ i, v: l });
+      }
+    }
+    return { bullFractals, bearFractals };
+  }
+
+  /* سهم ▲ (نحو الأعلى) تحت القاع */
+  function drawArrowUp(ctx, x, y, sz, color) {
+    ctx.save();
+    ctx.globalAlpha = 0.92;
+    ctx.beginPath();
+    ctx.moveTo(x,      y - sz * 1.1);   /* رأس السهم */
+    ctx.lineTo(x - sz, y + sz * 0.55);  /* يسار */
+    ctx.lineTo(x + sz, y + sz * 0.55);  /* يمين */
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    /* خط رفيع */
+    ctx.strokeStyle = "rgba(0,0,0,0.30)";
+    ctx.lineWidth = 0.7;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /* سهم ▼ (نحو الأسفل) فوق القمة */
+  function drawArrowDown(ctx, x, y, sz, color) {
+    ctx.save();
+    ctx.globalAlpha = 0.92;
+    ctx.beginPath();
+    ctx.moveTo(x,      y + sz * 1.1);   /* رأس السهم */
+    ctx.lineTo(x - sz, y - sz * 0.55);  /* يسار */
+    ctx.lineTo(x + sz, y - sz * 0.55);  /* يمين */
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,0.30)";
+    ctx.lineWidth = 0.7;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawFractals(ctx, chart, indState) {
+    if (!indState.frac.active) return;
+
+    const { bullFractals, bearFractals } = calcFractals(chart);
+    const SZ     = 5.5;   /* حجم السهم */
+    const OFFSET = 12;    /* بُعد السهم عن الشمعة بالـpx */
+
+    ctx.save();
+
+    /* ▼ فوق القمم — أحمر */
+    for (const f of bearFractals) {
+      const x = chart.indexToX(f.i);
+      const y = chart.priceToY(f.v) - OFFSET;
+      drawArrowDown(ctx, x, y, SZ, "#ff4444");
+    }
+
+    /* ▲ تحت القيعان — أخضر */
+    for (const f of bullFractals) {
+      const x = chart.indexToX(f.i);
+      const y = chart.priceToY(f.v) + OFFSET;
+      drawArrowUp(ctx, x, y, SZ, "#00cc88");
+    }
 
     ctx.restore();
   }
@@ -728,7 +848,6 @@
       drawings: [],
       selectedId: null,
       dragging: null,
-      creating: false, // guard: منع تكرار الخط أثناء السحب
     };
 
     /* ── Coordinate helpers ── */
@@ -737,11 +856,17 @@
     }
     function yToP(y) {
       const r = getPR();
-      const n = clamp(1 - y / chart.h, 0, 1);
+      if (!r) return 0;
+      const n = clamp(1 - y / (chart.h || chart.canvas.height), 0, 1);
       return r.min + n * (r.max - r.min);
     }
+    function xToIdx(x) {
+      if (chart.xToIndex) return chart.xToIndex(x);
+      const sp = Math.max(getSpacing(chart), 1);
+      return getOffset(chart) + x / sp;
+    }
     function toData(x, y) {
-      return { i: chart.xToIndex(x), p: yToP(y) };
+      return { i: xToIdx(x), p: yToP(y) };
     }
     function handles(d) {
       const ax = chart.indexToX(d.a.i), ay = chart.priceToY(d.a.p);
@@ -749,14 +874,12 @@
       return { ax, ay, bx, by, mx: (ax + bx) / 2, my: (ay + by) / 2 };
     }
 
-    /* ── Hit areas ──
-       مساحة سحب أكبر (مخفية) + نقاط مرئية صغيرة */
-    const HIT_H  = 22;   // radius لنقاط السحب (مخفي)
-    const HIT_L  = 16;   // tolerance لخط الاتجاه (مخفي)
-    const VIS_H  = 6.5;  // radius مرئي للنقاط
+    /* ── Hit areas ── */
+    const HIT_H = 22;
+    const HIT_L = 16;
+    const VIS_H = 6.5;
 
     function hitTest(x, y) {
-      /* نقاط الخط المحدد أولاً */
       const sel = state.drawings.find((d) => d.id === state.selectedId);
       if (sel) {
         const h = handles(sel);
@@ -764,7 +887,6 @@
         if (Math.hypot(x - h.bx, y - h.by) <= HIT_H) return { kind: "handleB", id: sel.id };
         if (Math.hypot(x - h.mx, y - h.my) <= HIT_H) return { kind: "handleM", id: sel.id };
       }
-      /* كل الخطوط */
       for (let i = state.drawings.length - 1; i >= 0; i--) {
         const d = state.drawings[i];
         if (d.type !== "trendline") continue;
@@ -775,14 +897,27 @@
       return null;
     }
 
+    /* ── select / deselect ── */
     function select(id) {
       state.selectedId = id;
+      /* ★ Badge يظهر عند تحديد أي خط */
+      if (id) {
+        const d = state.drawings.find((dd) => dd.id === id);
+        if (d && d.type === "trendline")
+          showBadge(ui, "✏️ خط الاتجاه");
+      } else {
+        hideBadge(ui);
+      }
       syncPop();
     }
+
     function deselect() {
       state.selectedId = null;
+      hideBadge(ui);
+      ui.pop.classList.remove("show");
       syncPop();
     }
+
     function syncPop() {
       const sel = state.drawings.find((d) => d.id === state.selectedId);
       ui.pColorDots.querySelectorAll(".pCDot").forEach((n) =>
@@ -790,26 +925,16 @@
       );
     }
 
-    /* ── setTool ──
-       ★ Badge يظهر فورًا عند اختيار خط الاتجاه */
+    /* ★ setTool — مُبسَّط، لا يوجد وضع رسم بالسحب */
     function setTool(name) {
-      state.tool = name;
-      if (name === TOOL.NONE) {
-        ui.pop.classList.remove("show");
-        hideBadge(ui);
-        state.dragging = null;
-        state.creating = false;
-        /* إزالة تحديد زر القائمة */
-        ui.dwList.querySelectorAll(".dwItem").forEach((n) =>
-          n.classList.remove("activeKey")
-        );
-      }
-      if (name === TOOL.TRENDLINE) {
-        /* ★ ظهور فوري */
-        showBadge(ui, "✏️ خط الاتجاه");
-        const it = ui.dwList.querySelector('.dwItem[data-key="trendline"]');
-        if (it) it.classList.add("activeKey");
-      }
+      state.tool = TOOL.NONE;
+      state.dragging = null;
+      state.selectedId = null;
+      hideBadge(ui);
+      ui.pop.classList.remove("show");
+      ui.dwList.querySelectorAll(".dwItem").forEach((n) =>
+        n.classList.remove("activeKey")
+      );
     }
 
     function addLine(a, b) {
@@ -817,18 +942,38 @@
         id: uid(), type: "trendline",
         a: { i: a.i, p: a.p },
         b: { i: b.i, p: b.p },
-        color: "#ffd700", width: 2.2,
+        color: "#ffd700",
+        width: 2.2,
       };
       state.drawings.push(d);
       select(d.id);
       return d;
     }
 
+    /* ★ createDefaultLine — يضع الخط فورًا في مركز الشارت */
+    function createDefaultLine() {
+      try {
+        const sp  = Math.max(getSpacing(chart), 1);
+        const off = getOffset(chart);
+        const cw  = chart.w || (chart.canvas ? chart.canvas.width : 800);
+        const vis = Math.ceil(cw / sp);
+        const mid = Math.floor(off + vis / 2);
+        const span = Math.max(Math.floor(vis / 5), 4);
+
+        const pr = getPR() || { min: 0, max: 100 };
+        const mp  = (pr.min + pr.max) / 2;
+
+        return addLine({ i: mid - span, p: mp }, { i: mid + span, p: mp });
+      } catch (_) {
+        return addLine({ i: 10, p: 100 }, { i: 30, p: 100 });
+      }
+    }
+
     function duplicate() {
       const sel = state.drawings.find((d) => d.id === state.selectedId);
       if (!sel) return;
-      const r = getPR();
-      const dp = (r.max - r.min) * 0.01;
+      const pr = getPR();
+      const dp  = pr ? (pr.max - pr.min) * 0.01 : 1;
       const copy = {
         ...sel, id: uid(),
         a: { i: sel.a.i + 2, p: sel.a.p + dp },
@@ -847,17 +992,18 @@
       });
     }
 
-    /* ── Menu click (الرسومات) ── */
+    /* ── Menu click ──
+       ★ خط الاتجاه يظهر فورًا عند الضغط (بدون سحب)
+       ★ لا يُنشأ خط إضافي بالسحب على الشارت  */
     ui.dwList.addEventListener("click", (e) => {
       const row = e.target.closest(".dwItem");
       if (!row) return;
       const key = row.getAttribute("data-key");
       if (key === "trendline") {
-        /* ★ يختفي الـ overlay فورًا ويظهر Badge */
-        setTool(TOOL.TRENDLINE);
+        createDefaultLine();        /* ★ يظهر فورًا */
         hideOverlay(ui);
         if (window.showInfoToast)
-          window.showInfoToast("🎯 اسحب على الشارت لرسم خط الاتجاه", "info", 2800);
+          window.showInfoToast("✅ تم إضافة خط الاتجاه — اسحب الدوائر لضبطه", "info", 2800);
       } else {
         if (window.showInfoToast)
           window.showInfoToast("⏳ ستتوفر هذه الأداة قريبًا", "info", 2000);
@@ -883,8 +1029,8 @@
       sel.color = dot.dataset.c;
       syncPop();
     });
-    ui.pBtnDup.addEventListener("click", (e) => { e.stopPropagation(); duplicate(); });
-    ui.pBtnCopy.addEventListener("click", (e) => { e.stopPropagation(); copyLine(); });
+    ui.pBtnDup.addEventListener("click", (e)  => { e.stopPropagation(); duplicate(); });
+    ui.pBtnCopy.addEventListener("click", (e) => { e.stopPropagation(); copyLine();  });
 
     /* ══ RENDER ══ */
     function drawAll(ctx) {
@@ -897,13 +1043,12 @@
       const h = handles(d);
       ctx.save();
 
-      /* ─ glow when selected ─ */
       if (selected) {
-        ctx.shadowColor = d.color || "#ffd700";
-        ctx.shadowBlur = 10;
-        ctx.globalAlpha = 0.18;
-        ctx.lineWidth = (d.width || 2.2) + 6;
-        ctx.strokeStyle = d.color || "#ffd700";
+        ctx.shadowColor  = d.color || "#ffd700";
+        ctx.shadowBlur   = 10;
+        ctx.globalAlpha  = 0.18;
+        ctx.lineWidth    = (d.width || 2.2) + 6;
+        ctx.strokeStyle  = d.color || "#ffd700";
         ctx.beginPath();
         ctx.moveTo(h.ax, h.ay);
         ctx.lineTo(h.bx, h.by);
@@ -911,20 +1056,18 @@
         ctx.shadowBlur = 0;
       }
 
-      /* ─ main line ─ */
       ctx.globalAlpha = 0.96;
-      ctx.lineWidth = d.width || 2.2;
+      ctx.lineWidth   = d.width || 2.2;
       ctx.strokeStyle = d.color || "#ffd700";
       ctx.beginPath();
       ctx.moveTo(h.ax, h.ay);
       ctx.lineTo(h.bx, h.by);
       ctx.stroke();
 
-      /* ─ handles (نقاط التحكم) ─ */
       if (selected) {
-        drawHandle(ctx, h.ax, h.ay, VIS_H, d.color || "#ffd700", false);
-        drawHandle(ctx, h.bx, h.by, VIS_H, d.color || "#ffd700", false);
-        drawHandle(ctx, h.mx, h.my, VIS_H * 0.8, "#ffffff", true);
+        drawHandle(ctx, h.ax, h.ay, VIS_H,       d.color || "#ffd700", false);
+        drawHandle(ctx, h.bx, h.by, VIS_H,       d.color || "#ffd700", false);
+        drawHandle(ctx, h.mx, h.my, VIS_H * 0.8, "#ffffff",            true);
       }
 
       ctx.restore();
@@ -935,21 +1078,19 @@
       ctx.beginPath();
       ctx.arc(x, y, r, 0, Math.PI * 2);
       if (filled) {
-        ctx.fillStyle = color;
+        ctx.fillStyle   = color;
         ctx.globalAlpha = 0.95;
         ctx.fill();
-        /* ring */
         ctx.strokeStyle = "rgba(0,0,0,.4)";
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth   = 1.5;
         ctx.stroke();
       } else {
-        ctx.fillStyle = "rgba(10,15,35,.85)";
+        ctx.fillStyle   = "rgba(10,15,35,.85)";
         ctx.fill();
         ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
+        ctx.lineWidth   = 2;
         ctx.globalAlpha = 0.95;
         ctx.stroke();
-        /* inner dot */
         ctx.beginPath();
         ctx.arc(x, y, r * 0.32, 0, Math.PI * 2);
         ctx.fillStyle = color;
@@ -958,47 +1099,12 @@
       ctx.restore();
     }
 
-    /* ══ POINTER HANDLERS ══ */
-
-    /*
-      ★ FIX: بدون تكرار الخط أثناء السحب
-         — guard: state.creating = true أثناء رسم الخط
-         — في وضع TRENDLINE نتحقق أولاً من hit test
-           (لو ضغطنا على خط موجود → نسحبه، مش نرسم جديد)
-    */
+    /* ══ POINTER HANDLERS ══
+       ★ لا يوجد وضع createB (drag-to-create) بعد الآن
+       ★ السحب فقط لتحريك/تمديد الخطوط الموجودة  */
     function onPointerDown(x, y) {
       if (ui.overlay.classList.contains("show")) return { consumed: false };
 
-      /* guard: لا تبدأ خطًا جديدًا لو سحب جارٍ */
-      if (state.creating) return { consumed: true };
-
-      /* ─ TRENDLINE mode ─ */
-      if (state.tool === TOOL.TRENDLINE) {
-        const hit = hitTest(x, y);
-        if (hit) {
-          /* سحب خط أو نقطة موجودة */
-          select(hit.id);
-          const sel = state.drawings.find((d) => d.id === hit.id);
-          if (sel) {
-            const mode = hit.kind === "line" ? "handleM" : hit.kind;
-            state.dragging = {
-              mode,
-              id: hit.id,
-              start: { x, y },
-              orig: JSON.parse(JSON.stringify(sel)),
-            };
-          }
-          return { consumed: true };
-        }
-        /* ★ رسم خط جديد */
-        const a = toData(x, y);
-        const d = addLine(a, { i: a.i + 0.001, p: a.p });
-        state.creating = true;
-        state.dragging = { mode: "createB", id: d.id };
-        return { consumed: true };
-      }
-
-      /* ─ NONE mode ─ */
       const hit = hitTest(x, y);
       if (hit) {
         select(hit.id);
@@ -1006,10 +1112,9 @@
         if (sel) {
           const mode = hit.kind === "line" ? "handleM" : hit.kind;
           state.dragging = {
-            mode,
-            id: hit.id,
+            mode, id: hit.id,
             start: { x, y },
-            orig: JSON.parse(JSON.stringify(sel)),
+            orig:  JSON.parse(JSON.stringify(sel)),
           };
         }
         return { consumed: true };
@@ -1023,32 +1128,21 @@
       const d = state.drawings.find((dd) => dd.id === state.dragging.id);
       if (!d) { state.dragging = null; return false; }
 
-      if (state.dragging.mode === "createB") {
-        const b = toData(x, y);
-        d.b.i = b.i; d.b.p = b.p;
-        return true;
-      }
       const orig = state.dragging.orig;
       if (!orig) return true;
 
       if (state.dragging.mode === "handleA") {
-        const a = toData(x, y);
-        d.a.i = a.i; d.a.p = a.p;
-        return true;
+        const a = toData(x, y); d.a.i = a.i; d.a.p = a.p; return true;
       }
       if (state.dragging.mode === "handleB") {
-        const b = toData(x, y);
-        d.b.i = b.i; d.b.p = b.p;
-        return true;
+        const b = toData(x, y); d.b.i = b.i; d.b.p = b.p; return true;
       }
       if (state.dragging.mode === "handleM") {
         const dx = x - state.dragging.start.x;
         const di = dx / getSpacing(chart);
         const dp = yToP(y) - yToP(state.dragging.start.y);
-        d.a.i = orig.a.i + di;
-        d.b.i = orig.b.i + di;
-        d.a.p = orig.a.p + dp;
-        d.b.p = orig.b.p + dp;
+        d.a.i = orig.a.i + di; d.b.i = orig.b.i + di;
+        d.a.p = orig.a.p + dp; d.b.p = orig.b.p + dp;
         return true;
       }
       return true;
@@ -1056,21 +1150,11 @@
 
     function onPointerUp() {
       if (!state.dragging) return false;
-      if (state.dragging.mode === "createB") {
-        const d = state.drawings.find((dd) => dd.id === state.dragging.id);
-        if (d) {
-          if (Math.abs(d.b.i - d.a.i) < 1) d.b.i = d.a.i + 4;
-          select(d.id);
-          if (window.showInfoToast)
-            window.showInfoToast("✅ تم رسم خط الاتجاه", "info", 2000);
-        }
-      }
       state.dragging = null;
-      state.creating = false; /* ★ رفع الـ guard */
       return true;
     }
 
-    return { state, drawAll, setTool, onPointerDown, onPointerMove, onPointerUp };
+    return { state, drawAll, setTool, deselect, onPointerDown, onPointerMove, onPointerUp };
   }
 
   /* ══════════════════════════════════════════════
@@ -1083,7 +1167,8 @@
     chart.draw = function () {
       orig();
       try { drawBollingerBands(chart.ctx, chart, indState); } catch (e) {}
-      try { drawing.drawAll(chart.ctx); } catch (e) {}
+      try { drawFractals(chart.ctx, chart, indState);       } catch (e) {}
+      try { drawing.drawAll(chart.ctx);                     } catch (e) {}
     };
   }
 
@@ -1092,23 +1177,17 @@
      ★ Blocker overlay يمنع تحريك الشارت أثناء السحب
   ══════════════════════════════════════════════ */
   function hookPointerHandlers(chart, drawing, ui) {
-    const canvas = chart.canvas;
-    const plot   = chart.plot;
+    const canvas  = chart.canvas;
+    const plot    = chart.plot;
 
-    /*
-      ★ Blocker: div شفاف فوق الـ canvas
-         يُفعَّل فقط أثناء الرسم/السحب
-         يلتقط pointermove + pointerup
-         ويمنع chart.pan من التفعيل
-    */
     const blocker = document.createElement("div");
     Object.assign(blocker.style, {
-      position: "absolute",
-      inset: "0",
-      zIndex: "255",
-      display: "none",
+      position:    "absolute",
+      inset:       "0",
+      zIndex:      "255",
+      display:     "none",
       touchAction: "none",
-      cursor: "crosshair",
+      cursor:      "crosshair",
     });
     plot.appendChild(blocker);
 
@@ -1116,16 +1195,14 @@
       blocker.style.display = "block";
       try { blocker.setPointerCapture(pid); } catch (e) {}
     }
-    function deactivate() {
-      blocker.style.display = "none";
-    }
+    function deactivate() { blocker.style.display = "none"; }
 
-    /* ── canvas: pointerdown (capture) ── */
+    /* canvas: pointerdown */
     canvas.addEventListener(
       "pointerdown",
       (e) => {
         if (e.button === 2) return;
-        const p = getRelPos(canvas, e.clientX, e.clientY);
+        const p   = getRelPos(canvas, e.clientX, e.clientY);
         const res = drawing.onPointerDown(p.x, p.y);
         if (res && res.consumed) {
           e.preventDefault();
@@ -1137,10 +1214,7 @@
       { capture: true, passive: false }
     );
 
-    /*
-      ★ إضافي: منع الـ chart من تلقي pointermove أثناء السحب
-         (دفاع مضاعف حتى لو الـ chart يستمع على document)
-    */
+    /* canvas: pointermove (دفاع مضاعف) */
     canvas.addEventListener(
       "pointermove",
       (e) => {
@@ -1153,7 +1227,7 @@
       { capture: true, passive: false }
     );
 
-    /* ── blocker: pointermove ── */
+    /* blocker: pointermove */
     blocker.addEventListener(
       "pointermove",
       (e) => {
@@ -1166,7 +1240,7 @@
       { passive: false }
     );
 
-    /* ── blocker: pointerup ── */
+    /* blocker: pointerup */
     blocker.addEventListener(
       "pointerup",
       (e) => {
@@ -1183,7 +1257,7 @@
       deactivate();
     });
 
-    /* ── ESC ── */
+    /* ESC */
     window.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
         ui.overlay.classList.remove("show");
