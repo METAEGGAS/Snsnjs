@@ -1,11 +1,13 @@
 /* ════════════════════════════════════════════════════════════════
-   DRAWINGS / INDICATORS PANEL  v4.0
-   ✅ خط الاتجاه في المنتصف الدقيق للشارت
+   DRAWINGS / INDICATORS PANEL  v4.1
+   ✅ اسم الرسم لا يظهر إلا عند النقر عليه (6 ثواني ثم يختفي)
+   ✅ تفعيل كل أدوات الرسم (hline, vline, ray, fib, fan, trendline, parallel, rect, pitchfork)
+   ✅ خط الاتجاه في منتصف الشارت
    ✅ نقاط المط (A, B, وسط) دائمًا ظاهرة على الخط
    ✅ الشارت يتجمد تمامًا أثناء السحب / المط
    ✅ قناة موازية — نفس الواجهة + 4 نقاط تحكم
    ✅ مستطيل — نقطة مط عليا يمين + نقطة مط سفلى يسار
-   ✅ Bollinger Bands مفعّل (أزرق)
+   ✅ Bollinger Bands موجود لكن غير مفعّل تلقائيًا (افتراضي OFF)
    ✅ فراكتالز ويليامز
 ════════════════════════════════════════════════════════════════ */
 (function () {
@@ -17,8 +19,8 @@
   const TOOL = { NONE: "none" };
 
   const LINE_COLORS = [
-    { name: "ذهبي",  value: "#ffd700" },
-    { name: "أبيض",  value: "#ffffff" },
+    { name: "ذهبي", value: "#ffd700" },
+    { name: "أبيض", value: "#ffffff" },
     { name: "أخضر", value: "#00dd00" },
     { name: "أحمر", value: "#ff3333" },
     { name: "أزرق", value: "#4aa3ff" },
@@ -26,23 +28,23 @@
   ];
 
   const BB_FILL_COLORS = [
-    { name: "ذهبي",    fill: "rgba(255,215,0,0.10)",  line: "rgba(255,215,0,0.75)"  },
-    { name: "أزرق",    fill: "rgba(74,163,255,0.10)",  line: "rgba(74,163,255,0.80)" },
-    { name: "أخضر",   fill: "rgba(0,221,0,0.10)",     line: "rgba(0,221,0,0.75)"    },
-    { name: "بنفسجي", fill: "rgba(160,80,255,0.10)",  line: "rgba(160,80,255,0.75)" },
-    { name: "رمادي",  fill: "rgba(180,180,200,0.08)", line: "rgba(180,180,200,0.5)" },
+    { name: "ذهبي", fill: "rgba(255,215,0,0.10)", line: "rgba(255,215,0,0.75)" },
+    { name: "أزرق", fill: "rgba(74,163,255,0.10)", line: "rgba(74,163,255,0.80)" },
+    { name: "أخضر", fill: "rgba(0,221,0,0.10)", line: "rgba(0,221,0,0.75)" },
+    { name: "بنفسجي", fill: "rgba(160,80,255,0.10)", line: "rgba(160,80,255,0.75)" },
+    { name: "رمادي", fill: "rgba(180,180,200,0.08)", line: "rgba(180,180,200,0.5)" },
   ];
 
   const DRAWINGS_MENU = [
-    { key: "hline",     label: "خط أفقي",           icon: "—•—" },
-    { key: "vline",     label: "خط رأسي",            icon: "│•"  },
-    { key: "ray",       label: "شعاع",               icon: "⟍•" },
-    { key: "fib",       label: "ارتدادات فيبوناتشي", icon: "≋"   },
-    { key: "fan",       label: "مروحة فيبوناتشي",    icon: "⟋⟋" },
-    { key: "trendline", label: "خط الاتجاه",         icon: "⟍•" },
-    { key: "parallel",  label: "قناة موازية",        icon: "∥"   },
-    { key: "rect",      label: "مستطيل",             icon: "▭"   },
-    { key: "pitchfork", label: "شوكة أندروز",         icon: "⑂"   },
+    { key: "hline", label: "خط أفقي", icon: "—•—" },
+    { key: "vline", label: "خط رأسي", icon: "│•" },
+    { key: "ray", label: "شعاع", icon: "⟍•" },
+    { key: "fib", label: "ارتدادات فيبوناتشي", icon: "≋" },
+    { key: "fan", label: "مروحة فيبوناتشي", icon: "⟋⟋" },
+    { key: "trendline", label: "خط الاتجاه", icon: "⟍•" },
+    { key: "parallel", label: "قناة موازية", icon: "∥" },
+    { key: "rect", label: "مستطيل", icon: "▭" },
+    { key: "pitchfork", label: "شوكة أندروز", icon: "⑂" },
   ];
 
   /* ══════════════════════════════════════════════
@@ -73,14 +75,14 @@
     try {
       if (navigator.clipboard && navigator.clipboard.writeText)
         return navigator.clipboard.writeText(text);
-    } catch (e) {}
+    } catch (e) { }
     return new Promise((res) => {
       const ta = document.createElement("textarea");
       ta.value = text;
       ta.style.cssText = "position:fixed;left:-9999px;top:-9999px;";
       document.body.appendChild(ta);
       ta.focus(); ta.select();
-      try { document.execCommand("copy"); } catch (e) {}
+      try { document.execCommand("copy"); } catch (e) { }
       document.body.removeChild(ta);
       res();
     });
@@ -106,7 +108,7 @@
       if (!c) { highs.push(0); lows.push(0); return; }
       if (typeof c === "number") { highs.push(c); lows.push(c); return; }
       highs.push(c.high || c.h || c[2] || c.close || c.c || 0);
-      lows.push(c.low  || c.l || c[3] || c.close || c.c || 0);
+      lows.push(c.low || c.l || c[3] || c.close || c.c || 0);
     });
     return { highs, lows };
   }
@@ -145,11 +147,12 @@
     injectCSS();
 
     const indState = {
-      bb:   { active: true, fill: BB_FILL_COLORS[1].fill, line: BB_FILL_COLORS[1].line },
+      // ★ تعطيل التفعيل التلقائي للبولينجر (افتراضي OFF)
+      bb: { active: false, fill: BB_FILL_COLORS[1].fill, line: BB_FILL_COLORS[1].line },
       frac: { active: false },
     };
 
-    const ui      = buildUI(chart, indState);
+    const ui = buildUI(chart, indState);
     const drawing = buildDrawingEngine(chart, ui, indState);
 
     patchChartDraw(chart, drawing, indState);
@@ -480,12 +483,12 @@
         <div class="bbColorRow ${indState.bb.active ? "show" : ""}" id="bbColors">
           <span class="cLbl">لون:</span>
           ${BB_FILL_COLORS.map(
-            (c, i) => `
+      (c, i) => `
             <div class="bbCDot ${i === 1 ? "sel" : ""}"
                  data-fill="${c.fill}" data-line="${c.line}"
                  title="${c.name}"
                  style="background:${c.line};"></div>`
-          ).join("")}
+    ).join("")}
         </div>
       </div>
 
@@ -497,7 +500,7 @@
             <span style="font-size:9px;opacity:.5;font-weight:600;">(Williams)</span>
           </div>
           <div class="tgWrap">
-            <div class="tgBtn" id="fracToggle"></div>
+            <div class="tgBtn ${indState.frac.active ? "on" : ""}" id="fracToggle"></div>
           </div>
         </div>
       </div>
@@ -521,10 +524,10 @@
           <div class="pLabel">اللون</div>
           <div class="pColorDots" id="pColorDots">
             ${LINE_COLORS.map(
-              (c) => `<div class="pCDot" data-c="${c.value}"
+      (c) => `<div class="pCDot" data-c="${c.value}"
                         title="${c.name}"
                         style="background:${c.value};"></div>`
-            ).join("")}
+    ).join("")}
           </div>
         </div>
         <div class="pRow">
@@ -541,33 +544,40 @@
 
     const el = {
       overlay,
-      panel:      overlay.querySelector("#dwPanel"),
-      backdrop:   overlay.querySelector("#dwBackdrop"),
-      closeBtn:   overlay.querySelector("#dwCloseBtn"),
+      panel: overlay.querySelector("#dwPanel"),
+      backdrop: overlay.querySelector("#dwBackdrop"),
+      closeBtn: overlay.querySelector("#dwCloseBtn"),
       dwList,
       dwIndList,
       badge,
-      badgeName:  badge.querySelector("#dwBadgeName"),
-      badgeX:     badge.querySelector("#dwBadgeX"),
-      pop:        badge.querySelector("#dwPop"),
-      pwMinus:    badge.querySelector("#pwMinus"),
-      pwPlus:     badge.querySelector("#pwPlus"),
+      badgeName: badge.querySelector("#dwBadgeName"),
+      badgeX: badge.querySelector("#dwBadgeX"),
+      pop: badge.querySelector("#dwPop"),
+      pwMinus: badge.querySelector("#pwMinus"),
+      pwPlus: badge.querySelector("#pwPlus"),
       pColorDots: badge.querySelector("#pColorDots"),
-      pBtnCopy:   badge.querySelector("#pBtnCopy"),
-      pBtnDup:    badge.querySelector("#pBtnDup"),
-      pBtnClose:  badge.querySelector("#pBtnClose"),
-      bbToggle:   dwIndList.querySelector("#bbToggle"),
-      bbColors:   dwIndList.querySelector("#bbColors"),
+      pBtnCopy: badge.querySelector("#pBtnCopy"),
+      pBtnDup: badge.querySelector("#pBtnDup"),
+      pBtnClose: badge.querySelector("#pBtnClose"),
+      bbToggle: dwIndList.querySelector("#bbToggle"),
+      bbColors: dwIndList.querySelector("#bbColors"),
       fracToggle: dwIndList.querySelector("#fracToggle"),
+
+      // ★ للتحكم في إظهار اسم الرسم 6 ثواني
+      __badgeTimer: null,
+      __badgeAutoMs: 6000,
     };
 
     /* Panel close */
-    el.closeBtn.addEventListener("click",  () => hideOverlay(el));
-    el.backdrop.addEventListener("click",  () => hideOverlay(el));
+    el.closeBtn.addEventListener("click", () => hideOverlay(el));
+    el.backdrop.addEventListener("click", () => hideOverlay(el));
 
     /* Badge name → toggle popover */
     el.badgeName.addEventListener("click", (e) => {
       e.stopPropagation();
+      // لو فتح إعدادات الرسم: خلي البادج ثابت (ما يختفيش بسبب التايمر)
+      clearTimeout(el.__badgeTimer);
+      el.__badgeTimer = null;
       el.pop.classList.toggle("show");
     });
 
@@ -575,6 +585,8 @@
     el.pBtnClose.addEventListener("click", (e) => {
       e.stopPropagation();
       el.pop.classList.remove("show");
+      // بعد إغلاق الإعدادات: رجّع مؤقت الإخفاء
+      flashBadge(el, el.badgeName.textContent, el.__badgeAutoMs);
     });
 
     /* Badge X → حذف الرسم */
@@ -582,7 +594,7 @@
       e.stopPropagation();
       el.pop.classList.remove("show");
       if (window.__drawings && window.__drawings.drawing) {
-        const eng   = window.__drawings.drawing;
+        const eng = window.__drawings.drawing;
         const selId = eng.state.selectedId;
         if (selId)
           eng.state.drawings = eng.state.drawings.filter((d) => d.id !== selId);
@@ -626,7 +638,22 @@
     ui.badgeName.textContent = name;
     ui.badge.classList.add("show");
   }
-  function hideBadge(ui) { ui.badge.classList.remove("show"); }
+  function hideBadge(ui) {
+    clearTimeout(ui.__badgeTimer);
+    ui.__badgeTimer = null;
+    ui.badge.classList.remove("show");
+  }
+
+  // ★ يظهر اسم الرسم 6 ثواني بعد النقر ثم يختفي
+  function flashBadge(ui, name, ms) {
+    showBadge(ui, name);
+    clearTimeout(ui.__badgeTimer);
+    ui.__badgeTimer = setTimeout(() => {
+      // لو الإعدادات مفتوحة، ما تخفيش
+      if (ui.pop && ui.pop.classList.contains("show")) return;
+      ui.badge.classList.remove("show");
+    }, ms || 6000);
+  }
 
   function hookIndicatorsButton(ui) {
     const btn =
@@ -646,6 +673,10 @@
         !e.target.closest("#dwBadge")
       ) {
         ui.pop.classList.remove("show");
+        // بعد إغلاق الإعدادات بسبب نقرة خارجية: فعّل مؤقت الإخفاء
+        if (ui.badge.classList.contains("show")) {
+          flashBadge(ui, ui.badgeName.textContent, ui.__badgeAutoMs);
+        }
       }
     });
   }
@@ -761,7 +792,7 @@
     ctx.save();
     ctx.globalAlpha = 0.92;
     ctx.beginPath();
-    ctx.moveTo(x,      y - sz * 1.1);
+    ctx.moveTo(x, y - sz * 1.1);
     ctx.lineTo(x - sz, y + sz * 0.55);
     ctx.lineTo(x + sz, y + sz * 0.55);
     ctx.closePath();
@@ -777,7 +808,7 @@
     ctx.save();
     ctx.globalAlpha = 0.92;
     ctx.beginPath();
-    ctx.moveTo(x,      y + sz * 1.1);
+    ctx.moveTo(x, y + sz * 1.1);
     ctx.lineTo(x - sz, y - sz * 0.55);
     ctx.lineTo(x + sz, y - sz * 0.55);
     ctx.closePath();
@@ -810,10 +841,10 @@
   function buildDrawingEngine(chart, ui, indState) {
 
     const state = {
-      tool:       TOOL.NONE,
-      drawings:   [],
+      tool: TOOL.NONE,
+      drawings: [],
       selectedId: null,
-      dragging:   null,
+      dragging: null,
     };
 
     /* ── Coordinate helpers ── */
@@ -837,45 +868,72 @@
 
     /* ── Handles (pixel positions) ── */
     function getHandles(d) {
+      const cw = chart.canvas ? chart.canvas.width : (chart.w || 800);
+      const ch = chart.canvas ? chart.canvas.height : (chart.h || 400);
+
       if (d.type === "trendline") {
         const ax = chart.indexToX(d.a.i), ay = chart.priceToY(d.a.p);
         const bx = chart.indexToX(d.b.i), by = chart.priceToY(d.b.p);
-        return {
-          type: "trendline",
-          ax, ay, bx, by,
-          mx: (ax + bx) / 2, my: (ay + by) / 2,
-        };
+        return { type: "trendline", ax, ay, bx, by, mx: (ax + bx) / 2, my: (ay + by) / 2 };
       }
-      if (d.type === "parallel") {
-        /* Line1: a→b  |  Line2: (a.i, a.p+offset)→(b.i, b.p+offset) */
-        const ax  = chart.indexToX(d.a.i),          ay  = chart.priceToY(d.a.p);
-        const bx  = chart.indexToX(d.b.i),          by  = chart.priceToY(d.b.p);
-        const l2ax = chart.indexToX(d.a.i),         l2ay = chart.priceToY(d.a.p + d.offset);
-        const l2bx = chart.indexToX(d.b.i),         l2by = chart.priceToY(d.b.p + d.offset);
-        /* Handle C = midpoint of line2 (for dragging the offset) */
-        const cx  = chart.indexToX((d.a.i + d.b.i) / 2);
-        const cy  = chart.priceToY((d.a.p + d.b.p) / 2 + d.offset);
-        /* Centre of the whole channel */
-        const mx  = (ax + bx) / 2;
-        const my  = ((ay + by) / 2 + (l2ay + l2by) / 2) / 2;
-        return {
-          type: "parallel",
-          ax, ay, bx, by,
-          l2ax, l2ay, l2bx, l2by,
-          cx, cy,
-          mx, my,
-        };
-      }
-      if (d.type === "rect") {
-        /* a = top-right corner, b = bottom-left corner */
+
+      if (d.type === "ray") {
         const ax = chart.indexToX(d.a.i), ay = chart.priceToY(d.a.p);
         const bx = chart.indexToX(d.b.i), by = chart.priceToY(d.b.p);
-        return {
-          type: "rect",
-          ax, ay, bx, by,
-          mx: (ax + bx) / 2, my: (ay + by) / 2,
-        };
+        return { type: "ray", ax, ay, bx, by, mx: (ax + bx) / 2, my: (ay + by) / 2, cw, ch };
       }
+
+      if (d.type === "hline") {
+        const y = chart.priceToY(d.p);
+        return { type: "hline", y, mx: cw / 2, my: y, cw, ch };
+      }
+
+      if (d.type === "vline") {
+        const x = chart.indexToX(d.i);
+        return { type: "vline", x, mx: x, my: ch / 2, cw, ch };
+      }
+
+      if (d.type === "fib") {
+        const ax = chart.indexToX(d.a.i), ay = chart.priceToY(d.a.p);
+        const bx = chart.indexToX(d.b.i), by = chart.priceToY(d.b.p);
+        return { type: "fib", ax, ay, bx, by, mx: (ax + bx) / 2, my: (ay + by) / 2, cw, ch };
+      }
+
+      if (d.type === "fan") {
+        const ax = chart.indexToX(d.a.i), ay = chart.priceToY(d.a.p);
+        const bx = chart.indexToX(d.b.i), by = chart.priceToY(d.b.p);
+        return { type: "fan", ax, ay, bx, by, mx: (ax + bx) / 2, my: (ay + by) / 2, cw, ch };
+      }
+
+      if (d.type === "parallel") {
+        const ax = chart.indexToX(d.a.i), ay = chart.priceToY(d.a.p);
+        const bx = chart.indexToX(d.b.i), by = chart.priceToY(d.b.p);
+        const l2ax = chart.indexToX(d.a.i), l2ay = chart.priceToY(d.a.p + d.offset);
+        const l2bx = chart.indexToX(d.b.i), l2by = chart.priceToY(d.b.p + d.offset);
+        const cx = chart.indexToX((d.a.i + d.b.i) / 2);
+        const cy = chart.priceToY((d.a.p + d.b.p) / 2 + d.offset);
+        const mx = (ax + bx) / 2;
+        const my = ((ay + by) / 2 + (l2ay + l2by) / 2) / 2;
+        return { type: "parallel", ax, ay, bx, by, l2ax, l2ay, l2bx, l2by, cx, cy, mx, my };
+      }
+
+      if (d.type === "rect") {
+        const ax = chart.indexToX(d.a.i), ay = chart.priceToY(d.a.p);
+        const bx = chart.indexToX(d.b.i), by = chart.priceToY(d.b.p);
+        return { type: "rect", ax, ay, bx, by, mx: (ax + bx) / 2, my: (ay + by) / 2 };
+      }
+
+      if (d.type === "pitchfork") {
+        const ax = chart.indexToX(d.a.i), ay = chart.priceToY(d.a.p);
+        const bx = chart.indexToX(d.b.i), by = chart.priceToY(d.b.p);
+        const cx = chart.indexToX(d.c.i), cy = chart.priceToY(d.c.p);
+        const midX = (bx + cx) / 2;
+        const midY = (by + cy) / 2;
+        const mx = (ax + bx + cx) / 3;
+        const my = (ay + by + cy) / 3;
+        return { type: "pitchfork", ax, ay, bx, by, cx, cy, midX, midY, mx, my, cw, ch };
+      }
+
       return null;
     }
 
@@ -885,6 +943,17 @@
     const HR_SEL = 6.5; /* visible handle radius when selected */
     const HR_NRM = 4.8; /* visible handle radius when not selected */
 
+    function lineSegAcrossCanvas(px, py, slope, cw, ch) {
+      // returns endpoints across left/right edges; handles vertical separately
+      if (!isFinite(slope)) {
+        const x = px;
+        return { x1: x, y1: 0, x2: x, y2: ch };
+      }
+      const x1 = 0, y1 = py + slope * (x1 - px);
+      const x2 = cw, y2 = py + slope * (x2 - px);
+      return { x1, y1, x2, y2 };
+    }
+
     /* ── Hit test ── */
     function hitTest(x, y) {
       /* 1. Selected drawing handles have priority */
@@ -892,9 +961,15 @@
       if (selD) {
         const h = getHandles(selD);
         if (h) {
-          if (h.type === "trendline") {
+          if (h.type === "trendline" || h.type === "ray" || h.type === "fib" || h.type === "fan") {
             if (Math.hypot(x - h.ax, y - h.ay) <= HIT_H) return { kind: "handleA", id: selD.id };
             if (Math.hypot(x - h.bx, y - h.by) <= HIT_H) return { kind: "handleB", id: selD.id };
+            if (Math.hypot(x - h.mx, y - h.my) <= HIT_H) return { kind: "handleM", id: selD.id };
+          }
+          if (h.type === "hline") {
+            if (Math.hypot(x - h.mx, y - h.my) <= HIT_H) return { kind: "handleM", id: selD.id };
+          }
+          if (h.type === "vline") {
             if (Math.hypot(x - h.mx, y - h.my) <= HIT_H) return { kind: "handleM", id: selD.id };
           }
           if (h.type === "parallel") {
@@ -908,10 +983,16 @@
             if (Math.hypot(x - h.bx, y - h.by) <= HIT_H) return { kind: "handleB", id: selD.id };
             if (Math.hypot(x - h.mx, y - h.my) <= HIT_H) return { kind: "handleM", id: selD.id };
           }
+          if (h.type === "pitchfork") {
+            if (Math.hypot(x - h.ax, y - h.ay) <= HIT_H) return { kind: "handleA", id: selD.id };
+            if (Math.hypot(x - h.bx, y - h.by) <= HIT_H) return { kind: "handleB", id: selD.id };
+            if (Math.hypot(x - h.cx, y - h.cy) <= HIT_H) return { kind: "handleC", id: selD.id };
+            if (Math.hypot(x - h.mx, y - h.my) <= HIT_H) return { kind: "handleM", id: selD.id };
+          }
         }
       }
 
-      /* 2. All drawings (handles always visible → large hit zone too) */
+      /* 2. All drawings */
       for (let i = state.drawings.length - 1; i >= 0; i--) {
         const d = state.drawings[i];
         const h = getHandles(d);
@@ -921,8 +1002,40 @@
           if (Math.hypot(x - h.ax, y - h.ay) <= HIT_H) return { kind: "handleA", id: d.id };
           if (Math.hypot(x - h.bx, y - h.by) <= HIT_H) return { kind: "handleB", id: d.id };
           if (Math.hypot(x - h.mx, y - h.my) <= HIT_H) return { kind: "handleM", id: d.id };
-          if (distPtSeg(x, y, h.ax, h.ay, h.bx, h.by) <= HIT_L)
-            return { kind: "line", id: d.id };
+          if (distPtSeg(x, y, h.ax, h.ay, h.bx, h.by) <= HIT_L) return { kind: "line", id: d.id };
+        }
+
+        if (d.type === "ray") {
+          if (Math.hypot(x - h.ax, y - h.ay) <= HIT_H) return { kind: "handleA", id: d.id };
+          if (Math.hypot(x - h.bx, y - h.by) <= HIT_H) return { kind: "handleB", id: d.id };
+          if (Math.hypot(x - h.mx, y - h.my) <= HIT_H) return { kind: "handleM", id: d.id };
+          // approximate hit using segment A->B plus extension to edge
+          const seg = raySegment(h.ax, h.ay, h.bx, h.by, h.cw, h.ch);
+          if (distPtSeg(x, y, seg.x1, seg.y1, seg.x2, seg.y2) <= HIT_L) return { kind: "line", id: d.id };
+        }
+
+        if (d.type === "hline") {
+          if (Math.hypot(x - h.mx, y - h.my) <= HIT_H) return { kind: "handleM", id: d.id };
+          if (Math.abs(y - h.y) <= HIT_L) return { kind: "line", id: d.id };
+        }
+
+        if (d.type === "vline") {
+          if (Math.hypot(x - h.mx, y - h.my) <= HIT_H) return { kind: "handleM", id: d.id };
+          if (Math.abs(x - h.x) <= HIT_L) return { kind: "line", id: d.id };
+        }
+
+        if (d.type === "fib") {
+          if (Math.hypot(x - h.ax, y - h.ay) <= HIT_H) return { kind: "handleA", id: d.id };
+          if (Math.hypot(x - h.bx, y - h.by) <= HIT_H) return { kind: "handleB", id: d.id };
+          if (Math.hypot(x - h.mx, y - h.my) <= HIT_H) return { kind: "handleM", id: d.id };
+          if (distPtSeg(x, y, h.ax, h.ay, h.bx, h.by) <= HIT_L) return { kind: "line", id: d.id };
+        }
+
+        if (d.type === "fan") {
+          if (Math.hypot(x - h.ax, y - h.ay) <= HIT_H) return { kind: "handleA", id: d.id };
+          if (Math.hypot(x - h.bx, y - h.by) <= HIT_H) return { kind: "handleB", id: d.id };
+          if (Math.hypot(x - h.mx, y - h.my) <= HIT_H) return { kind: "handleM", id: d.id };
+          if (distPtSeg(x, y, h.ax, h.ay, h.bx, h.by) <= HIT_L) return { kind: "line", id: d.id };
         }
 
         if (d.type === "parallel") {
@@ -930,21 +1043,34 @@
           if (Math.hypot(x - h.bx, y - h.by) <= HIT_H) return { kind: "handleB", id: d.id };
           if (Math.hypot(x - h.cx, y - h.cy) <= HIT_H) return { kind: "handleC", id: d.id };
           if (Math.hypot(x - h.mx, y - h.my) <= HIT_H) return { kind: "handleM", id: d.id };
-          if (distPtSeg(x, y, h.ax, h.ay, h.bx, h.by) <= HIT_L)
-            return { kind: "line", id: d.id };
-          if (distPtSeg(x, y, h.l2ax, h.l2ay, h.l2bx, h.l2by) <= HIT_L)
-            return { kind: "line", id: d.id };
+          if (distPtSeg(x, y, h.ax, h.ay, h.bx, h.by) <= HIT_L) return { kind: "line", id: d.id };
+          if (distPtSeg(x, y, h.l2ax, h.l2ay, h.l2bx, h.l2by) <= HIT_L) return { kind: "line", id: d.id };
         }
 
         if (d.type === "rect") {
           if (Math.hypot(x - h.ax, y - h.ay) <= HIT_H) return { kind: "handleA", id: d.id };
           if (Math.hypot(x - h.bx, y - h.by) <= HIT_H) return { kind: "handleB", id: d.id };
           if (Math.hypot(x - h.mx, y - h.my) <= HIT_H) return { kind: "handleM", id: d.id };
-          /* border / inside */
           const minX = Math.min(h.ax, h.bx), maxX = Math.max(h.ax, h.bx);
           const minY = Math.min(h.ay, h.by), maxY = Math.max(h.ay, h.by);
-          if (x >= minX && x <= maxX && y >= minY && y <= maxY)
-            return { kind: "line", id: d.id };
+          if (x >= minX && x <= maxX && y >= minY && y <= maxY) return { kind: "line", id: d.id };
+        }
+
+        if (d.type === "pitchfork") {
+          if (Math.hypot(x - h.ax, y - h.ay) <= HIT_H) return { kind: "handleA", id: d.id };
+          if (Math.hypot(x - h.bx, y - h.by) <= HIT_H) return { kind: "handleB", id: d.id };
+          if (Math.hypot(x - h.cx, y - h.cy) <= HIT_H) return { kind: "handleC", id: d.id };
+          if (Math.hypot(x - h.mx, y - h.my) <= HIT_H) return { kind: "handleM", id: d.id };
+
+          // hit test on 3 lines across canvas
+          const dx = h.midX - h.ax;
+          const slope = (Math.abs(dx) < 0.0001) ? Infinity : ((h.midY - h.ay) / dx);
+          const segMid = lineSegAcrossCanvas(h.ax, h.ay, slope, h.cw, h.ch);
+          const segB = lineSegAcrossCanvas(h.bx, h.by, slope, h.cw, h.ch);
+          const segC = lineSegAcrossCanvas(h.cx, h.cy, slope, h.cw, h.ch);
+          if (distPtSeg(x, y, segMid.x1, segMid.y1, segMid.x2, segMid.y2) <= HIT_L) return { kind: "line", id: d.id };
+          if (distPtSeg(x, y, segB.x1, segB.y1, segB.x2, segB.y2) <= HIT_L) return { kind: "line", id: d.id };
+          if (distPtSeg(x, y, segC.x1, segC.y1, segC.x2, segC.y2) <= HIT_L) return { kind: "line", id: d.id };
         }
       }
       return null;
@@ -952,19 +1078,20 @@
 
     /* ── Select / Deselect ── */
     const BADGE_NAMES = {
+      hline: "—•— خط أفقي",
+      vline: "│• خط رأسي",
+      ray: "⟍• شعاع",
+      fib: "≋ فيبوناتشي",
+      fan: "⟋⟋ مروحة فيبوناتشي",
       trendline: "✏️ خط الاتجاه",
-      parallel:  "∥ قناة موازية",
-      rect:      "▭ مستطيل",
+      parallel: "∥ قناة موازية",
+      rect: "▭ مستطيل",
+      pitchfork: "⑂ شوكة أندروز",
     };
 
     function select(id) {
       state.selectedId = id;
-      if (id) {
-        const d = state.drawings.find((dd) => dd.id === id);
-        if (d) showBadge(ui, BADGE_NAMES[d.type] || "✏️ رسم");
-      } else {
-        hideBadge(ui);
-      }
+      // ★ لا نظهر الاسم تلقائيًا عند الاختيار (إظهار الاسم فقط عند النقر)
       syncPop();
     }
 
@@ -983,62 +1110,158 @@
     }
 
     /* ── Add drawings ── */
-    function addLine(a, b) {
-      const d = {
-        id: uid(), type: "trendline",
-        a: { ...a }, b: { ...b },
-        color: "#ffd700", width: 2.2,
-      };
+    function addTrendline(a, b) {
+      const d = { id: uid(), type: "trendline", a: { ...a }, b: { ...b }, color: "#ffd700", width: 2.2 };
+      state.drawings.push(d);
+      select(d.id);
+      return d;
+    }
+
+    function addRay(a, b) {
+      const d = { id: uid(), type: "ray", a: { ...a }, b: { ...b }, color: "#ffd700", width: 2.2 };
+      state.drawings.push(d);
+      select(d.id);
+      return d;
+    }
+
+    function addHLine(p) {
+      const d = { id: uid(), type: "hline", p, color: "#ffd700", width: 2.0 };
+      state.drawings.push(d);
+      select(d.id);
+      return d;
+    }
+
+    function addVLine(i) {
+      const d = { id: uid(), type: "vline", i, color: "#ffd700", width: 2.0 };
+      state.drawings.push(d);
+      select(d.id);
+      return d;
+    }
+
+    function addFib(a, b) {
+      const d = { id: uid(), type: "fib", a: { ...a }, b: { ...b }, color: "#ffd700", width: 1.6 };
+      state.drawings.push(d);
+      select(d.id);
+      return d;
+    }
+
+    function addFan(a, b) {
+      const d = { id: uid(), type: "fan", a: { ...a }, b: { ...b }, color: "#ffd700", width: 1.6 };
       state.drawings.push(d);
       select(d.id);
       return d;
     }
 
     function addParallel(a, b, offset) {
-      const d = {
-        id: uid(), type: "parallel",
-        a: { ...a }, b: { ...b },
-        offset,
-        color: "#ffd700", width: 2.0,
-      };
+      const d = { id: uid(), type: "parallel", a: { ...a }, b: { ...b }, offset, color: "#ffd700", width: 2.0 };
       state.drawings.push(d);
       select(d.id);
       return d;
     }
 
     function addRect(a, b) {
-      const d = {
-        id: uid(), type: "rect",
-        a: { ...a }, b: { ...b },
-        color: "#ffd700", width: 1.8,
-      };
+      const d = { id: uid(), type: "rect", a: { ...a }, b: { ...b }, color: "#ffd700", width: 1.8 };
       state.drawings.push(d);
       select(d.id);
       return d;
     }
 
-    /* ── Default creators (appear at centre of visible chart) ── */
-    function createDefaultLine() {
+    function addPitchfork(a, b, c) {
+      const d = { id: uid(), type: "pitchfork", a: { ...a }, b: { ...b }, c: { ...c }, color: "#ffd700", width: 1.9 };
+      state.drawings.push(d);
+      select(d.id);
+      return d;
+    }
+
+    /* ── Default creators (center of visible chart) ── */
+    function createDefaultTrendline() {
       try {
-        const cw   = chart.canvas ? chart.canvas.width  : (chart.w || 800);
-        const ch   = chart.canvas ? chart.canvas.height : (chart.h || 400);
-        const cx   = cw / 2;
-        const cy   = ch / 2;          /* ★ منتصف الشارت تمامًا */
+        const cw = chart.canvas ? chart.canvas.width : (chart.w || 800);
+        const ch = chart.canvas ? chart.canvas.height : (chart.h || 400);
+        const cx = cw / 2;
+        const cy = ch / 2;          /* ★ منتصف الشارت */
         const span = Math.max(cw / 5, 60);
         const a = toData(cx - span, cy);
         const b = toData(cx + span, cy);
-        return addLine(a, b);
+        return addTrendline(a, b);
       } catch (_) {
-        return addLine({ i: 10, p: 100 }, { i: 30, p: 100 });
+        return addTrendline({ i: 10, p: 100 }, { i: 30, p: 100 });
+      }
+    }
+
+    function createDefaultRay() {
+      try {
+        const cw = chart.canvas ? chart.canvas.width : (chart.w || 800);
+        const ch = chart.canvas ? chart.canvas.height : (chart.h || 400);
+        const cx = cw / 2;
+        const cy = ch / 2;
+        const span = Math.max(cw / 6, 60);
+        const a = toData(cx - span, cy + 20);
+        const b = toData(cx + span, cy - 20);
+        return addRay(a, b);
+      } catch (_) {
+        return addRay({ i: 10, p: 100 }, { i: 30, p: 105 });
+      }
+    }
+
+    function createDefaultHLine() {
+      try {
+        const cw = chart.canvas ? chart.canvas.width : (chart.w || 800);
+        const ch = chart.canvas ? chart.canvas.height : (chart.h || 400);
+        const cx = cw / 2, cy = ch / 2;
+        const p = yToP(cy);
+        return addHLine(p);
+      } catch (_) {
+        return addHLine(100);
+      }
+    }
+
+    function createDefaultVLine() {
+      try {
+        const cw = chart.canvas ? chart.canvas.width : (chart.w || 800);
+        const ch = chart.canvas ? chart.canvas.height : (chart.h || 400);
+        const cx = cw / 2, cy = ch / 2;
+        const i = xToIdx(cx);
+        return addVLine(i);
+      } catch (_) {
+        return addVLine(20);
+      }
+    }
+
+    function createDefaultFib() {
+      try {
+        const cw = chart.canvas ? chart.canvas.width : (chart.w || 800);
+        const ch = chart.canvas ? chart.canvas.height : (chart.h || 400);
+        const cx = cw / 2, cy = ch / 2;
+        const span = Math.max(cw / 6, 70);
+        const a = toData(cx - span, cy + 55);
+        const b = toData(cx + span, cy - 55);
+        return addFib(a, b);
+      } catch (_) {
+        return addFib({ i: 10, p: 110 }, { i: 40, p: 90 });
+      }
+    }
+
+    function createDefaultFan() {
+      try {
+        const cw = chart.canvas ? chart.canvas.width : (chart.w || 800);
+        const ch = chart.canvas ? chart.canvas.height : (chart.h || 400);
+        const cx = cw / 2, cy = ch / 2;
+        const span = Math.max(cw / 7, 60);
+        const a = toData(cx - span, cy + 40);
+        const b = toData(cx + span, cy - 40);
+        return addFan(a, b);
+      } catch (_) {
+        return addFan({ i: 10, p: 110 }, { i: 40, p: 90 });
       }
     }
 
     function createDefaultParallel() {
       try {
-        const cw   = chart.canvas ? chart.canvas.width  : (chart.w || 800);
-        const ch   = chart.canvas ? chart.canvas.height : (chart.h || 400);
-        const cx   = cw / 2;
-        const cy   = ch / 2;          /* ★ منتصف الشارت */
+        const cw = chart.canvas ? chart.canvas.width : (chart.w || 800);
+        const ch = chart.canvas ? chart.canvas.height : (chart.h || 400);
+        const cx = cw / 2;
+        const cy = ch / 2;
         const span = Math.max(cw / 5, 60);
         const a = toData(cx - span, cy);
         const b = toData(cx + span, cy);
@@ -1052,18 +1275,33 @@
 
     function createDefaultRect() {
       try {
-        const cw = chart.canvas ? chart.canvas.width  : (chart.w || 800);
+        const cw = chart.canvas ? chart.canvas.width : (chart.w || 800);
         const ch = chart.canvas ? chart.canvas.height : (chart.h || 400);
         const cx = cw / 2, cy = ch / 2;
         const hw = Math.max(cw / 8, 50);
         const hh = Math.max(ch / 8, 35);
-        /* a = top-right  (cx+hw, cy-hh) = أعلى يمين  */
-        /* b = bottom-left (cx-hw, cy+hh) = أسفل يسار */
-        const a = toData(cx + hw, cy - hh);
-        const b = toData(cx - hw, cy + hh);
+        const a = toData(cx + hw, cy - hh); // top-right
+        const b = toData(cx - hw, cy + hh); // bottom-left
         return addRect(a, b);
       } catch (_) {
         return addRect({ i: 30, p: 110 }, { i: 10, p: 90 });
+      }
+    }
+
+    function createDefaultPitchfork() {
+      try {
+        const cw = chart.canvas ? chart.canvas.width : (chart.w || 800);
+        const ch = chart.canvas ? chart.canvas.height : (chart.h || 400);
+        const cx = cw / 2, cy = ch / 2;
+        const spanX = Math.max(cw / 7, 70);
+        const spanY = Math.max(ch / 7, 55);
+        // A pivot (left-middle), B (right-upper), C (right-lower)
+        const a = toData(cx - spanX, cy);
+        const b = toData(cx + spanX, cy - spanY);
+        const c = toData(cx + spanX, cy + spanY);
+        return addPitchfork(a, b, c);
+      } catch (_) {
+        return addPitchfork({ i: 10, p: 100 }, { i: 30, p: 110 }, { i: 30, p: 90 });
       }
     }
 
@@ -1073,11 +1311,17 @@
       if (!sel) return;
       const pr = getPR();
       const dp = pr ? (pr.max - pr.min) * 0.01 : 1;
-      const copy = {
-        ...sel, id: uid(),
-        a: { i: sel.a.i + 2, p: sel.a.p + dp },
-        b: { i: sel.b.i + 2, p: sel.b.p + dp },
-      };
+
+      const copy = JSON.parse(JSON.stringify(sel));
+      copy.id = uid();
+
+      // shift a bit (works for all types)
+      if (copy.a) { copy.a.i += 2; copy.a.p += dp; }
+      if (copy.b) { copy.b.i += 2; copy.b.p += dp; }
+      if (copy.c) { copy.c.i += 2; copy.c.p += dp; }
+      if (copy.i != null) copy.i += 2;
+      if (copy.p != null) copy.p += dp;
+
       state.drawings.push(copy);
       select(copy.id);
     }
@@ -1089,7 +1333,7 @@
     }
 
     /* ══════════════════════════════════════════
-       ★ Menu click — تفعيل الرسوم الثلاثة
+       ★ Menu click — تفعيل كل الأدوات
     ══════════════════════════════════════════ */
     ui.dwList.addEventListener("click", (e) => {
       const row = e.target.closest(".dwItem");
@@ -1097,14 +1341,23 @@
       const key = row.getAttribute("data-key");
 
       if (key === "trendline") {
-        createDefaultLine();
-        hideOverlay(ui);
+        createDefaultTrendline(); hideOverlay(ui);
       } else if (key === "parallel") {
-        createDefaultParallel();
-        hideOverlay(ui);
+        createDefaultParallel(); hideOverlay(ui);
       } else if (key === "rect") {
-        createDefaultRect();
-        hideOverlay(ui);
+        createDefaultRect(); hideOverlay(ui);
+      } else if (key === "hline") {
+        createDefaultHLine(); hideOverlay(ui);
+      } else if (key === "vline") {
+        createDefaultVLine(); hideOverlay(ui);
+      } else if (key === "ray") {
+        createDefaultRay(); hideOverlay(ui);
+      } else if (key === "fib") {
+        createDefaultFib(); hideOverlay(ui);
+      } else if (key === "fan") {
+        createDefaultFan(); hideOverlay(ui);
+      } else if (key === "pitchfork") {
+        createDefaultPitchfork(); hideOverlay(ui);
       } else {
         if (window.showInfoToast)
           window.showInfoToast("⏳ ستتوفر هذه الأداة قريبًا", "info", 2000);
@@ -1130,8 +1383,8 @@
       sel.color = dot.dataset.c;
       syncPop();
     });
-    ui.pBtnDup.addEventListener("click",  (e) => { e.stopPropagation(); duplicate(); });
-    ui.pBtnCopy.addEventListener("click", (e) => { e.stopPropagation(); copyLine();  });
+    ui.pBtnDup.addEventListener("click", (e) => { e.stopPropagation(); duplicate(); });
+    ui.pBtnCopy.addEventListener("click", (e) => { e.stopPropagation(); copyLine(); });
 
     /* ═══════════════════════════════════════════
        ★ RENDER
@@ -1139,9 +1392,15 @@
     function drawAll(ctx) {
       for (const d of state.drawings) {
         const sel = d.id === state.selectedId;
+        if (d.type === "hline") drawHLine(ctx, d, sel);
+        if (d.type === "vline") drawVLine(ctx, d, sel);
+        if (d.type === "ray") drawRay(ctx, d, sel);
+        if (d.type === "fib") drawFib(ctx, d, sel);
+        if (d.type === "fan") drawFan(ctx, d, sel);
         if (d.type === "trendline") drawTrendline(ctx, d, sel);
-        if (d.type === "parallel")  drawParallelChannel(ctx, d, sel);
-        if (d.type === "rect")      drawRectangle(ctx, d, sel);
+        if (d.type === "parallel") drawParallelChannel(ctx, d, sel);
+        if (d.type === "rect") drawRectangle(ctx, d, sel);
+        if (d.type === "pitchfork") drawPitchfork(ctx, d, sel);
       }
     }
 
@@ -1151,25 +1410,141 @@
       ctx.beginPath();
       ctx.arc(x, y, r, 0, Math.PI * 2);
       if (filled) {
-        ctx.fillStyle   = color;
+        ctx.fillStyle = color;
         ctx.globalAlpha = selected ? 0.96 : 0.72;
         ctx.fill();
         ctx.strokeStyle = "rgba(0,0,0,.4)";
-        ctx.lineWidth   = 1.5;
+        ctx.lineWidth = 1.5;
         ctx.stroke();
       } else {
-        ctx.fillStyle   = "rgba(10,15,35,.85)";
+        ctx.fillStyle = "rgba(10,15,35,.85)";
         ctx.fill();
         ctx.strokeStyle = color;
-        ctx.lineWidth   = selected ? 2.2 : 1.6;
+        ctx.lineWidth = selected ? 2.2 : 1.6;
         ctx.globalAlpha = selected ? 0.96 : 0.75;
         ctx.stroke();
         ctx.beginPath();
         ctx.arc(x, y, r * 0.32, 0, Math.PI * 2);
-        ctx.fillStyle   = color;
+        ctx.fillStyle = color;
         ctx.globalAlpha = selected ? 0.96 : 0.65;
         ctx.fill();
       }
+      ctx.restore();
+    }
+
+    /* ── HLine ── */
+    function drawHLine(ctx, d, selected) {
+      const h = getHandles(d);
+      const color = d.color || "#ffd700";
+      ctx.save();
+
+      if (selected) {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 10;
+        ctx.globalAlpha = 0.16;
+        ctx.lineWidth = (d.width || 2) + 7;
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(0, h.y);
+        ctx.lineTo(h.cw, h.y);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+
+      ctx.globalAlpha = 0.92;
+      ctx.lineWidth = d.width || 2;
+      ctx.strokeStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(0, h.y);
+      ctx.lineTo(h.cw, h.y);
+      ctx.stroke();
+
+      const hr = selected ? HR_SEL : HR_NRM;
+      drawHandle(ctx, h.mx, h.my, hr * 0.78, "#ffffff", true, selected);
+
+      ctx.restore();
+    }
+
+    /* ── VLine ── */
+    function drawVLine(ctx, d, selected) {
+      const h = getHandles(d);
+      const color = d.color || "#ffd700";
+      ctx.save();
+
+      if (selected) {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 10;
+        ctx.globalAlpha = 0.16;
+        ctx.lineWidth = (d.width || 2) + 7;
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(h.x, 0);
+        ctx.lineTo(h.x, h.ch);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+
+      ctx.globalAlpha = 0.92;
+      ctx.lineWidth = d.width || 2;
+      ctx.strokeStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(h.x, 0);
+      ctx.lineTo(h.x, h.ch);
+      ctx.stroke();
+
+      const hr = selected ? HR_SEL : HR_NRM;
+      drawHandle(ctx, h.mx, h.my, hr * 0.78, "#ffffff", true, selected);
+
+      ctx.restore();
+    }
+
+    /* ── Ray segment helper ── */
+    function raySegment(ax, ay, bx, by, cw, ch) {
+      const dx = bx - ax, dy = by - ay;
+      if (Math.abs(dx) < 0.0001) {
+        // vertical ray
+        const toBottom = by > ay;
+        return { x1: ax, y1: ay, x2: ax, y2: toBottom ? ch : 0 };
+      }
+      const toRight = bx >= ax;
+      const edgeX = toRight ? cw : 0;
+      const t = (edgeX - ax) / dx;
+      const edgeY = ay + t * dy;
+      return { x1: ax, y1: ay, x2: edgeX, y2: edgeY };
+    }
+
+    /* ── Ray ── */
+    function drawRay(ctx, d, selected) {
+      const h = getHandles(d);
+      const color = d.color || "#ffd700";
+      const seg = raySegment(h.ax, h.ay, h.bx, h.by, h.cw, h.ch);
+
+      ctx.save();
+
+      if (selected) {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 12;
+        ctx.globalAlpha = 0.18;
+        ctx.lineWidth = (d.width || 2.2) + 7;
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(seg.x1, seg.y1); ctx.lineTo(seg.x2, seg.y2);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+
+      ctx.globalAlpha = 0.96;
+      ctx.lineWidth = d.width || 2.2;
+      ctx.strokeStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(seg.x1, seg.y1); ctx.lineTo(seg.x2, seg.y2);
+      ctx.stroke();
+
+      const hr = selected ? HR_SEL : HR_NRM;
+      drawHandle(ctx, h.ax, h.ay, hr, color, false, selected);
+      drawHandle(ctx, h.bx, h.by, hr, color, false, selected);
+      drawHandle(ctx, h.mx, h.my, hr * 0.78, "#ffffff", true, selected);
+
       ctx.restore();
     }
 
@@ -1179,12 +1554,11 @@
       const color = d.color || "#ffd700";
       ctx.save();
 
-      /* glow when selected */
       if (selected) {
         ctx.shadowColor = color;
-        ctx.shadowBlur  = 12;
+        ctx.shadowBlur = 12;
         ctx.globalAlpha = 0.18;
-        ctx.lineWidth   = (d.width || 2.2) + 7;
+        ctx.lineWidth = (d.width || 2.2) + 7;
         ctx.strokeStyle = color;
         ctx.beginPath();
         ctx.moveTo(h.ax, h.ay); ctx.lineTo(h.bx, h.by);
@@ -1192,18 +1566,118 @@
         ctx.shadowBlur = 0;
       }
 
-      /* main line */
       ctx.globalAlpha = 0.96;
-      ctx.lineWidth   = d.width || 2.2;
+      ctx.lineWidth = d.width || 2.2;
       ctx.strokeStyle = color;
       ctx.beginPath();
       ctx.moveTo(h.ax, h.ay); ctx.lineTo(h.bx, h.by);
       ctx.stroke();
 
-      /* ★ Handles دائمًا ظاهرة */
       const hr = selected ? HR_SEL : HR_NRM;
-      drawHandle(ctx, h.ax, h.ay, hr,        color,    false, selected);
-      drawHandle(ctx, h.bx, h.by, hr,        color,    false, selected);
+      drawHandle(ctx, h.ax, h.ay, hr, color, false, selected);
+      drawHandle(ctx, h.bx, h.by, hr, color, false, selected);
+      drawHandle(ctx, h.mx, h.my, hr * 0.78, "#ffffff", true, selected);
+
+      ctx.restore();
+    }
+
+    /* ── Fibonacci Retracement ── */
+    function drawFib(ctx, d, selected) {
+      const h = getHandles(d);
+      const color = d.color || "#ffd700";
+
+      const levels = d.levels || [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
+      const minX = Math.min(h.ax, h.bx);
+      const maxX = Math.max(h.ax, h.bx);
+
+      ctx.save();
+
+      // main baseline
+      ctx.globalAlpha = 0.78;
+      ctx.lineWidth = d.width || 1.6;
+      ctx.strokeStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(h.ax, h.ay); ctx.lineTo(h.bx, h.by);
+      ctx.stroke();
+
+      // fib horizontals
+      ctx.globalAlpha = selected ? 0.85 : 0.68;
+      ctx.lineWidth = 1.2;
+      ctx.font = "10px Segoe UI, Tahoma, Arial";
+      ctx.fillStyle = "rgba(255,215,0,.85)";
+
+      for (const lv of levels) {
+        const p = d.a.p + (d.b.p - d.a.p) * lv;
+        const y = chart.priceToY(p);
+
+        ctx.beginPath();
+        ctx.moveTo(minX, y);
+        ctx.lineTo(maxX, y);
+        ctx.strokeStyle = color;
+        ctx.stroke();
+
+        // label
+        ctx.globalAlpha = 0.85;
+        ctx.fillText((lv * 100).toFixed(lv === 0 || lv === 1 ? 0 : 1) + "%", maxX + 6, y + 3);
+        ctx.globalAlpha = selected ? 0.85 : 0.68;
+      }
+
+      const hr = selected ? HR_SEL : HR_NRM;
+      drawHandle(ctx, h.ax, h.ay, hr, color, false, selected);
+      drawHandle(ctx, h.bx, h.by, hr, color, false, selected);
+      drawHandle(ctx, h.mx, h.my, hr * 0.78, "#ffffff", true, selected);
+
+      ctx.restore();
+    }
+
+    /* ── Fibonacci Fan ── */
+    function drawFan(ctx, d, selected) {
+      const h = getHandles(d);
+      const color = d.color || "#ffd700";
+
+      const ratios = d.ratios || [0.382, 0.5, 0.618];
+      const cw = h.cw, ch = h.ch;
+
+      ctx.save();
+
+      // base line A->B
+      ctx.globalAlpha = 0.85;
+      ctx.lineWidth = d.width || 1.6;
+      ctx.strokeStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(h.ax, h.ay);
+      ctx.lineTo(h.bx, h.by);
+      ctx.stroke();
+
+      // fan rays from A through points at B.x with interpolated price
+      for (const r of ratios) {
+        const pAtBx = d.a.p + (d.b.p - d.a.p) * r;
+        const yAtBx = chart.priceToY(pAtBx);
+        const dx = h.bx - h.ax;
+        const dy = yAtBx - h.ay;
+
+        let x2, y2;
+        if (Math.abs(dx) < 0.0001) {
+          x2 = h.ax;
+          y2 = (dy > 0) ? ch : 0;
+        } else {
+          const toRight = dx >= 0;
+          x2 = toRight ? cw : 0;
+          const t = (x2 - h.ax) / dx;
+          y2 = h.ay + t * dy;
+        }
+
+        ctx.globalAlpha = selected ? 0.75 : 0.55;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(h.ax, h.ay);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      }
+
+      const hr = selected ? HR_SEL : HR_NRM;
+      drawHandle(ctx, h.ax, h.ay, hr, color, false, selected);
+      drawHandle(ctx, h.bx, h.by, hr, color, false, selected);
       drawHandle(ctx, h.mx, h.my, hr * 0.78, "#ffffff", true, selected);
 
       ctx.restore();
@@ -1211,11 +1685,10 @@
 
     /* ── Parallel Channel ── */
     function drawParallelChannel(ctx, d, selected) {
-      const h     = getHandles(d);
+      const h = getHandles(d);
       const color = d.color || "#ffd700";
       ctx.save();
 
-      /* fill between lines */
       ctx.beginPath();
       ctx.moveTo(h.ax, h.ay);
       ctx.lineTo(h.bx, h.by);
@@ -1223,12 +1696,11 @@
       ctx.lineTo(h.l2ax, h.l2ay);
       ctx.closePath();
       ctx.globalAlpha = selected ? 0.08 : 0.04;
-      ctx.fillStyle   = color;
+      ctx.fillStyle = color;
       ctx.fill();
 
-      /* line 1 */
       ctx.globalAlpha = 0.92;
-      ctx.lineWidth   = d.width || 2.0;
+      ctx.lineWidth = d.width || 2.0;
       ctx.strokeStyle = color;
       if (selected) { ctx.shadowColor = color; ctx.shadowBlur = 9; }
       ctx.beginPath();
@@ -1236,78 +1708,140 @@
       ctx.stroke();
       ctx.shadowBlur = 0;
 
-      /* line 2 */
       ctx.beginPath();
       ctx.moveTo(h.l2ax, h.l2ay); ctx.lineTo(h.l2bx, h.l2by);
       ctx.stroke();
 
-      /* dashed verticals when selected */
       if (selected) {
         ctx.globalAlpha = 0.28;
         ctx.setLineDash([4, 5]);
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(h.ax, h.ay);   ctx.lineTo(h.l2ax, h.l2ay);
+        ctx.moveTo(h.ax, h.ay); ctx.lineTo(h.l2ax, h.l2ay);
         ctx.stroke();
         ctx.beginPath();
-        ctx.moveTo(h.bx, h.by);   ctx.lineTo(h.l2bx, h.l2by);
+        ctx.moveTo(h.bx, h.by); ctx.lineTo(h.l2bx, h.l2by);
         ctx.stroke();
         ctx.setLineDash([]);
       }
 
-      /* ★ Handles دائمًا ظاهرة */
       const hr = selected ? HR_SEL : HR_NRM;
       ctx.globalAlpha = 1;
-      drawHandle(ctx, h.ax,  h.ay,  hr,        color,    false, selected); /* A - line1 start */
-      drawHandle(ctx, h.bx,  h.by,  hr,        color,    false, selected); /* B - line1 end   */
-      drawHandle(ctx, h.cx,  h.cy,  hr,        color,    false, selected); /* C - line2 mid   */
-      drawHandle(ctx, h.mx,  h.my,  hr * 0.72, "#ffffff", true, selected); /* M - center      */
+      drawHandle(ctx, h.ax, h.ay, hr, color, false, selected);
+      drawHandle(ctx, h.bx, h.by, hr, color, false, selected);
+      drawHandle(ctx, h.cx, h.cy, hr, color, false, selected);
+      drawHandle(ctx, h.mx, h.my, hr * 0.72, "#ffffff", true, selected);
 
       ctx.restore();
     }
 
     /* ── Rectangle ── */
     function drawRectangle(ctx, d, selected) {
-      const h     = getHandles(d);
+      const h = getHandles(d);
       const color = d.color || "#ffd700";
       ctx.save();
 
-      const left   = Math.min(h.ax, h.bx);
-      const top    = Math.min(h.ay, h.by);
-      const width  = Math.abs(h.ax - h.bx);
+      const left = Math.min(h.ax, h.bx);
+      const top = Math.min(h.ay, h.by);
+      const width = Math.abs(h.ax - h.bx);
       const height = Math.abs(h.ay - h.by);
 
-      /* fill */
       ctx.globalAlpha = selected ? 0.09 : 0.04;
-      ctx.fillStyle   = color;
+      ctx.fillStyle = color;
       ctx.fillRect(left, top, width, height);
 
-      /* border */
       ctx.globalAlpha = selected ? 0.95 : 0.82;
       ctx.strokeStyle = color;
-      ctx.lineWidth   = d.width || 1.8;
+      ctx.lineWidth = d.width || 1.8;
       if (selected) { ctx.shadowColor = color; ctx.shadowBlur = 9; }
       ctx.strokeRect(left, top, width, height);
       ctx.shadowBlur = 0;
 
-      /* ★ Handles دائمًا ظاهرة
-         A = الزاوية العليا اليمنى  (max x, min y)
-         B = الزاوية السفلى اليسرى  (min x, max y)
-      */
       const trx = Math.max(h.ax, h.bx), try_ = Math.min(h.ay, h.by);
-      const blx = Math.min(h.ax, h.bx), bly  = Math.max(h.ay, h.by);
+      const blx = Math.min(h.ax, h.bx), bly = Math.max(h.ay, h.by);
 
       const hr = selected ? HR_SEL : HR_NRM;
       ctx.globalAlpha = 1;
-      drawHandle(ctx, trx,  try_,  hr,        color,    false, selected); /* A - أعلى يمين */
-      drawHandle(ctx, blx,  bly,   hr,        color,    false, selected); /* B - أسفل يسار */
-      drawHandle(ctx, h.mx, h.my,  hr * 0.72, "#ffffff", true, selected); /* M - مركز      */
+      drawHandle(ctx, trx, try_, hr, color, false, selected);
+      drawHandle(ctx, blx, bly, hr, color, false, selected);
+      drawHandle(ctx, h.mx, h.my, hr * 0.72, "#ffffff", true, selected);
+
+      ctx.restore();
+    }
+
+    /* ── Pitchfork ── */
+    function drawPitchfork(ctx, d, selected) {
+      const h = getHandles(d);
+      const color = d.color || "#ffd700";
+
+      const dx = h.midX - h.ax;
+      const slope = (Math.abs(dx) < 0.0001) ? Infinity : ((h.midY - h.ay) / dx);
+
+      const segMid = lineSegAcrossCanvas(h.ax, h.ay, slope, h.cw, h.ch);
+      const segB = lineSegAcrossCanvas(h.bx, h.by, slope, h.cw, h.ch);
+      const segC = lineSegAcrossCanvas(h.cx, h.cy, slope, h.cw, h.ch);
+
+      ctx.save();
+
+      // fill-ish region hint (optional light)
+      ctx.globalAlpha = selected ? 0.04 : 0.02;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(segB.x1, segB.y1);
+      ctx.lineTo(segB.x2, segB.y2);
+      ctx.lineTo(segC.x2, segC.y2);
+      ctx.lineTo(segC.x1, segC.y1);
+      ctx.closePath();
+      ctx.fill();
+
+      // lines
+      ctx.globalAlpha = 0.92;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = d.width || 1.9;
+
+      if (selected) { ctx.shadowColor = color; ctx.shadowBlur = 9; }
+      // median
+      ctx.beginPath();
+      ctx.moveTo(segMid.x1, segMid.y1);
+      ctx.lineTo(segMid.x2, segMid.y2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // parallels
+      ctx.globalAlpha = selected ? 0.82 : 0.68;
+      ctx.beginPath();
+      ctx.moveTo(segB.x1, segB.y1);
+      ctx.lineTo(segB.x2, segB.y2);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(segC.x1, segC.y1);
+      ctx.lineTo(segC.x2, segC.y2);
+      ctx.stroke();
+
+      // connection from A to midpoint(B,C)
+      ctx.globalAlpha = selected ? 0.45 : 0.30;
+      ctx.setLineDash([5, 6]);
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(h.ax, h.ay);
+      ctx.lineTo(h.midX, h.midY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const hr = selected ? HR_SEL : HR_NRM;
+      ctx.globalAlpha = 1;
+      drawHandle(ctx, h.ax, h.ay, hr, color, false, selected);
+      drawHandle(ctx, h.bx, h.by, hr, color, false, selected);
+      drawHandle(ctx, h.cx, h.cy, hr, color, false, selected);
+      drawHandle(ctx, h.mx, h.my, hr * 0.72, "#ffffff", true, selected);
 
       ctx.restore();
     }
 
     /* ═══════════════════════════════════════════
        POINTER HANDLERS
+       ★ إظهار اسم الرسم بعد النقر فقط (6 ثواني)
     ═══════════════════════════════════════════ */
     function onPointerDown(x, y) {
       if (ui.overlay.classList.contains("show")) return { consumed: false };
@@ -1315,17 +1849,22 @@
       const hit = hitTest(x, y);
       if (hit) {
         select(hit.id);
+
         const sel = state.drawings.find((d) => d.id === hit.id);
         if (sel) {
+          // ★ أظهر الاسم 6 ثواني فقط عند النقر
+          flashBadge(ui, BADGE_NAMES[sel.type] || "✏️ رسم", 6000);
+
           const mode = hit.kind === "line" ? "handleM" : hit.kind;
           state.dragging = {
             mode, id: hit.id,
             start: { x, y },
-            orig:  JSON.parse(JSON.stringify(sel)),
+            orig: JSON.parse(JSON.stringify(sel)),
           };
         }
         return { consumed: true };
       }
+
       deselect();
       return { consumed: false };
     }
@@ -1338,18 +1877,31 @@
       const orig = state.dragging.orig;
       if (!orig) return true;
 
-      /* ── Trendline ── */
-      if (d.type === "trendline") {
+      const sp = Math.max(getSpacing(chart), 1);
+
+      /* ── Trendline / Ray / Fib / Fan ── */
+      if (d.type === "trendline" || d.type === "ray" || d.type === "fib" || d.type === "fan") {
         if (state.dragging.mode === "handleA") {
           const pt = toData(x, y); d.a.i = pt.i; d.a.p = pt.p;
         } else if (state.dragging.mode === "handleB") {
           const pt = toData(x, y); d.b.i = pt.i; d.b.p = pt.p;
         } else {
-          const di = (x - state.dragging.start.x) / Math.max(getSpacing(chart), 1);
+          const di = (x - state.dragging.start.x) / sp;
           const dp = yToP(y) - yToP(state.dragging.start.y);
           d.a.i = orig.a.i + di; d.b.i = orig.b.i + di;
           d.a.p = orig.a.p + dp; d.b.p = orig.b.p + dp;
         }
+      }
+
+      /* ── HLine ── */
+      else if (d.type === "hline") {
+        // move line vertically (and allow dragging by line/handle)
+        d.p = yToP(y);
+      }
+
+      /* ── VLine ── */
+      else if (d.type === "vline") {
+        d.i = xToIdx(x);
       }
 
       /* ── Parallel Channel ── */
@@ -1359,36 +1911,46 @@
         } else if (state.dragging.mode === "handleB") {
           const pt = toData(x, y); d.b.i = pt.i; d.b.p = pt.p;
         } else if (state.dragging.mode === "handleC") {
-          /* Only change the price offset */
-          const newP     = yToP(y);
-          const midP1    = (d.a.p + d.b.p) / 2;
-          d.offset       = newP - midP1;
+          const newP = yToP(y);
+          const midP1 = (d.a.p + d.b.p) / 2;
+          d.offset = newP - midP1;
         } else {
-          /* handleM — move entire channel */
-          const di = (x - state.dragging.start.x) / Math.max(getSpacing(chart), 1);
+          const di = (x - state.dragging.start.x) / sp;
           const dp = yToP(y) - yToP(state.dragging.start.y);
           d.a.i = orig.a.i + di; d.b.i = orig.b.i + di;
           d.a.p = orig.a.p + dp; d.b.p = orig.b.p + dp;
-          /* offset unchanged */
         }
       }
 
       /* ── Rectangle ── */
       else if (d.type === "rect") {
         if (state.dragging.mode === "handleA") {
-          /* A = top-right corner → سحبها يحرك الطرف اليميني والعلوي */
           const pt = toData(x, y);
           d.a.i = pt.i; d.a.p = pt.p;
         } else if (state.dragging.mode === "handleB") {
-          /* B = bottom-left corner → سحبها يحرك الطرف الأيسر والسفلي */
           const pt = toData(x, y);
           d.b.i = pt.i; d.b.p = pt.p;
         } else {
-          /* handleM — move entire rect */
-          const di = (x - state.dragging.start.x) / Math.max(getSpacing(chart), 1);
+          const di = (x - state.dragging.start.x) / sp;
           const dp = yToP(y) - yToP(state.dragging.start.y);
           d.a.i = orig.a.i + di; d.b.i = orig.b.i + di;
           d.a.p = orig.a.p + dp; d.b.p = orig.b.p + dp;
+        }
+      }
+
+      /* ── Pitchfork ── */
+      else if (d.type === "pitchfork") {
+        if (state.dragging.mode === "handleA") {
+          const pt = toData(x, y); d.a.i = pt.i; d.a.p = pt.p;
+        } else if (state.dragging.mode === "handleB") {
+          const pt = toData(x, y); d.b.i = pt.i; d.b.p = pt.p;
+        } else if (state.dragging.mode === "handleC") {
+          const pt = toData(x, y); d.c.i = pt.i; d.c.p = pt.p;
+        } else {
+          const di = (x - state.dragging.start.x) / sp;
+          const dp = yToP(y) - yToP(state.dragging.start.y);
+          d.a.i = orig.a.i + di; d.b.i = orig.b.i + di; d.c.i = orig.c.i + di;
+          d.a.p = orig.a.p + dp; d.b.p = orig.b.p + dp; d.c.p = orig.c.p + dp;
         }
       }
 
@@ -1402,14 +1964,12 @@
     }
 
     function setTool(name) {
-      state.tool      = TOOL.NONE;
-      state.dragging  = null;
+      state.tool = TOOL.NONE;
+      state.dragging = null;
       state.selectedId = null;
       hideBadge(ui);
       ui.pop.classList.remove("show");
-      ui.dwList.querySelectorAll(".dwItem").forEach((n) =>
-        n.classList.remove("activeKey")
-      );
+      ui.dwList.querySelectorAll(".dwItem").forEach((n) => n.classList.remove("activeKey"));
     }
 
     return {
@@ -1432,42 +1992,39 @@
     const orig = chart.draw.bind(chart);
     chart.draw = function () {
       orig();
-      try { drawBollingerBands(chart.ctx, chart, indState); } catch (e) {}
-      try { drawFractals(chart.ctx, chart, indState);       } catch (e) {}
-      try { drawing.drawAll(chart.ctx);                     } catch (e) {}
+      try { drawBollingerBands(chart.ctx, chart, indState); } catch (e) { }
+      try { drawFractals(chart.ctx, chart, indState); } catch (e) { }
+      try { drawing.drawAll(chart.ctx); } catch (e) { }
     };
   }
 
   /* ══════════════════════════════════════════════
      POINTER HOOK
-     ★ يجمّد الشارت تمامًا أثناء السحب:
-       - blocker يستلم كل pointer events
-       - canvas.style.pointerEvents = "none"
-       - منع wheel أثناء الدراج
+     ★ يجمّد الشارت تمامًا أثناء السحب
   ══════════════════════════════════════════════ */
   function hookPointerHandlers(chart, drawing, ui) {
     const canvas = chart.canvas;
-    const plot   = chart.plot;
+    const plot = chart.plot;
 
     /* ── Blocker div ── */
     const blocker = document.createElement("div");
     Object.assign(blocker.style, {
-      position:    "absolute",
-      inset:       "0",
-      zIndex:      "255",
-      display:     "none",
+      position: "absolute",
+      inset: "0",
+      zIndex: "255",
+      display: "none",
       touchAction: "none",
-      cursor:      "crosshair",
+      cursor: "crosshair",
     });
     plot.appendChild(blocker);
 
     function activate(pid) {
-      blocker.style.display     = "block";
+      blocker.style.display = "block";
       canvas.style.pointerEvents = "none";
-      try { blocker.setPointerCapture(pid); } catch (e) {}
+      try { blocker.setPointerCapture(pid); } catch (e) { }
     }
     function deactivate() {
-      blocker.style.display     = "none";
+      blocker.style.display = "none";
       canvas.style.pointerEvents = "auto";
     }
 
@@ -1476,7 +2033,7 @@
       "pointerdown",
       (e) => {
         if (e.button === 2) return;
-        const p   = getRelPos(canvas, e.clientX, e.clientY);
+        const p = getRelPos(canvas, e.clientX, e.clientY);
         const res = drawing.onPointerDown(p.x, p.y);
         if (res && res.consumed) {
           e.preventDefault();
@@ -1501,7 +2058,7 @@
       { capture: true, passive: false }
     );
 
-    /* ── ★ wheel: منع التكبير/التصغير أثناء الدراج ── */
+    /* ── wheel: منع التكبير/التصغير أثناء الدراج ── */
     canvas.addEventListener(
       "wheel",
       (e) => {
@@ -1513,7 +2070,7 @@
       { capture: true, passive: false }
     );
 
-    /* ── ★ touchmove: منع اللمس أثناء الدراج ── */
+    /* ── touchmove: منع اللمس أثناء الدراج ── */
     canvas.addEventListener(
       "touchmove",
       (e) => {
