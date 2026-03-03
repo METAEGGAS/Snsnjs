@@ -36,7 +36,6 @@ const PAIR_CONFIG = {
 /* ════════════════════════════════════════════════════════════════
    ★ ACCOUNT MANAGER
    ════════════════════════════════════════════════════════════════ */
-
 window._curAcc      = localStorage.getItem('_curAcc') || 'demo';
 window._demoBalance = 10000;
 window._realBalance = 0;
@@ -47,18 +46,15 @@ let _userUnsub = null;
 const _fmtBal = v =>
     '$' + Number(v).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-/* ★ مرجع صفقات المستخدم (لكل مستخدم لوحده) */
 function getTradesRef() {
     if (!_uid) return null;
     return db.collection('users').doc(_uid).collection('trades');
 }
 
-/* ── تحديث واجهة الرصيد بالكامل ── */
 function refreshUI() {
     const ac  = window._curAcc;
     const cur = ac === 'demo' ? window._demoBalance : window._realBalance;
-
-    const el = id => document.getElementById(id);
+    const el  = id => document.getElementById(id);
 
     if (el('balanceAmount')) el('balanceAmount').textContent = _fmtBal(cur);
     if (el('demoAmt'))       el('demoAmt').textContent       = _fmtBal(window._demoBalance);
@@ -76,7 +72,6 @@ function refreshUI() {
 
     if (el('refillRow')) el('refillRow').style.display = ac === 'demo' ? 'flex' : 'none';
 
-    /* ★ إعادة تحميل السجل تلقائياً عند تبديل الحساب إذا كان لوح السجل مفتوحاً */
     const hp = document.getElementById('historyPanel');
     if (hp && hp.classList.contains('show')) loadHistory();
 }
@@ -125,7 +120,6 @@ auth.onAuthStateChanged(async user => {
         _listenUser(_uid);
         if (user.photoURL) setAvatar(user.photoURL);
 
-        /* ★ تحميل صفقات المستخدم النشطة فور تسجيل الدخول */
         activeTrades = [];
         if (window.chart) window.chart.clearAllTradeMarkers();
         loadActiveTrades();
@@ -134,7 +128,6 @@ auth.onAuthStateChanged(async user => {
         _uid = null;
         if (_userUnsub) { _userUnsub(); _userUnsub = null; }
 
-        /* ★ تفريغ صفقات/Markers عند الخروج */
         activeTrades = [];
         if (window.chart) window.chart.clearAllTradeMarkers();
 
@@ -288,7 +281,6 @@ function showInfoToast(msg, type = 'info', dur = 3000) {
     _infoTimer = setTimeout(() => el.classList.remove('show'), dur);
 }
 
-/* ★ بدل Result Toast الكبير: Overlay صغير جوه الشارت */
 let _chartResTimer = null;
 function showChartPnlOverlay(pnlStr, amount) {
     const plot = document.getElementById('plot');
@@ -338,10 +330,9 @@ function showChartPnlOverlay(pnlStr, amount) {
     _chartResTimer = setTimeout(() => el.classList.remove('show'), 2500);
 }
 
-/* (تم الإبقاء على الدالة القديمة بدون استخدام، فقط لتفادي أي ربط خارجي) */
 let _resTimer = null;
 function showResultToast(won, pnlStr, tradeType, entryPrice, closePrice) {
-    // لم يعد يتم استخدام Toast نتيجة (حسب طلبك)
+    // غير مستخدم
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -380,7 +371,6 @@ let activeTrades = [];
    OPEN TRADE
    ════════════════════════════════════════════════════════════════ */
 async function openTrade(type) {
-    /* ★ لازم يكون فيه مستخدم عشان كل واحد يبقى ليه صفقاته */
     if (!_uid) {
         return showInfoToast('❌ لازم تسجّل دخول عشان الصفقات تبقى خاصة بيك', 'error');
     }
@@ -416,14 +406,14 @@ async function openTrade(type) {
     await window.deductBalance(amount);
 
     const tradeData = {
-        uid: _uid, /* ★ ربط الصفقة بالمستخدم */
+        uid: _uid,
         type, pair: pairName, entryPrice, amount,
         duration, startTime, endTime,
         status: 'active', closePrice: null, pnl: null,
         markerPrice: markerPrice,
         candleTimestamp: candleTimestamp,
         candleIndex: candleIndex,
-        account: window._curAcc   /* ★ حقل الحساب (تجريبي/حقيقي) */
+        account: window._curAcc
     };
 
     try {
@@ -440,6 +430,9 @@ async function openTrade(type) {
 
         window.chart.addMarkerForTrade(type, trade);
         renderActiveTrades();
+
+        /* ★ إظهار لوحة التحكم بالشمعة بعد فتح الصفقة مباشرة */
+        if (window.chart) window.chart.showCandleControlPanel(type);
 
         const rem = Math.max(0, endTime - Date.now());
         setTimeout(() => closeTrade(trade), rem);
@@ -481,12 +474,10 @@ async function closeTrade(trade) {
         }
     } catch (e) { console.warn('closeTrade update:', e); }
 
-    /* ★ اختفاء Marker فور انتهاء الصفقة */
     if (window.chart) window.chart.removeMarkerByTradeId(trade.id);
 
     renderActiveTrades();
 
-    /* ★ نص صغير داخل الشارت: الربح/الخسارة + رأس المال */
     const pnlStr = won ? `+$${profit.toFixed(2)}` : `-$${trade.amount.toFixed(2)}`;
     showChartPnlOverlay(pnlStr, trade.amount);
 
@@ -561,11 +552,9 @@ async function loadHistory() {
         const tradesRef = getTradesRef();
         const snap = await tradesRef.orderBy('startTime','desc').limit(100).get();
 
-        /* ★ فلترة بحسب الحساب الحالي (تجريبي / حقيقي) */
         const curAcc    = window._curAcc;
         const allSnap   = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         const accFilter = t => {
-            /* الصفقات القديمة بدون حقل account تُعامَل كـ demo */
             if (curAcc === 'demo') return !t.account || t.account === 'demo';
             return t.account === curAcc;
         };
@@ -578,7 +567,6 @@ async function loadHistory() {
         if (tab === 'active') trades = trades.filter(t => t.status === 'active');
         else if (tab === 'closed') trades = trades.filter(t => t.status === 'won' || t.status === 'lost');
 
-        /* ★ إحصائيات خاصة بالحساب الحالي فقط */
         const wonT  = accTrades.filter(t => t.status === 'won');
         const lostT = accTrades.filter(t => t.status === 'lost');
         const netPnl = wonT.reduce((s,t)=> s+(t.pnl||0),0) + lostT.reduce((s,t)=> s+(t.pnl||0),0);
@@ -799,7 +787,6 @@ class ChartMasterManager {
         return this.masterPairs.has(pair);
     }
 
-    /* ★ تحسين البث: تقليل throttle من 500ms إلى 200ms لضمان مزامنة أدق */
     broadcastLiveCandle(candle, pair) {
         if (!this.masterPairs.has(pair) || !candle) return;
         const now = Date.now();
@@ -919,17 +906,19 @@ class AdvancedTradingChart {
         this._viewerUnsub      = null;
         this._skeletonEl       = null;
 
+        /* ★ لوحة التحكم بالشمعة */
+        this._forcedCandles      = {};   // { timestamp → 'up' | 'down' }
+        this._ccpCountdownTimer  = null;
+
         this.setup();
         this._createSkeleton();
         this.initEvents();
         this.loop();
     }
 
-    /* ════════════════════════════
+    /* ══════════════════════════════════════════════════════════════
        ★ LOADING OVERLAY (GIF)
-       - يغطي الشارت بالكامل
-       - حواف لازقة: top/right/bottom/left = 0
-       ════════════════════════════ */
+       ══════════════════════════════════════════════════════════════ */
     _injectSkeletonStyles() {
         if (document.getElementById('_skelCSS')) return;
         const s = document.createElement('style');
@@ -956,13 +945,9 @@ class AdvancedTradingChart {
             return;
         }
         this._injectSkeletonStyles();
-
         const sk = document.createElement('div');
         sk.id = 'chartSkeleton';
-
-        if (getComputedStyle(this.plot).position === 'static') {
-            this.plot.style.position = 'relative';
-        }
+        if (getComputedStyle(this.plot).position === 'static') this.plot.style.position = 'relative';
         this.plot.appendChild(sk);
         this._skeletonEl = sk;
     }
@@ -976,6 +961,321 @@ class AdvancedTradingChart {
         if (this._skeletonEl) this._skeletonEl.classList.add('sk-hidden');
     }
 
+    /* ══════════════════════════════════════════════════════════════
+       ★ CANDLE CONTROL PANEL  –  الجديد
+       ══════════════════════════════════════════════════════════════ */
+
+    /** حقن CSS لوحة التحكم (مرة واحدة فقط) */
+    _injectCCPStyles() {
+        if (document.getElementById('_ccpCSS')) return;
+        const s = document.createElement('style');
+        s.id = '_ccpCSS';
+        s.textContent = `
+        /* ══ Candle Control Panel ══ */
+        #candleControlPanel {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.88);
+            z-index: 500;
+            background: rgba(10, 12, 22, 0.94);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 215, 0, 0.22);
+            border-radius: 14px;
+            padding: 11px 13px 10px;
+            min-width: 230px;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,215,0,0.06);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.22s ease, transform 0.22s ease;
+            direction: rtl;
+            user-select: none;
+        }
+        #candleControlPanel.ccp-visible {
+            opacity: 1;
+            pointer-events: all;
+            transform: translate(-50%, -50%) scale(1);
+        }
+        .ccp-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 7px;
+        }
+        .ccp-title {
+            flex: 1;
+            font-size: 11.5px;
+            font-weight: 700;
+            color: #ffd700;
+            letter-spacing: .3px;
+        }
+        .ccp-timer-badge {
+            background: rgba(255, 215, 0, 0.12);
+            border: 1px solid rgba(255, 215, 0, 0.28);
+            border-radius: 20px;
+            padding: 2px 8px;
+            font-size: 10.5px;
+            font-weight: 700;
+            color: #ffd700;
+            min-width: 28px;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+        }
+        .ccp-close-btn {
+            cursor: pointer;
+            color: #666;
+            font-size: 15px;
+            line-height: 1;
+            padding: 0 1px;
+            transition: color .15s;
+        }
+        .ccp-close-btn:hover { color: #ccc; }
+        .ccp-subtitle {
+            font-size: 9px;
+            color: #888;
+            margin-bottom: 9px;
+            text-align: center;
+            letter-spacing: .2px;
+        }
+        .ccp-divider {
+            height: 1px;
+            background: rgba(255,255,255,0.06);
+            margin: 7px 0;
+        }
+        .ccp-row {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 5px;
+            padding: 5px 7px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: background .15s, border-color .15s;
+        }
+        .ccp-row:last-of-type { margin-bottom: 0; }
+        .ccp-row:hover {
+            background: rgba(255,255,255,0.07);
+            border-color: rgba(255,255,255,0.1);
+        }
+        .ccp-candle-label {
+            font-size: 9px;
+            color: #666;
+            min-width: 34px;
+            text-align: right;
+        }
+        .ccp-time {
+            flex: 1;
+            font-size: 12.5px;
+            font-weight: 700;
+            color: #ddd;
+            font-family: 'Courier New', monospace;
+            direction: ltr;
+            text-align: left;
+            letter-spacing: .5px;
+        }
+        .ccp-btn {
+            border: none;
+            border-radius: 6px;
+            padding: 4px 9px;
+            font-size: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.18s;
+            outline: none;
+            letter-spacing: .2px;
+        }
+        .ccp-btn:hover { transform: scale(1.07); }
+        .ccp-btn:active { transform: scale(0.96); }
+
+        /* ↗ صعود */
+        .ccp-btn.ccp-up {
+            background: rgba(0, 200, 80, 0.14);
+            border: 1px solid rgba(0, 200, 80, 0.40);
+            color: #00e060;
+        }
+        .ccp-btn.ccp-up:hover {
+            background: rgba(0, 200, 80, 0.25);
+        }
+        .ccp-btn.ccp-up.ccp-selected {
+            background: rgba(0, 200, 80, 0.42);
+            border-color: #00dd55;
+            color: #fff;
+            box-shadow: 0 0 10px rgba(0, 230, 100, 0.50);
+        }
+
+        /* ↘ هبوط */
+        .ccp-btn.ccp-down {
+            background: rgba(255, 55, 55, 0.14);
+            border: 1px solid rgba(255, 55, 55, 0.40);
+            color: #ff5555;
+        }
+        .ccp-btn.ccp-down:hover {
+            background: rgba(255, 55, 55, 0.25);
+        }
+        .ccp-btn.ccp-down.ccp-selected {
+            background: rgba(255, 55, 55, 0.42);
+            border-color: #ff3333;
+            color: #fff;
+            box-shadow: 0 0 10px rgba(255, 60, 60, 0.50);
+        }
+
+        /* شريط التقدم الزمني */
+        .ccp-progress-bar {
+            height: 3px;
+            background: rgba(255, 215, 0, 0.12);
+            border-radius: 3px;
+            margin-top: 9px;
+            overflow: hidden;
+        }
+        .ccp-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ffd700, #ffaa00);
+            border-radius: 3px;
+            transition: width 0.95s linear;
+        }
+        `;
+        document.head.appendChild(s);
+    }
+
+    /** إنشاء عنصر اللوحة داخل #plot */
+    _createCandleControlPanel() {
+        this._injectCCPStyles();
+        if (document.getElementById('candleControlPanel')) return;
+        const el = document.createElement('div');
+        el.id = 'candleControlPanel';
+        if (getComputedStyle(this.plot).position === 'static') this.plot.style.position = 'relative';
+        this.plot.appendChild(el);
+    }
+
+    /**
+     * ★ إظهار لوحة التحكم بالشمعة
+     * - تظهر فقط للماستر
+     * - تُغلق تلقائياً بعد 10 ثوانٍ
+     */
+    showCandleControlPanel(tradeType) {
+        /* فقط الماستر */
+        if (!window.masterManager || !window.masterManager.isMaster(this.currentPair)) return;
+
+        this._createCandleControlPanel();
+        const panel = document.getElementById('candleControlPanel');
+        if (!panel) return;
+
+        /* إلغاء أي عداد سابق */
+        if (this._ccpCountdownTimer) {
+            clearInterval(this._ccpCountdownTimer);
+            this._ccpCountdownTimer = null;
+        }
+
+        let timeLeft = 10;
+        panel.innerHTML = this._buildCCPHtml(timeLeft);
+        panel.classList.add('ccp-visible');
+
+        /* ربط أزرار الصعود/الهبوط */
+        panel.querySelectorAll('.ccp-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const ts  = parseInt(btn.closest('.ccp-row').getAttribute('data-ts'));
+                const dir = btn.getAttribute('data-dir');
+
+                if (this._forcedCandles[ts] === dir) {
+                    /* إلغاء التحديد إذا ضغط مرتين */
+                    delete this._forcedCandles[ts];
+                } else {
+                    this._forcedCandles[ts] = dir;
+                    const timeEl = btn.closest('.ccp-row').querySelector('.ccp-time');
+                    const timeStr = timeEl ? timeEl.textContent : '';
+                    showInfoToast(
+                        dir === 'up'
+                            ? `🟢 شمعة ${timeStr} ستُغلق صاعدة ↗`
+                            : `🔴 شمعة ${timeStr} ستُغلق هابطة ↘`,
+                        dir === 'up' ? 'buy' : 'sell',
+                        2200
+                    );
+                }
+                this._syncCCPSelections();
+            });
+        });
+
+        /* زر الإغلاق */
+        const closeBtn = document.getElementById('ccpCloseBtn');
+        if (closeBtn) closeBtn.addEventListener('click', () => this.hideCandleControlPanel());
+
+        /* مزامنة أي تحديدات محفوظة مسبقاً */
+        this._syncCCPSelections();
+
+        /* العداد التنازلي */
+        this._ccpCountdownTimer = setInterval(() => {
+            timeLeft--;
+            const badge = document.getElementById('ccpTimerBadge');
+            const fill  = document.getElementById('ccpProgressFill');
+            if (badge) badge.textContent = timeLeft + 's';
+            if (fill)  fill.style.width  = (timeLeft * 10) + '%';
+            if (timeLeft <= 0) this.hideCandleControlPanel();
+        }, 1000);
+    }
+
+    /** بناء HTML الداخلي للوحة */
+    _buildCCPHtml(timeLeft) {
+        const rows = [];
+        for (let i = 0; i < 3; i++) {
+            const ts    = this.t0 + i * this.timeframe;
+            const d     = new Date(ts);
+            const hh    = String(d.getHours()).padStart(2, '0');
+            const mm    = String(d.getMinutes()).padStart(2, '0');
+            const label = i === 0 ? 'الحالية' : i === 1 ? 'التالية' : 'بعدها ';
+            const sel   = this._forcedCandles[ts] || '';
+
+            rows.push(`
+            <div class="ccp-row" data-ts="${ts}">
+                <span class="ccp-candle-label">${label}</span>
+                <span class="ccp-time">${hh}:${mm}</span>
+                <button class="ccp-btn ccp-up${sel === 'up' ? ' ccp-selected' : ''}" data-dir="up">↗ صعود</button>
+                <button class="ccp-btn ccp-down${sel === 'down' ? ' ccp-selected' : ''}" data-dir="down">↘ هبوط</button>
+            </div>`);
+        }
+
+        return `
+        <div class="ccp-header">
+            <span class="ccp-title">🎯 التحكم بالشمعة</span>
+            <span class="ccp-timer-badge" id="ccpTimerBadge">${timeLeft}s</span>
+            <span class="ccp-close-btn" id="ccpCloseBtn">✕</span>
+        </div>
+        <div class="ccp-subtitle">اختر شمعة وحدد اتجاه الإغلاق — ماستر فقط</div>
+        ${rows.join('')}
+        <div class="ccp-progress-bar">
+            <div class="ccp-progress-fill" id="ccpProgressFill" style="width:100%"></div>
+        </div>`;
+    }
+
+    /** مزامنة حالة الأزرار مع `_forcedCandles` */
+    _syncCCPSelections() {
+        const panel = document.getElementById('candleControlPanel');
+        if (!panel) return;
+        panel.querySelectorAll('.ccp-row').forEach(row => {
+            const ts  = parseInt(row.getAttribute('data-ts'));
+            const dir = this._forcedCandles[ts] || '';
+            row.querySelectorAll('.ccp-btn').forEach(btn => {
+                btn.classList.toggle('ccp-selected', btn.getAttribute('data-dir') === dir);
+            });
+        });
+    }
+
+    /** إخفاء لوحة التحكم */
+    hideCandleControlPanel() {
+        const panel = document.getElementById('candleControlPanel');
+        if (panel) panel.classList.remove('ccp-visible');
+        if (this._ccpCountdownTimer) {
+            clearInterval(this._ccpCountdownTimer);
+            this._ccpCountdownTimer = null;
+        }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       SETUP / HELPERS
+       ══════════════════════════════════════════════════════════════ */
     setup() {
         const dpr = window.devicePixelRatio || 1, r = this.plot.getBoundingClientRect();
         this.w = r.width;
@@ -1036,6 +1336,7 @@ class AdvancedTradingChart {
         if (newPair === this.currentPair) return;
 
         this._stopViewerListener();
+        this.hideCandleControlPanel(); /* أغلق اللوحة عند تبديل الزوج */
         this._switching = true;
         this.showSkeleton();
 
@@ -1056,6 +1357,7 @@ class AdvancedTradingChart {
         this.markers       = [];
         this.smin          = null;
         this.smax          = null;
+        this._forcedCandles = {}; /* مسح أوامر الإجبار عند تبديل الزوج */
 
         await this.loadCandlesFromFirebase(newPair, isMaster);
         this._switching = false;
@@ -1087,9 +1389,7 @@ class AdvancedTradingChart {
                     startT += this.timeframe;
                 }
 
-                if (isMaster) {
-                    await this._batchSaveCandles(coll, generated);
-                }
+                if (isMaster) await this._batchSaveCandles(coll, generated);
 
                 this.candles      = generated;
                 this.currentPrice = this.candles[this.candles.length - 1].close;
@@ -1107,9 +1407,7 @@ class AdvancedTradingChart {
 
         if (!this._realtimeStarted) this.startRealtime();
 
-        if (!isMaster) {
-            this._startViewerListener(targetPair);
-        }
+        if (!isMaster) this._startViewerListener(targetPair);
     }
 
     async _fillAndSaveGaps(coll, isMaster) {
@@ -1132,14 +1430,9 @@ class AdvancedTradingChart {
 
         if (gaps.length > 0) {
             this.candles.push(...gaps);
-            if (this.candles.length > this.maxCandles) {
-                this.candles = this.candles.slice(-this.maxCandles);
-            }
+            if (this.candles.length > this.maxCandles) this.candles = this.candles.slice(-this.maxCandles);
             this.currentPrice = this.candles[this.candles.length - 1].close;
-
-            if (isMaster) {
-                await this._batchSaveCandles(coll, gaps);
-            }
+            if (isMaster) await this._batchSaveCandles(coll, gaps);
             console.log(`📊 [Gap-Fill] ${coll}: +${gaps.length} شمعة`);
         }
     }
@@ -1147,19 +1440,13 @@ class AdvancedTradingChart {
     async _batchSaveCandles(coll, candles) {
         if (!candles || !candles.length) return;
         const chunks = [];
-        for (let i = 0; i < candles.length; i += 499) {
-            chunks.push(candles.slice(i, i + 499));
-        }
+        for (let i = 0; i < candles.length; i += 499) chunks.push(candles.slice(i, i + 499));
         for (const chunk of chunks) {
             try {
                 const batch = db.batch();
-                chunk.forEach(c => {
-                    batch.set(db.collection(coll).doc(String(c.timestamp)), c);
-                });
+                chunk.forEach(c => batch.set(db.collection(coll).doc(String(c.timestamp)), c));
                 await batch.commit();
-            } catch (e) {
-                console.warn('_batchSaveCandles:', e);
-            }
+            } catch (e) { console.warn('_batchSaveCandles:', e); }
         }
     }
 
@@ -1177,9 +1464,7 @@ class AdvancedTradingChart {
 
     saveCandleToFirebase(candle, pair = null) {
         const targetPair = pair || this.currentPair;
-        /* ✅ الشرط الأساسي: فقط الماستر هو اللي يحفظ */
         if (window.masterManager && !window.masterManager.isMaster(targetPair)) return;
-
         const coll = this.getPairCollection(targetPair);
         db.collection(coll)
           .doc(String(candle.timestamp))
@@ -1190,29 +1475,21 @@ class AdvancedTradingChart {
     _startViewerListener(pair) {
         this._stopViewerListener();
         if (!window.masterManager) return;
-
         this._viewerUnsub = window.masterManager._candleRef(pair).onSnapshot(snap => {
             if (this._switching) return;
             if (window.masterManager && window.masterManager.isMaster(pair)) return;
             if (!snap.exists) return;
-
             const data = snap.data();
-            if (data && data.pair === pair && data.candle) {
-                this._applyRemoteCandle(data.candle);
-            }
+            if (data && data.pair === pair && data.candle) this._applyRemoteCandle(data.candle);
         });
     }
 
     _stopViewerListener() {
-        if (this._viewerUnsub) {
-            this._viewerUnsub();
-            this._viewerUnsub = null;
-        }
+        if (this._viewerUnsub) { this._viewerUnsub(); this._viewerUnsub = null; }
     }
 
     _applyRemoteCandle(remote) {
         if (!remote) return;
-
         if (this.currentCandle && this.currentCandle.timestamp !== remote.timestamp) {
             const prev = { ...this.currentCandle };
             const last = this.candles[this.candles.length - 1];
@@ -1221,7 +1498,6 @@ class AdvancedTradingChart {
                 if (this.candles.length > this.maxCandles) this.candles.shift();
             }
         }
-
         this.currentCandle = { ...remote };
         this.currentPrice  = remote.close;
         this.t0            = remote.timestamp;
@@ -1231,14 +1507,12 @@ class AdvancedTradingChart {
         this.hideSkeleton();
 
         if (!this.currentCandle && this.candles.length) {
-            const last = this.candles[this.candles.length - 1];
-            const now  = Date.now();
+            const last  = this.candles[this.candles.length - 1];
+            const now   = Date.now();
             const t0now = Math.floor(now / this.timeframe) * this.timeframe;
             this.currentCandle = {
-                open:      last.close,
-                close:     last.close,
-                high:      last.close,
-                low:       last.close,
+                open: last.close, close: last.close,
+                high: last.close, low:   last.close,
                 timestamp: t0now
             };
             this.currentPrice = last.close;
@@ -1261,10 +1535,8 @@ class AdvancedTradingChart {
 
     getIndexForCandleTimestamp(ts) {
         if (ts === undefined || ts === null) return null;
-        if (this.currentCandle && this.currentCandle.timestamp === ts)
-            return this.candles.length;
-        for (let i = 0; i < this.candles.length; i++)
-            if (this.candles[i].timestamp === ts) return i;
+        if (this.currentCandle && this.currentCandle.timestamp === ts) return this.candles.length;
+        for (let i = 0; i < this.candles.length; i++) if (this.candles[i].timestamp === ts) return i;
         const tS  = this.candles.length ? this.candles[0].timestamp : this.t0;
         let   idx = Math.round((ts - tS) / this.timeframe);
         idx = Math.max(0, Math.min(idx, this.candles.length));
@@ -1495,12 +1767,10 @@ class AdvancedTradingChart {
         });
     }
 
-    /* ★ حذف Marker فور إغلاق الصفقة */
     removeMarkerByTradeId(tradeId) {
         this.markers = this.markers.filter(mk => mk.tradeId !== tradeId);
     }
 
-    /* ★ مسح كل علامات الصفقات (مثلاً عند logout) */
     clearAllTradeMarkers() {
         this.markers = [];
     }
@@ -1532,7 +1802,6 @@ class AdvancedTradingChart {
         this.ctx.lineTo(2, .8); this.ctx.closePath(); this.ctx.fill();
         this.ctx.restore();
 
-        /* خط أفقي بسيط فقط (بدون نهايات ربح/خسارة) */
         const lx = x + cw / 2 + 3;
         let lw;
         if (m.duration) {
@@ -1545,12 +1814,10 @@ class AdvancedTradingChart {
 
         const lineColor = ib ? "rgba(22,163,74,.65)" : "rgba(255,59,59,.65)";
         this.ctx.strokeStyle = lineColor; this.ctx.lineWidth = 1.2;
-
         this.ctx.beginPath(); this.ctx.moveTo(x + cw / 2, y); this.ctx.lineTo(lx, y); this.ctx.stroke();
         this.ctx.setLineDash([4, 3]);
         this.ctx.beginPath(); this.ctx.moveTo(lx, y); this.ctx.lineTo(lx + lw, y); this.ctx.stroke();
         this.ctx.setLineDash([]);
-
         this.ctx.restore();
     }
 
@@ -1578,31 +1845,73 @@ class AdvancedTradingChart {
         return Math.abs(d) <= m ? t : c + Math.sign(d) * m;
     }
 
+    /* ══════════════════════════════════════════════════════════════
+       ★ updateCurrentCandle – مع منطق إجبار اتجاه الشمعة
+       ══════════════════════════════════════════════════════════════ */
     updateCurrentCandle() {
         const vb = this.vb || 8e-4;
+
         if (!this.currentCandle) {
-            const lp = this.candles.length ? this.candles[this.candles.length - 1].close : this.currentPrice;
+            const lp = this.candles.length
+                ? this.candles[this.candles.length - 1].close
+                : this.currentPrice;
             this.currentCandle       = this.genCandle(this.t0, lp);
             this.currentCandle.close = lp;
             this.currentCandle.high  = Math.max(this.currentCandle.open, this.currentCandle.close);
             this.currentCandle.low   = Math.min(this.currentCandle.open, this.currentCandle.close);
             return;
         }
-        const n   = Date.now(),
-              r   = this.rnd(this.seed + n),
-              dir = (r - .5) * vb * 0.5,
-              t   = this.currentCandle.close + dir,
-              ms  = vb * .18,
-              nc  = +this.stepTowards(this.currentCandle.close, t, ms).toFixed(this.digits);
+
+        const n   = Date.now();
+        const r   = this.rnd(this.seed + n);
+        const dir = (r - .5) * vb * 0.5;
+        const t   = this.currentCandle.close + dir;
+        const ms  = vb * .18;
+        let nc    = +this.stepTowards(this.currentCandle.close, t, ms).toFixed(this.digits);
+
+        /* ★══════════════════════════════════════════════════════
+           إجبار اتجاه الشمعة — فقط الماستر — فقط إذا وُجد أمر
+           ══════════════════════════════════════════════════════ */
+        const forced = this._forcedCandles[this.t0];
+        if (forced && window.masterManager && window.masterManager.isMaster(this.currentPair)) {
+
+            const elapsed  = n - this.t0;
+            const progress = Math.min(1, elapsed / this.timeframe);
+
+            /* ─── مرحلة التوجيه التدريجي (60% → 95%) ─── */
+            if (progress >= 0.60 && progress < 0.95) {
+                /* قوة تتزايد تدريجياً 0 → 1 */
+                const strength = Math.pow((progress - 0.60) / 0.35, 1.8);
+                const open     = this.currentCandle.open;
+                const margin   = vb * 0.40;
+                const target   = forced === 'up' ? open + margin : open - margin;
+                const diff     = target - nc;
+                nc = +(nc + diff * strength * 0.50).toFixed(this.digits);
+            }
+
+            /* ─── مرحلة الضمان النهائي (95% → 100%) ─── */
+            if (progress >= 0.95) {
+                const open      = this.currentCandle.open;
+                const minMargin = Math.max((this.tb || 5e-5) * 4, vb * 0.05);
+                if (forced === 'up'   && nc <= open) {
+                    nc = +(open + minMargin).toFixed(this.digits);
+                }
+                if (forced === 'down' && nc >= open) {
+                    nc = +(open - minMargin).toFixed(this.digits);
+                }
+            }
+        }
+        /* ══════════════════════════════════════════════════════ */
+
         this.currentCandle.close = nc;
         this.currentCandle.high  = +Math.max(this.currentCandle.high, nc).toFixed(this.digits);
         this.currentCandle.low   = +Math.min(this.currentCandle.low,  nc).toFixed(this.digits);
         this.currentPrice        = nc;
     }
 
-    /* ✅ تعديل مهم: حفظ الشموع بدقة حتى لو التاب اتجمّد/اتخنق
-       - فقط الماستر يحفظ
-       - يقفل ويحفظ كل الشموع اللي عدّت (catch-up) */
+    /* ══════════════════════════════════════════════════════════════
+       ★ startRealtime – مع تنظيف _forcedCandles عند إغلاق شمعة
+       ══════════════════════════════════════════════════════════════ */
     startRealtime() {
         if (this._realtimeStarted) return;
         this._realtimeStarted = true;
@@ -1615,44 +1924,45 @@ class AdvancedTradingChart {
 
             const now = Date.now();
 
-            // تأكد إن عندنا currentCandle سليمة
             if (!this.currentCandle) {
                 const lastClose = this.candles.length
                     ? this.candles[this.candles.length - 1].close
                     : this.currentPrice;
-
                 this.t0 = Math.floor(now / this.timeframe) * this.timeframe;
                 this.currentCandle = {
                     open: lastClose, close: lastClose,
-                    high: lastClose, low: lastClose,
+                    high: lastClose, low:   lastClose,
                     timestamp: this.t0
                 };
                 this.currentPrice = lastClose;
             }
 
-            // 1) Catch-up: اقفل واحفظ كل الشموع اللي عدّت
+            /* 1) Catch-up: اقفل واحفظ كل الشموع اللي عدّت */
             let catchupCount = 0;
             while ((now - this.t0) >= this.timeframe && catchupCount < MAX_CATCHUP_CANDLES_PER_TICK) {
                 const closedCandle = { ...this.currentCandle };
 
-                if (!this.candles.length || this.candles[this.candles.length - 1].timestamp !== closedCandle.timestamp) {
+                if (!this.candles.length ||
+                    this.candles[this.candles.length - 1].timestamp !== closedCandle.timestamp) {
                     this.candles.push(closedCandle);
                     if (this.candles.length > this.maxCandles) this.candles.shift();
                 }
 
-                // حفظ الشمعة (فقط master)
+                /* ★ حذف أمر الإجبار بعد إغلاق الشمعة */
+                if (this._forcedCandles[closedCandle.timestamp]) {
+                    delete this._forcedCandles[closedCandle.timestamp];
+                }
+
                 this.saveCandleToFirebase(closedCandle, this.currentPair);
 
-                // بث للمشاهدين
                 if (window.masterManager && window.masterManager.isMaster(this.currentPair)) {
                     window.masterManager.broadcastLiveCandle({ ...closedCandle }, this.currentPair);
                 }
 
-                // شمعة جديدة
                 this.t0 += this.timeframe;
                 const lp = closedCandle.close;
                 this.currentCandle = { open: lp, close: lp, high: lp, low: lp, timestamp: this.t0 };
-                this.currentPrice = lp;
+                this.currentPrice  = lp;
 
                 if (window.masterManager && window.masterManager.isMaster(this.currentPair)) {
                     window.masterManager.broadcastLiveCandle({ ...this.currentCandle }, this.currentPair);
@@ -1661,8 +1971,9 @@ class AdvancedTradingChart {
                 catchupCount++;
             }
 
-            // 2) تحديث الشمعة الحالية داخل الدقيقة
+            /* 2) تحديث الشمعة الحالية */
             this.updateCurrentCandle();
+
             if (this.currentCandle && window.masterManager && window.masterManager.isMaster(this.currentPair)) {
                 window.masterManager.broadcastLiveCandle({ ...this.currentCandle }, this.currentPair);
             }
