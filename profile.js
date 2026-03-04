@@ -1,4 +1,7 @@
-/* app.js - Full JS version (builds the whole page + Firebase + UI logic) */
+/* app.js - Full JS version (builds the whole page + Firebase + UI logic)
+   تعديل مهم: مفيش أي توجيه لـ index.html تلقائيًا
+   التحويل لـ index.html بيحصل فقط عند الضغط على "منصة التداول"
+*/
 
 (async function () {
   // ---------- Head / Meta ----------
@@ -6,14 +9,13 @@
   document.documentElement.dir = "rtl";
   document.title = "الملف الشخصي";
 
-  // meta charset (can't be reliably changed after parsing, but keep viewport)
   if (!document.querySelector('meta[name="viewport"]')) {
     const metaViewport = document.createElement("meta");
     metaViewport.name = "viewport";
     metaViewport.content = "width=device-width,initial-scale=1";
     document.head.appendChild(metaViewport);
   }
-  if (!document.querySelector('meta[charset]')) {
+  if (!document.querySelector("meta[charset]")) {
     const metaCharset = document.createElement("meta");
     metaCharset.setAttribute("charset", "utf-8");
     document.head.prepend(metaCharset);
@@ -142,6 +144,7 @@ a{color:inherit}.app{width:100%;min-height:100vh;background:var(--bg)}
   document.head.appendChild(style);
 
   // ---------- Body HTML (same structure, no script tags) ----------
+  // تعديل "منصة التداول": href بقى javascript:void(0) + data-href="index.html"
   const BODY_HTML = `
 <div class="app" id="mainApp">
   <div class="topbar">
@@ -379,10 +382,13 @@ a{color:inherit}.app{width:100%;min-height:100vh;background:var(--bg)}
           <div class="r"><span class="tx">متجر المكافآت</span></div>
           <span class="ic"><img src="https://cdn-icons-png.flaticon.com/128/3179/3179608.png"></span>
         </a>
-        <a class="mi" href="index.html" id="nav-trade">
+
+        <!-- ✅ هنا التعديل -->
+        <a class="mi" href="javascript:void(0)" id="nav-trade" data-href="index.html">
           <div class="r"><span class="tx">منصة التداول</span></div>
           <span class="ic"><img src="https://cdn-icons-png.flaticon.com/128/6516/6516126.png"></span>
         </a>
+
       </nav>
     </div>
   </div>
@@ -390,13 +396,12 @@ a{color:inherit}.app{width:100%;min-height:100vh;background:var(--bg)}
 </div>
 `;
 
-  // ensure body exists
   if (!document.body) {
     await new Promise((r) => document.addEventListener("DOMContentLoaded", r, { once: true }));
   }
   document.body.innerHTML = BODY_HTML;
 
-  // ---------- UI Logic (converted from the regular script, same behavior) ----------
+  // ---------- UI Logic ----------
   const pages = ["profile", "rewards", "withdraw", "levels"];
   const tabs = { profile: "t-profile", rewards: "t-rewards", withdraw: "t-withdraw", levels: "t-levels" };
 
@@ -495,7 +500,7 @@ a{color:inherit}.app{width:100%;min-height:100vh;background:var(--bg)}
   sbOv.addEventListener("click", () => sb.classList.remove("on"));
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") sb.classList.remove("on"); });
 
-  // sidebar nav links
+  // sidebar nav links (internal pages)
   document.querySelectorAll('.mi[data-page]').forEach((a) => {
     a.addEventListener("click", (e) => {
       e.preventDefault();
@@ -504,21 +509,26 @@ a{color:inherit}.app{width:100%;min-height:100vh;background:var(--bg)}
     });
   });
 
+  // ✅ منصة التداول: توجيه فقط عند الضغط
+  const navTrade = document.getElementById("nav-trade");
+  if (navTrade) {
+    navTrade.addEventListener("click", (e) => {
+      e.preventDefault();
+      const to = navTrade.getAttribute("data-href") || "index.html";
+      window.location.href = to;
+    });
+  }
+
   // ---------- Firebase Module Script (same logic, using dynamic import) ----------
-  const {
-    initializeApp
-  } = await import("https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js");
+  const { initializeApp } = await import("https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js");
 
   let getAnalytics;
   try {
     ({ getAnalytics } = await import("https://www.gstatic.com/firebasejs/12.8.0/firebase-analytics.js"));
-  } catch (e) {
-    // ignore
-  }
+  } catch (e) { }
 
-  const {
-    getAuth, signInAnonymously, onAuthStateChanged
-  } = await import("https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js");
+  const { getAuth, signInAnonymously, onAuthStateChanged } =
+    await import("https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js");
 
   const {
     getFirestore, collection, addDoc, onSnapshot, serverTimestamp,
@@ -730,5 +740,4 @@ a{color:inherit}.app{width:100%;min-height:100vh;background:var(--bg)}
       alert("تم تقديم طلب السحب بنجاح");
     } catch (e) { console.error(e); alert("حصل خطأ، حاول تاني"); }
   };
-
 })();
