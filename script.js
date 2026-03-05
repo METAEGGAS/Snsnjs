@@ -4,7 +4,7 @@
    ⚠️  ضع بيانات مشروعك هنا بعد إنشائه في supabase.com
    ══════════════════════════════════════════════════════════════════════════ */
 
-</script>
+
 <script type="module">
 import{createClient}from'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 const SB_URL='https://ybpohyvkdjegyozxfset.supabase.co';
