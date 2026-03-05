@@ -20,6 +20,253 @@
   const _supabase = createClient(SB_URL, SB_KEY, {
     auth: { persistSession: true, autoRefreshToken: true },
   });
+  // ═══════════════════════════════════════════════════════════════
+  // 0-A) Supabase Setup SQL (يُطبع في Console إذا تعذّر الاتصال)
+  // ═══════════════════════════════════════════════════════════════
+  const _SB_SETUP_SQL = `
+-- ================================================================
+-- QT Real Trading — Supabase Setup SQL
+-- 📋 افتح Supabase Dashboard ← SQL Editor ← ألصق هنا وشغّل
+-- ================================================================
+
+-- 1) USERS
+CREATE TABLE IF NOT EXISTS public.users (
+  id            UUID        PRIMARY KEY,
+  email         TEXT        NOT NULL DEFAULT '',
+  demo_balance  NUMERIC     NOT NULL DEFAULT 10000,
+  real_balance  NUMERIC     NOT NULL DEFAULT 0,
+  avatar        TEXT        NOT NULL DEFAULT '',
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='users' AND policyname='users_open') THEN
+    CREATE POLICY users_open ON public.users FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+GRANT ALL ON public.users TO anon, authenticated;
+
+-- 2) TRADES
+CREATE TABLE IF NOT EXISTS public.trades (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  uid              UUID,
+  type             TEXT,
+  pair             TEXT,
+  entry_price      NUMERIC,
+  amount           NUMERIC,
+  duration         INTEGER,
+  start_time       BIGINT,
+  end_time         BIGINT,
+  status           TEXT        NOT NULL DEFAULT 'active',
+  close_price      NUMERIC,
+  pnl              NUMERIC,
+  marker_price     NUMERIC,
+  candle_timestamp BIGINT,
+  candle_index     INTEGER,
+  account          TEXT        NOT NULL DEFAULT 'demo',
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  closed_at        TIMESTAMPTZ
+);
+ALTER TABLE public.trades ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='trades' AND policyname='trades_open') THEN
+    CREATE POLICY trades_open ON public.trades FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+GRANT ALL ON public.trades TO anon, authenticated;
+
+-- 3) CANDLES
+CREATE TABLE IF NOT EXISTS public.candles (
+  id        BIGSERIAL   PRIMARY KEY,
+  pair      TEXT        NOT NULL,
+  timestamp BIGINT      NOT NULL,
+  open      NUMERIC     NOT NULL,
+  close     NUMERIC     NOT NULL,
+  high      NUMERIC     NOT NULL,
+  low       NUMERIC     NOT NULL,
+  CONSTRAINT candles_pair_ts_uq UNIQUE (pair, timestamp)
+);
+ALTER TABLE public.candles ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='candles' AND policyname='candles_open') THEN
+    CREATE POLICY candles_open ON public.candles FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+GRANT ALL ON public.candles TO anon, authenticated;
+GRANT ALL ON SEQUENCE public.candles_id_seq TO anon, authenticated;
+
+-- 4) CHART_SESSIONS
+CREATE TABLE IF NOT EXISTS public.chart_sessions (
+  id         BIGSERIAL   PRIMARY KEY,
+  session_id TEXT        UNIQUE,
+  last_seen  TIMESTAMPTZ,
+  active     BOOLEAN     NOT NULL DEFAULT true
+);
+ALTER TABLE public.chart_sessions ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='chart_sessions' AND policyname='sessions_open') THEN
+    CREATE POLICY sessions_open ON public.chart_sessions FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+GRANT ALL ON public.chart_sessions TO anon, authenticated;
+GRANT ALL ON SEQUENCE public.chart_sessions_id_seq TO anon, authenticated;
+
+-- 5) CHART_CONTROL
+CREATE TABLE IF NOT EXISTS public.chart_control (
+  id             TEXT        PRIMARY KEY,
+  candle         JSONB,
+  pair           TEXT,
+  updated_at     TIMESTAMPTZ,
+  is_active      BOOLEAN     NOT NULL DEFAULT false,
+  last_heartbeat TIMESTAMPTZ
+);
+ALTER TABLE public.chart_control ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='chart_control' AND policyname='control_open') THEN
+    CREATE POLICY control_open ON public.chart_control FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+GRANT ALL ON public.chart_control TO anon, authenticated;
+
+-- 6) claim_master RPC
+CREATE OR REPLACE FUNCTION public.claim_master(p_key TEXT, p_session_id TEXT)
+RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_row  public.chart_control%ROWTYPE;
+  v_dead BOOLEAN;
+BEGIN
+  SELECT * INTO v_row FROM public.chart_control WHERE id = p_key;
+  v_dead := NOT FOUND
+    OR NOT COALESCE(v_row.is_active, false)
+    OR v_row.last_heartbeat IS NULL
+    OR v_row.last_heartbeat < (now() - INTERVAL '12 seconds');
+  IF v_dead THEN
+    INSERT INTO public.chart_control (id, is_active, last_heartbeat)
+    VALUES (p_key, TRUE, now())
+    ON CONFLICT (id) DO UPDATE SET is_active = TRUE, last_heartbeat = now();
+    RETURN TRUE;
+  END IF;
+  RETURN FALSE;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.claim_master(TEXT, TEXT) TO anon, authenticated;
+
+-- ================================================================
+-- END OF SETUP SQL
+-- ================================================================
+`;
+
+  // ─────────────────────────────────────────────────────────────
+  // 0-B) Timeout helper (يُغلِّف أي Promise بمهلة زمنية)
+  // ─────────────────────────────────────────────────────────────
+  function _withTimeout(thenable, ms, label) {
+    let _t;
+    const race = Promise.race([
+      Promise.resolve(thenable),
+      new Promise((_, rej) => { _t = setTimeout(() => rej(new Error("SB_TIMEOUT:" + (label || ""))), ms); })
+    ]);
+    race.finally(() => clearTimeout(_t));
+    return race;
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 0-C) Verify + auto-report missing tables / columns / RPCs
+  // ─────────────────────────────────────────────────────────────
+  async function _verifyAndSetupDB() {
+    const TABLES = ["users", "trades", "candles", "chart_sessions", "chart_control"];
+    const missing = [];
+
+    // فحص الجداول بشكل متوازٍ
+    const checks = await Promise.allSettled(
+      TABLES.map(t =>
+        _withTimeout(
+          _supabase.from(t).select("id", { head: true, count: "exact" }),
+          7000, t
+        )
+      )
+    );
+
+    checks.forEach((res, i) => {
+      const tbl = TABLES[i];
+      if (res.status === "rejected") {
+        const isTimeout = String(res.reason).includes("SB_TIMEOUT");
+        if (!isTimeout) missing.push(tbl);
+        return;
+      }
+      const err = res.value?.error;
+      if (err) {
+        const code = err.code || "";
+        const msg  = (err.message || "").toLowerCase();
+        if (code === "42P01" || msg.includes("does not exist") || msg.includes("relation")) {
+          missing.push(tbl);
+        }
+      }
+    });
+
+    // فحص دالة claim_master
+    let rpcMissing = false;
+    try {
+      const r = await _withTimeout(
+        _supabase.rpc("claim_master", { p_key: "__hc__", p_session_id: "__hc__" }),
+        5000, "rpc-claim_master"
+      );
+      const ec = r?.error?.code || "";
+      const em = (r?.error?.message || "").toLowerCase();
+      if (ec === "PGRST202" || em.includes("does not exist") || em.includes("function")) {
+        rpcMissing = true;
+      }
+    } catch (_) { rpcMissing = true; }
+
+    const anyMissing = missing.length > 0 || rpcMissing;
+
+    if (anyMissing) {
+      const parts = [];
+      if (missing.length)  parts.push("جداول ناقصة: [" + missing.join(", ") + "]");
+      if (rpcMissing)      parts.push("دالة claim_master ناقصة");
+      const summary = parts.join(" | ");
+
+      console.warn("%c⚠️ [Supabase Setup] " + summary,
+        "color:#ff5555;font-weight:bold;font-size:13px");
+      console.log("%c📋 انسخ هذا SQL وشغّله في Supabase Dashboard ← SQL Editor ← New Query:\n",
+        "color:#ffd700;font-weight:bold;font-size:12px");
+      console.log(_SB_SETUP_SQL);
+
+      if (typeof showInfoToast === "function")
+        showInfoToast("⚠️ Supabase: " + summary + " — راجع Console", "error", 9000);
+    } else {
+      console.log("%c✅ [Supabase] جميع الجداول والدوال متاحة",
+        "color:#00dd00;font-weight:bold");
+    }
+
+    // فحص أعمدة الجداول الموجودة + إبلاغ إذا ناقصة
+    _checkTableColumns().catch(() => {});
+
+    return !anyMissing;
+  }
+
+  async function _checkTableColumns() {
+    const USERS_COLS  = { demo_balance:"NUMERIC NOT NULL DEFAULT 10000", real_balance:"NUMERIC NOT NULL DEFAULT 0", avatar:"TEXT NOT NULL DEFAULT ''", email:"TEXT NOT NULL DEFAULT ''" };
+    const TRADES_COLS = { uid:"UUID", type:"TEXT", pair:"TEXT", entry_price:"NUMERIC", amount:"NUMERIC", duration:"INTEGER", start_time:"BIGINT", end_time:"BIGINT", status:"TEXT NOT NULL DEFAULT 'active'", close_price:"NUMERIC", pnl:"NUMERIC", marker_price:"NUMERIC", candle_timestamp:"BIGINT", candle_index:"INTEGER", account:"TEXT NOT NULL DEFAULT 'demo'", created_at:"TIMESTAMPTZ NOT NULL DEFAULT now()", closed_at:"TIMESTAMPTZ" };
+
+    const checkOne = async (table, cols) => {
+      try {
+        const { data } = await _withTimeout(_supabase.from(table).select("*").limit(1), 5000, table + "-cols");
+        if (!data) return;
+        const existing = data.length > 0 ? Object.keys(data[0]) : null;
+        if (!existing) return;
+        const mc = Object.keys(cols).filter(c => !existing.includes(c));
+        if (mc.length) {
+          console.warn("⚠️ [" + table + "] أعمدة ناقصة:", mc);
+          const sql = mc.map(c => "ALTER TABLE public." + table + " ADD COLUMN IF NOT EXISTS " + c + " " + cols[c] + ";").join("\n");
+          console.log("📋 SQL لإضافتها:\n" + sql);
+        }
+      } catch (_) {}
+    };
+
+    await Promise.allSettled([checkOne("users", USERS_COLS), checkOne("trades", TRADES_COLS)]);
+  }
+
+
 
   // ───────────────────────────────────────────────────────────────────────
   // 1) إعدادات الأزواج (كما هي)
@@ -591,9 +838,7 @@
     _liveKey(pair) { return "live_" + pair.replace("/", "_"); }
 
     _registerSession() {
-      _supabase.from("chart_sessions")
-        .upsert({ session_id: this.sessionId, last_seen: new Date().toISOString(), active: true }, { onConflict: "session_id" })
-        .catch(() => {});
+      _withTimeout(_supabase.from("chart_sessions").upsert({ session_id: this.sessionId, last_seen: new Date().toISOString(), active: true }, { onConflict: "session_id" }), 6000, "reg-session").catch(() => {});
 
       setInterval(() => {
         _supabase.from("chart_sessions")
@@ -964,12 +1209,11 @@
       const pairKey = this.getPairCollection(targetPair);
 
       try {
-        const { data: rows, error } = await _supabase
-          .from("candles")
-          .select("*")
-          .eq("pair", pairKey)
-          .order("timestamp", { ascending: false })
-          .limit(this.maxCandles);
+        const { data: rows, error } = await _withTimeout(
+          _supabase.from("candles").select("*").eq("pair", pairKey)
+            .order("timestamp", { ascending: false }).limit(this.maxCandles),
+          9000, "candles-select"
+        ).catch(e => ({ data: null, error: e }));
 
         if (!error && rows && rows.length >= 10) {
           this.candles = rows.reverse().map(r => ({
@@ -1036,7 +1280,7 @@
       }));
       for (let i = 0; i < rows.length; i += 500) {
         const chunk = rows.slice(i, i + 500);
-        try { await _supabase.from("candles").upsert(chunk, { onConflict: "pair,timestamp" }); }
+        try { await _withTimeout(_supabase.from("candles").upsert(chunk, { onConflict: "pair,timestamp" }), 8000, "batch-save"); }
         catch (err) { console.warn("_batchSaveCandles:", err); }
       }
     }
@@ -1058,9 +1302,7 @@
       if (window.masterManager && !window.masterManager.isMaster(targetPair)) return;
       const pairKey = this.getPairCollection(targetPair);
 
-      _supabase.from("candles")
-        .upsert({ pair: pairKey, timestamp: candle.timestamp, open: candle.open, close: candle.close, high: candle.high, low: candle.low }, { onConflict: "pair,timestamp" })
-        .catch(err => console.warn("saveCandleToSupabase:", err));
+      _withTimeout(_supabase.from("candles").upsert({ pair: pairKey, timestamp: candle.timestamp, open: candle.open, close: candle.close, high: candle.high, low: candle.low }, { onConflict: "pair,timestamp" }), 6000, "save-candle").catch(err => console.warn("saveCandleToSupabase:", err));
     }
 
     _startViewerListener(pair) {
@@ -2251,13 +2493,29 @@
   // 19) Init everything
   // ───────────────────────────────────────────────────────────────────────
   async function initChartSystem() {
+    // مؤقّت أمان: أخفِ الـ skeleton بعد 15 ثانية على أقصى تقدير
+    const _skelGuard = setTimeout(() => {
+      try { window.chart?.hideSkeleton(); } catch(_) {}
+      console.warn("⚠️ [Chart] skeleton guard triggered — forcing display");
+    }, 15000);
+
     try {
-      const isMaster = await window.masterManager.claimMaster(window.chart.currentPair);
+      const isMaster = await _withTimeout(
+        window.masterManager.claimMaster(window.chart.currentPair),
+        6000, "claim-master"
+      ).catch(() => true);
+
       await window.chart.loadCandlesFromSupabase(null, isMaster);
       console.log(`✅ Chart ready | ${isMaster ? "🎯 Master" : "👁️ Viewer"} | ${window.chart.currentPair}`);
     } catch (err) {
       console.error("initChartSystem error:", err);
-      await window.chart.loadCandlesFromSupabase(null, true);
+      try {
+        window.chart._initLocalFallback();
+        window.chart._afterCandlesLoaded();
+        if (!window.chart._realtimeStarted) window.chart.startRealtime();
+      } catch(e2) { console.error("initChartSystem fallback error:", e2); }
+    } finally {
+      clearTimeout(_skelGuard);
     }
   }
 
@@ -2368,6 +2626,9 @@
   // ───────────────────────────────────────────────────────────────────────
   window.addEventListener("DOMContentLoaded", async () => {
     try {
+      // فحص إعداد Supabase (غير مُوقِف — لا ينتظر النتيجة)
+      _verifyAndSetupDB().catch(e => console.warn("verifyDB:", e));
+
       initNavHeightVar();
       initUIWiring();
       initHistoryPanel();
