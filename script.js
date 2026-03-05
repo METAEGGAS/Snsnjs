@@ -5,7 +5,7 @@
    ══════════════════════════════════════════════════════════════════════════ */
 
 
-<script type="module">
+type="module">
 import{createClient}from'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 const SB_URL='https://ybpohyvkdjegyozxfset.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlicG9oeXZrZGplZ3lvenhmc2V0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2OTQwMTgsImV4cCI6MjA4ODI3MDAxOH0.Mp7FmHUxlgF8zmnlrXxvWMKHvzNuFmeS5KFs4Y7nnbE';
