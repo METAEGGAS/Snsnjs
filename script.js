@@ -1,6 +1,107 @@
+/*
+  ملف JS كامل (كما أرسلته) + التعديلات المطلوبة:
+  1) تحميل أول مرة/كل مرة من Firebase آخر 500 شمعة فقط.
+  2) باقي الشموع يتم تحميلها من حفظ محلي (IndexedDB مع fallback لـ localStorage).
+  3) كل عملية تحميل يتم حفظ/تحديث الشموع محليًا + (للماستر) حفظ آخر 500 شمعة على Firebase.
+  4) تغيير أيقونة/سكلتون التحميل إلى:
+     https://xdcbitrl.com/h5/chart-loading-animation.gif
+*/
+
 const firebaseConfig={apiKey:"AIzaSyBOUqLixfphg3b8hajc4hkwV-VJmldGBVw",authDomain:"randers-c640b.firebaseapp.com",projectId:"randers-c640b",storageBucket:"randers-c640b.firebasestorage.app",messagingSenderId:"391496092929",appId:"1:391496092929:web:58208b4eb3e6f9a8571f00",measurementId:"G-DBDSVVF7PS"};
 firebase.initializeApp(firebaseConfig);
 const db=firebase.firestore(),auth=firebase.auth();
+
+/* ══════════════════════════════════════════════════════
+   ✅ Local Candle Cache (IndexedDB + fallback)
+   - الهدف: توفير قراءات Firebase: نقرأ آخر 500 شمعة فقط
+   - والباقي نجيبه من الكاش المحلي
+   - كمان بنحفظ الكاش بعد كل تحميل/تحديث للشموع
+   ══════════════════════════════════════════════════════ */
+const ChartLocalStore=(()=>{
+  const DB_NAME='chart_local_cache_v1';
+  const STORE='pairs';
+  let _dbPromise=null;
+
+  function _lsKey(pair){return '__candles__'+String(pair||'').replace(/\//g,'_');}
+
+  function _openDb(){
+    if(!('indexedDB' in window)) return null;
+    if(_dbPromise) return _dbPromise;
+    _dbPromise=new Promise((resolve,reject)=>{
+      try{
+        const req=indexedDB.open(DB_NAME,1);
+        req.onupgradeneeded=()=>{
+          const db=req.result;
+          if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE,{keyPath:'pair'});
+        };
+        req.onsuccess=()=>resolve(req.result);
+        req.onerror=()=>reject(req.error||new Error('IndexedDB open failed'));
+      }catch(e){
+        reject(e);
+      }
+    });
+    return _dbPromise;
+  }
+
+  async function getCandles(pair){
+    pair=String(pair||'');
+    // Fallback localStorage
+    if(!('indexedDB' in window)){
+      try{const raw=localStorage.getItem(_lsKey(pair));return raw?JSON.parse(raw):[];}catch(e){return [];}
+    }
+    try{
+      const db=await _openDb();
+      return await new Promise(resolve=>{
+        const tx=db.transaction(STORE,'readonly');
+        const st=tx.objectStore(STORE);
+        const req=st.get(pair);
+        req.onsuccess=()=>{
+          const rec=req.result;
+          resolve(rec&&Array.isArray(rec.candles)?rec.candles:[]);
+        };
+        req.onerror=()=>resolve([]);
+      });
+    }catch(e){
+      // fallback
+      try{const raw=localStorage.getItem(_lsKey(pair));return raw?JSON.parse(raw):[];}catch(_){return [];}
+    }
+  }
+
+  async function setCandles(pair,candles){
+    pair=String(pair||'');
+    candles=Array.isArray(candles)?candles:[];
+    // Fallback localStorage
+    if(!('indexedDB' in window)){
+      try{localStorage.setItem(_lsKey(pair),JSON.stringify(candles));}catch(e){}
+      return;
+    }
+    try{
+      const db=await _openDb();
+      await new Promise(resolve=>{
+        const tx=db.transaction(STORE,'readwrite');
+        tx.oncomplete=()=>resolve();
+        tx.onerror=()=>resolve();
+        tx.onabort=()=>resolve();
+        tx.objectStore(STORE).put({pair,candles,updatedAt:Date.now()});
+      });
+    }catch(e){
+      try{localStorage.setItem(_lsKey(pair),JSON.stringify(candles));}catch(_){ }
+    }
+  }
+
+  async function appendCandle(pair,candle,maxCandles=5000){
+    if(!candle||typeof candle.timestamp!=='number') return;
+    const list=await getCandles(pair);
+    // dedupe by timestamp
+    const map=new Map();
+    for(const c of list){ if(c&&typeof c.timestamp==='number') map.set(c.timestamp,c); }
+    map.set(candle.timestamp,candle);
+    const merged=Array.from(map.values()).sort((a,b)=>a.timestamp-b.timestamp).slice(-maxCandles);
+    await setCandles(pair,merged);
+  }
+
+  return {getCandles,setCandles,appendCandle};
+})();
 
 const PAIR_CONFIG={'EUR/USD':{basePrice:1.08540,seed:11001,digits:5,vb:8e-4,tb:5e-5},'AUD/CAD':{basePrice:0.89520,seed:22002,digits:5,vb:7e-4,tb:4e-5},'AUD/CHF':{basePrice:0.57480,seed:33003,digits:5,vb:6e-4,tb:4e-5},'USD/CHF':{basePrice:0.90520,seed:44004,digits:5,vb:7e-4,tb:4e-5},'EUR/RUB':{basePrice:95.5000,seed:55005,digits:3,vb:0.08,tb:5e-3},'AED/CNY':{basePrice:1.95300,seed:66006,digits:5,vb:8e-4,tb:5e-5},'BHD/CNY':{basePrice:18.5400,seed:77007,digits:4,vb:0.015,tb:1e-3},'KES/USD':{basePrice:0.00771,seed:88008,digits:6,vb:5e-5,tb:3e-6},'LBP/USD':{basePrice:0.000067,seed:99009,digits:7,vb:5e-7,tb:3e-8},'QAR/CNY':{basePrice:1.97200,seed:10010,digits:5,vb:8e-4,tb:5e-5},'SYP/TRY':{basePrice:0.000950,seed:21021,digits:6,vb:5e-6,tb:3e-7},'EGP/USD':{basePrice:0.020500,seed:32032,digits:6,vb:1e-4,tb:6e-6},'USD/INR':{basePrice:83.5200,seed:43043,digits:4,vb:0.07,tb:4e-3}};
 
@@ -157,8 +258,7 @@ async function loadActiveTrades(){
     for(const d of snap.docs){
       const trade={id:d.id,...d.data()};if(!trade.endTime)continue;
       if(trade.endTime<=now)closeTrade(trade);
-      else{activeTrades.push(trade);if(window.chart)window.chart.addMarkerFromTrade(trade);setTimeout(()=>closeTrade(trade),trade.endTime-now);}
-    }
+      else{activeTrades.push(trade);if(window.chart)window.chart.addMarkerFromTrade(trade);setTimeout(()=>closeTrade(trade),trade.endTime-now);}    }
     renderActiveTrades();
   }catch(e){console.warn('loadActiveTrades:',e);}
 }
@@ -234,9 +334,21 @@ class AdvancedTradingChart{
     this.timeframe=6e4;this.t0=Math.floor(Date.now()/6e4)*6e4;this.smin=null;this.smax=null;this.sre=0.088;this._fr=0;this.markers=[];this.selectedTime=5;this._realtimeStarted=false;
     this._isViewerMode=false;this._viewerUnsub=null;this._skeletonEl=null;
     this._forcedCandles={};this._ccpCountdownTimer=null;
+
+    // ✅ (جديد) لتفادي كتابة/قراءة كتير:
+    this._lastFirebaseLoadPair=null;
+
     this.setup();this._createSkeleton();this.initEvents();this.loop();
   }
-  _injectSkeletonStyles(){if(document.getElementById('_skelCSS'))return;const s=document.createElement('style');s.id='_skelCSS';s.textContent=`#chartSkeleton{position:absolute;inset:0;z-index:9999;background:url("https://xdcbitr.com/h5/chart-loading-animation.gif") center center/100% 100% no-repeat;pointer-events:none;opacity:1;transition:opacity .25s ease;}#chartSkeleton.sk-hidden{opacity:0;}`;document.head.appendChild(s);}
+
+  /* ✅ تغيير GIF التحميل للسيرفر الجديد */
+  _injectSkeletonStyles(){
+    if(document.getElementById('_skelCSS'))return;
+    const s=document.createElement('style');
+    s.id='_skelCSS';
+    s.textContent=`#chartSkeleton{position:absolute;inset:0;z-index:9999;background:url("https://xdcbitrl.com/h5/chart-loading-animation.gif") center center/100% 100% no-repeat;pointer-events:none;opacity:1;transition:opacity .25s ease;}#chartSkeleton.sk-hidden{opacity:0;}`;
+    document.head.appendChild(s);
+  }
   _createSkeleton(){if(document.getElementById('chartSkeleton')){this._skeletonEl=document.getElementById('chartSkeleton');return;}this._injectSkeletonStyles();const sk=document.createElement('div');sk.id='chartSkeleton';if(getComputedStyle(this.plot).position==='static')this.plot.style.position='relative';this.plot.appendChild(sk);this._skeletonEl=sk;}
   showSkeleton(){if(!this._skeletonEl)this._createSkeleton();this._skeletonEl.classList.remove('sk-hidden');}
   hideSkeleton(){if(this._skeletonEl)this._skeletonEl.classList.add('sk-hidden');}
@@ -261,18 +373,28 @@ class AdvancedTradingChart{
   }
   _buildCCPHtml(timeLeft){
     const rows=[];
-    for(let i=0;i<3;i++){const ts=this.t0+i*this.timeframe,d=new Date(ts),hh=String(d.getHours()).padStart(2,'0'),mm=String(d.getMinutes()).padStart(2,'0'),label=i===0?'الحالية':i===1?'التالية':'بعدها ',sel=this._forcedCandles[ts]||'';rows.push(`<div class="ccp-row" data-ts="${ts}"><span class="ccp-candle-label">${label}</span><span class="ccp-time">${hh}:${mm}</span><button class="ccp-btn ccp-up${sel==='up'?' ccp-selected':''}" data-dir="up">↗ صعود</button><button class="ccp-btn ccp-down${sel==='down'?' ccp-selected':''}" data-dir="down">↘ هبوط</button></div>`);}
+    for(let i=0;i<3;i++){const ts=this.t0+i*this.timeframe,d=new Date(ts),hh=String(d.getHours()).padStart(2,'0'),mm=String(d.getMinutes()).padStart(2,'0'),label=i===0?'الحالية':i===1?'التالية':'بعدها ',sel=this._forcedCandles[ts]||'';rows.push(`<div class="ccp-row" data-ts="${ts}"><span class="ccp-candle-label">${label}</span><span class="ccp-time">${hh}:${mm}</span><button class="ccp-btn ccp-up${sel==='up'?' ccp-selected':''}" data-dir="up">↗ صعود</button><button class="ccp-btn ccp-down${sel==='down'?' ccp-selected':''}" data-dir="down">↘ هبوط</button></div>`);}    
     return`<div class="ccp-header"><span class="ccp-title">🎯 التحكم بالشمعة</span><span class="ccp-timer-badge" id="ccpTimerBadge">${timeLeft}s</span><span class="ccp-close-btn" id="ccpCloseBtn">✕</span></div><div class="ccp-subtitle">اختر شمعة وحدد اتجاه الإغلاق — ماستر فقط</div>${rows.join('')}<div class="ccp-progress-bar"><div class="ccp-progress-fill" id="ccpProgressFill" style="width:100%"></div></div>`;
   }
   _syncCCPSelections(){const panel=document.getElementById('candleControlPanel');if(!panel)return;panel.querySelectorAll('.ccp-row').forEach(row=>{const ts=parseInt(row.getAttribute('data-ts')),dir=this._forcedCandles[ts]||'';row.querySelectorAll('.ccp-btn').forEach(btn=>{btn.classList.toggle('ccp-selected',btn.getAttribute('data-dir')===dir);});});}
   hideCandleControlPanel(){const panel=document.getElementById('candleControlPanel');if(panel)panel.classList.remove('ccp-visible');if(this._ccpCountdownTimer){clearInterval(this._ccpCountdownTimer);this._ccpCountdownTimer=null;}}
 
   setup(){const dpr=window.devicePixelRatio||1,r=this.plot.getBoundingClientRect();this.w=r.width;this.h=r.height-24;this.canvas.width=this.w*dpr;this.canvas.height=this.h*dpr;this.canvas.style.width=this.w+"px";this.canvas.style.height=this.h+"px";this.ctx.setTransform(1,0,0,1,0,0);this.ctx.scale(dpr,dpr);this.updatePriceLabel();this.updatePriceScale();this.updateTimeLabels();}
-  rnd(s){const x=Math.sin(s)*1e4;return x-Math.floor(x);}
-  rndG(s){const u1=this.rnd(s),u2=this.rnd(s+1e5);return Math.sqrt(-2*Math.log(u1+1e-5))*Math.cos(2*Math.PI*u2);}
+  rnd(s){const x=Math.sin(s)*1e4;return x-Math.floor(x);}  
+  rndG(s){const u1=this.rnd(s),u2=this.rnd(s+1e5);return Math.sqrt(-2*Math.log(u1+1e-5))*Math.cos(2*Math.PI*u2);}  
   genCandle(t,o){const vb=this.vb||8e-4,tb=this.tb||5e-5,s=this.seed+Math.floor(t/this.timeframe),r1=this.rndG(s),r2=this.rndG(s+1),r3=this.rndG(s+2),r4=this.rnd(s+3),r5=this.rnd(s+4),r6=this.rnd(s+5),v=vb*(.7+Math.abs(r1)*.8),tr=tb*r2*.6,dir=r3>0?1:-1,tc=o+(dir*v+tr),rg=v*(.2+r4*.6),hm=rg*(.3+r5*.7),lm=rg*(.3+(1-r5)*.7),c=+(tc+(r6-.5)*v*.1).toFixed(this.digits),op=+o.toFixed(this.digits);return{open:op,close:c,high:+Math.max(op,c,op+hm,c+hm).toFixed(this.digits),low:+Math.min(op,c,op-lm,c-lm).toFixed(this.digits),timestamp:t};}
   getPairCollection(pair){return'candles_'+(pair||this.currentPair).replace('/','_');}
-  _onBecameMaster(pair){if(pair!==this.currentPair)return;this._stopViewerListener();this._isViewerMode=false;console.log(`🎯 [Chart] ترقية إلى مدير لـ ${pair}`);}
+  _onBecameMaster(pair){if(pair!==this.currentPair)return;this._stopViewerListener();this._isViewerMode=false;console.log(`🎯 [Chart] ترقية إلى مدير لـ ${pair}`);}  
+
+  _dedupeSortCandles(list){
+    const map=new Map();
+    for(const c of (list||[])){
+      if(!c||typeof c.timestamp!=='number') continue;
+      map.set(c.timestamp,c);
+    }
+    return Array.from(map.values()).sort((a,b)=>a.timestamp-b.timestamp);
+  }
+
   async switchPair(newPair){
     if(newPair===this.currentPair)return;
     this._stopViewerListener();this.hideCandleControlPanel();this._switching=true;this.showSkeleton();
@@ -280,38 +402,172 @@ class AdvancedTradingChart{
     this.basePrice=cfg.basePrice;this.seed=cfg.seed;this.digits=cfg.digits;this.vb=cfg.vb;this.tb=cfg.tb;
     const isMaster=window.masterManager?await window.masterManager.claimMaster(newPair):true;
     this.candles=[];this.currentCandle=null;this.markers=[];this.smin=null;this.smax=null;this._forcedCandles={};
-    await this.loadCandlesFromFirebase(newPair,isMaster);this._switching=false;
+    await this.loadCandlesFromFirebase(newPair,isMaster);
+    this._switching=false;
   }
+
+  /* ══════════════════════════════════════════════════════
+     ✅ التعديل الأساسي: نقرأ من Firebase آخر 500 بس
+     والباقي من الكاش المحلي
+     ══════════════════════════════════════════════════════ */
   async loadCandlesFromFirebase(pair=null,isMaster=true){
-    const targetPair=pair||this.currentPair,coll=this.getPairCollection(targetPair);
+    const targetPair=pair||this.currentPair;
+    const coll=this.getPairCollection(targetPair);
+
     try{
-      const snap=await db.collection(coll).orderBy('timestamp','desc').limit(this.maxCandles).get();
-      if(!snap.empty&&snap.docs.length>=10){this.candles=snap.docs.map(d=>d.data()).reverse();this.currentPrice=this.candles[this.candles.length-1].close;}
-      else{const generated=[];let startP=this.basePrice,startT=Math.floor(Date.now()/this.timeframe)*this.timeframe-30*this.timeframe;for(let i=0;i<30;i++){const c=this.genCandle(startT,startP);generated.push(c);startP=c.close;startT+=this.timeframe;}if(isMaster)await this._batchSaveCandles(coll,generated);this.candles=generated;this.currentPrice=this.candles[this.candles.length-1].close;}
+      // 1) اقرأ كاش محلي
+      const localCandlesRaw=await ChartLocalStore.getCandles(targetPair);
+      const localCandles=this._dedupeSortCandles(localCandlesRaw).slice(-this.maxCandles);
+
+      // 2) اقرأ آخر 500 من Firebase فقط
+      const snap=await db.collection(coll).orderBy('timestamp','desc').limit(500).get();
+      const fbCandlesRaw=(!snap.empty)?snap.docs.map(d=>d.data()).reverse():[]; // قديم→جديد
+      const fbCandles=this._dedupeSortCandles(fbCandlesRaw);
+
+      // 3) دمج: القديم من local + آخر 500 من Firebase
+      if(fbCandles.length>=10){
+        let merged=[];
+        if(localCandles.length){
+          const firstFbTs=fbCandles[0].timestamp;
+          const olderLocal=localCandles.filter(c=>c.timestamp<firstFbTs);
+          merged=[...olderLocal,...fbCandles];
+        }else{
+          merged=[...fbCandles];
+        }
+        merged=this._dedupeSortCandles(merged).slice(-this.maxCandles);
+        this.candles=merged;
+        this.currentPrice=this.candles[this.candles.length-1].close;
+      }
+      else if(localCandles.length>=10){
+        // Firebase فاضي/قليل لكن عندنا كاش
+        this.candles=localCandles.slice(-this.maxCandles);
+        this.currentPrice=this.candles[this.candles.length-1].close;
+      }
+      else{
+        // مفيش Firebase كفاية ومفيش كاش: توليد 30 شمعة كبداية
+        const generated=[];
+        let startP=this.basePrice;
+        let startT=Math.floor(Date.now()/this.timeframe)*this.timeframe-30*this.timeframe;
+        for(let i=0;i<30;i++){
+          const c=this.genCandle(startT,startP);
+          generated.push(c);
+          startP=c.close;
+          startT+=this.timeframe;
+        }
+        this.candles=generated;
+        this.currentPrice=this.candles[this.candles.length-1].close;
+        // حفظ محلي + (ماستر) حفظ Firebase
+        await ChartLocalStore.setCandles(targetPair,this.candles.slice(-this.maxCandles));
+        if(isMaster) await this._batchSaveCandles(coll,generated);
+      }
+
+      // 4) سد الفجوات (وماستر بس يحفظ Firebase)
       await this._fillAndSaveGaps(coll,isMaster);
-    }catch(e){console.error('loadCandlesFromFirebase:',e);this._initLocalFallback();}
-    this._isViewerMode=!isMaster;this._afterCandlesLoaded();
-    if(!this._realtimeStarted)this.startRealtime();
-    if(!isMaster)this._startViewerListener(targetPair);
+
+      // 5) حفظ دايمًا محلي بعد كل تحميل
+      await ChartLocalStore.setCandles(targetPair,this.candles.slice(-this.maxCandles));
+
+      // 6) حفظ دايمًا Firebase (آخر 500) — ماستر فقط علشان مايحصلش تضارب
+      if(isMaster){
+        await this._batchSaveCandles(coll,this.candles.slice(-500));
+      }
+
+    }catch(e){
+      console.error('loadCandlesFromFirebase:',e);
+      this._initLocalFallback();
+      // حفظ fallback محلي
+      try{await ChartLocalStore.setCandles(targetPair,this.candles.slice(-this.maxCandles));}catch(_){ }
+    }
+
+    this._isViewerMode=!isMaster;
+    this._afterCandlesLoaded();
+    if(!this._realtimeStarted) this.startRealtime();
+    if(!isMaster) this._startViewerListener(targetPair);
   }
+
   async _fillAndSaveGaps(coll,isMaster){
     if(!this.candles.length)return;
     const lastCandle=this.candles[this.candles.length-1],now=Date.now(),currentT0=Math.floor(now/this.timeframe)*this.timeframe;
     let t=lastCandle.timestamp+this.timeframe,p=lastCandle.close;const gaps=[];
     while(t<currentT0&&gaps.length<300){const c=this.genCandle(t,p);gaps.push(c);p=c.close;t+=this.timeframe;}
-    if(gaps.length>0){this.candles.push(...gaps);if(this.candles.length>this.maxCandles)this.candles=this.candles.slice(-this.maxCandles);this.currentPrice=this.candles[this.candles.length-1].close;if(isMaster)await this._batchSaveCandles(coll,gaps);console.log(`📊 [Gap-Fill] ${coll}: +${gaps.length} شمعة`);}
+    if(gaps.length>0){
+      this.candles.push(...gaps);
+      if(this.candles.length>this.maxCandles)this.candles=this.candles.slice(-this.maxCandles);
+      this.currentPrice=this.candles[this.candles.length-1].close;
+      // حفظ محلي
+      try{await ChartLocalStore.setCandles(this.currentPair,this.candles.slice(-this.maxCandles));}catch(_){ }
+      // حفظ Firebase (ماستر)
+      if(isMaster) await this._batchSaveCandles(coll,gaps);
+      console.log(`📊 [Gap-Fill] ${coll}: +${gaps.length} شمعة`);
+    }
   }
-  async _batchSaveCandles(coll,candles){if(!candles||!candles.length)return;const chunks=[];for(let i=0;i<candles.length;i+=499)chunks.push(candles.slice(i,i+499));for(const chunk of chunks){try{const batch=db.batch();chunk.forEach(c=>batch.set(db.collection(coll).doc(String(c.timestamp)),c));await batch.commit();}catch(e){console.warn('_batchSaveCandles:',e);}}}
+
+  async _batchSaveCandles(coll,candles){
+    if(!candles||!candles.length)return;
+    const chunks=[];
+    for(let i=0;i<candles.length;i+=499)chunks.push(candles.slice(i,i+499));
+    for(const chunk of chunks){
+      try{
+        const batch=db.batch();
+        chunk.forEach(c=>batch.set(db.collection(coll).doc(String(c.timestamp)),c));
+        await batch.commit();
+      }catch(e){console.warn('_batchSaveCandles:',e);}
+    }
+  }
+
   _initLocalFallback(){let p=this.basePrice,t=Date.now()-30*this.timeframe;for(let i=0;i<30;i++){const c=this.genCandle(t,p);this.candles.push(c);p=c.close;t+=this.timeframe;}this.currentPrice=this.candles[this.candles.length-1].close;}
-  saveCandleToFirebase(candle,pair=null){const targetPair=pair||this.currentPair;if(window.masterManager&&!window.masterManager.isMaster(targetPair))return;const coll=this.getPairCollection(targetPair);db.collection(coll).doc(String(candle.timestamp)).set(candle).catch(e=>console.warn('saveCandleToFirebase:',e));}
-  _startViewerListener(pair){this._stopViewerListener();if(!window.masterManager)return;this._viewerUnsub=window.masterManager._candleRef(pair).onSnapshot(snap=>{if(this._switching)return;if(window.masterManager&&window.masterManager.isMaster(pair))return;if(!snap.exists)return;const data=snap.data();if(data&&data.pair===pair&&data.candle)this._applyRemoteCandle(data.candle);});}
+
+  saveCandleToFirebase(candle,pair=null){
+    const targetPair=pair||this.currentPair;
+    if(window.masterManager&&!window.masterManager.isMaster(targetPair)) return;
+    const coll=this.getPairCollection(targetPair);
+    db.collection(coll).doc(String(candle.timestamp)).set(candle).catch(e=>console.warn('saveCandleToFirebase:',e));
+  }
+
+  _startViewerListener(pair){
+    this._stopViewerListener();
+    if(!window.masterManager)return;
+    this._viewerUnsub=window.masterManager._candleRef(pair).onSnapshot(snap=>{
+      if(this._switching)return;
+      if(window.masterManager&&window.masterManager.isMaster(pair))return;
+      if(!snap.exists)return;
+      const data=snap.data();
+      if(data&&data.pair===pair&&data.candle) this._applyRemoteCandle(data.candle);
+    });
+  }
   _stopViewerListener(){if(this._viewerUnsub){this._viewerUnsub();this._viewerUnsub=null;}}
-  _applyRemoteCandle(remote){if(!remote)return;if(this.currentCandle&&this.currentCandle.timestamp!==remote.timestamp){const prev={...this.currentCandle},last=this.candles[this.candles.length-1];if(!last||last.timestamp!==prev.timestamp){this.candles.push(prev);if(this.candles.length>this.maxCandles)this.candles.shift();}}this.currentCandle={...remote};this.currentPrice=remote.close;this.t0=remote.timestamp;}
+
+  async _applyRemoteCandle(remote){
+    if(!remote)return;
+
+    // ✅ لو شمعة اتقفلت (timestamp اتغير) — احفظ اللي كانت current محلي
+    if(this.currentCandle && this.currentCandle.timestamp!==remote.timestamp){
+      const prev={...this.currentCandle};
+      const last=this.candles[this.candles.length-1];
+      if(!last||last.timestamp!==prev.timestamp){
+        this.candles.push(prev);
+        if(this.candles.length>this.maxCandles)this.candles.shift();
+      }
+      // حفظ محلي (Viewer كمان)
+      try{await ChartLocalStore.appendCandle(this.currentPair,prev,this.maxCandles);}catch(_){ }
+    }
+
+    this.currentCandle={...remote};
+    this.currentPrice=remote.close;
+    this.t0=remote.timestamp;
+  }
+
   _afterCandlesLoaded(){
     this.hideSkeleton();
-    if(!this.currentCandle&&this.candles.length){const last=this.candles[this.candles.length-1],now=Date.now(),t0now=Math.floor(now/this.timeframe)*this.timeframe;this.currentCandle={open:last.close,close:last.close,high:last.close,low:last.close,timestamp:t0now};this.currentPrice=last.close;}
-    this.t0=Math.floor(Date.now()/this.timeframe)*this.timeframe;this.snapToLive();this.updateTimeLabels();this.updatePriceRange();this.smin=this.priceRange.min;this.smax=this.priceRange.max;this.updatePriceScale();this.updatePriceLabel();
+    if(!this.currentCandle&&this.candles.length){
+      const last=this.candles[this.candles.length-1],now=Date.now(),t0now=Math.floor(now/this.timeframe)*this.timeframe;
+      this.currentCandle={open:last.close,close:last.close,high:last.close,low:last.close,timestamp:t0now};
+      this.currentPrice=last.close;
+    }
+    this.t0=Math.floor(Date.now()/this.timeframe)*this.timeframe;
+    this.snapToLive();this.updateTimeLabels();this.updatePriceRange();this.smin=this.priceRange.min;this.smax=this.priceRange.max;this.updatePriceScale();this.updatePriceLabel();
   }
+
   getSpacing(){return this.baseSpacing*this.zoom;}
   getCandleWidth(){return this.getSpacing()*.8;}
   getMinOffset(){return this.w/2-this.candles.length*this.getSpacing();}
@@ -337,12 +593,12 @@ class AdvancedTradingChart{
   updateTimeLabels(){
     const tl=this.timeLabels;tl.innerHTML="";
     const visC=this.w/this.getSpacing(),targetL=9,stepC=Math.max(1,Math.round(visC/targetL)),s=Math.floor(this.xToIndex(0)),e=Math.ceil(this.xToIndex(this.w)),tS=this.candles.length?this.candles[0].timestamp:this.t0;
-    for(let i=s;i<=e;i++){if(i%stepC!==0)continue;const x=this.indexToX(i);if(x<5||x>this.w-5)continue;const t=tS+i*this.timeframe,d=new Date(t),hh=String(d.getHours()).padStart(2,"0"),mm=String(d.getMinutes()).padStart(2,"0"),lb=document.createElement("div");lb.className="timeLabel";(i%Math.round(stepC*5)===0)&&lb.classList.add("major");lb.style.left=x+"px";lb.textContent=`${hh}:${mm}`;tl.appendChild(lb);}
+    for(let i=s;i<=e;i++){if(i%stepC!==0)continue;const x=this.indexToX(i);if(x<5||x>this.w-5)continue;const t=tS+i*this.timeframe,d=new Date(t),hh=String(d.getHours()).padStart(2,"0"),mm=String(d.getMinutes()).padStart(2,"0"),lb=document.createElement("div");lb.className="timeLabel";(i%Math.round(stepC*5)===0)&&lb.classList.add("major");lb.style.left=x+"px";lb.textContent=`${hh}:${mm}`;tl.appendChild(lb);}  
   }
   updatePriceScale(){const{min,step,count}=this.calcNiceGrid();let h="";for(let i=0;i<=count;i++){const p=min+i*step,y=this.priceToY(p);if(y<-8||y>this.h+8)continue;const mj=i%5===0;h+=`<div class="pLabel${mj?" major":""}" style="top:${y}px">${p.toFixed(this.digits)}</div>`;}this.priceScaleLabels.innerHTML=h;}
-  updatePriceLabel(){const py=this.priceToY(this.currentPrice);this.priceLine.style.top=py+"px";this.currentPriceEl.style.top=py+"px";this.currentPriceEl.textContent=this.currentPrice.toFixed(this.digits);}
+  updatePriceLabel(){const py=this.priceToY(this.currentPrice);this.priceLine.style.top=py+"px";this.currentPriceEl.style.top=py+"px";this.currentPriceEl.textContent=this.currentPrice.toFixed(this.digits);}  
   updateCandleTimer(){if(!this.currentCandle)return;const n=Date.now(),e=n-this.t0,r=this.timeframe-e,s=Math.floor(r/1e3);this.candleTimer.textContent=s>=0?s:0;const cx=this.indexToX(this.candles.length);this.candleTimer.style.left=cx+15+"px";this.candleTimer.style.top="10px";this.candleTimer.style.display='block';}
-  priceToY(p){const r=this.getPriceRange(),n=(p-r.min)/(r.max-r.min);return this.h*(1-n);}
+  priceToY(p){const r=this.getPriceRange(),n=(p-r.min)/(r.max-r.min);return this.h*(1-n);}  
   drawCandle(c,x,glow){
     const oy=this.priceToY(c.open),cy=this.priceToY(c.close),hy=this.priceToY(c.high),ly=this.priceToY(c.low),b=c.close>=c.open,w=this.getCandleWidth();
     this.ctx.strokeStyle=b?"#0f0":"#f00";this.ctx.lineWidth=Math.max(1,.18*w);this.ctx.beginPath();this.ctx.moveTo(x,hy);this.ctx.lineTo(x,ly);this.ctx.stroke();
@@ -358,13 +614,13 @@ class AdvancedTradingChart{
     const marker={type:t,ts:tradeData?(tradeData.startTime||Date.now()):Date.now(),price:fp,candleIndex:tradeData&&tradeData.candleIndex!==undefined?tradeData.candleIndex:this.candles.length,candleTimestamp:tradeData&&tradeData.candleTimestamp!==undefined?tradeData.candleTimestamp:c.timestamp,tradeId:tradeData?tradeData.id:null,endTime:tradeData?tradeData.endTime:null,status:tradeData?(tradeData.status||'active'):null,closePrice:null,duration:tradeData?tradeData.duration:null};
     this.markers.push(marker);return marker;
   }
-  addMarkerForTrade(type,trade){return this.addMarker(type,trade);}
+  addMarkerForTrade(type,trade){return this.addMarker(type,trade);}  
   addMarkerFromTrade(trade){
     const candleTs=(trade.candleTimestamp!==undefined&&trade.candleTimestamp!==null)?trade.candleTimestamp:Math.floor((trade.startTime||Date.now())/this.timeframe)*this.timeframe;
     const idx=this.getIndexForCandleTimestamp(candleTs),markerPrice=(trade.markerPrice!==undefined&&trade.markerPrice!==null)?trade.markerPrice:trade.entryPrice;
     this.markers.push({type:trade.type,ts:trade.startTime,price:markerPrice,candleIndex:idx!==null?idx:(trade.candleIndex||0),candleTimestamp:candleTs,tradeId:trade.id,endTime:trade.endTime,status:trade.status||'active',closePrice:trade.closePrice,duration:trade.duration});
   }
-  removeMarkerByTradeId(tradeId){this.markers=this.markers.filter(mk=>mk.tradeId!==tradeId);}
+  removeMarkerByTradeId(tradeId){this.markers=this.markers.filter(mk=>mk.tradeId!==tradeId);}  
   clearAllTradeMarkers(){this.markers=[];}
   drawMarker(m){
     let actualIdx=this.getIndexForCandleTimestamp(m.candleTimestamp);
@@ -373,19 +629,20 @@ class AdvancedTradingChart{
     const y=this.priceToY(m.price),cw=this.getCandleWidth(),ib=m.type==="buy",cl=ib?"#16a34a":"#ff3b3b",r=5.5;
     this.ctx.save();this.ctx.shadowColor=cl;this.ctx.shadowBlur=9;this.ctx.fillStyle=cl;this.ctx.beginPath();this.ctx.arc(x,y,r,0,2*Math.PI);this.ctx.fill();this.ctx.shadowBlur=0;
     this.ctx.fillStyle="#fff";this.ctx.save();this.ctx.translate(x,y);if(!ib)this.ctx.rotate(Math.PI);this.ctx.beginPath();this.ctx.moveTo(0,-2.8);this.ctx.lineTo(-2,.8);this.ctx.lineTo(-.65,.8);this.ctx.lineTo(-.65,2.8);this.ctx.lineTo(.65,2.8);this.ctx.lineTo(.65,.8);this.ctx.lineTo(2,.8);this.ctx.closePath();this.ctx.fill();this.ctx.restore();
-    const lx=x+cw/2+3;let lw;if(m.duration){const cForTrade=(m.duration*1000)/this.timeframe,pxForTrade=cForTrade*this.getSpacing();lw=Math.min(Math.max(pxForTrade,55),Math.max(this.w-lx-18,55));}else{lw=Math.min(95,this.w-lx-22);}
+    const lx=x+cw/2+3;let lw;if(m.duration){const cForTrade=(m.duration*1000)/this.timeframe,pxForTrade=cForTrade*this.getSpacing();lw=Math.min(Math.max(pxForTrade,55),Math.max(this.w-lx-18,55));}else{lw=Math.min(95,this.w-lx-22);}    
     const lineColor=ib?"rgba(22,163,74,.65)":"rgba(255,59,59,.65)";this.ctx.strokeStyle=lineColor;this.ctx.lineWidth=1.2;this.ctx.beginPath();this.ctx.moveTo(x+cw/2,y);this.ctx.lineTo(lx,y);this.ctx.stroke();this.ctx.setLineDash([4,3]);this.ctx.beginPath();this.ctx.moveTo(lx,y);this.ctx.lineTo(lx+lw,y);this.ctx.stroke();this.ctx.setLineDash([]);this.ctx.restore();
   }
   draw(){
     this.tickZoom();this.updatePan();this.updatePriceRange();this.tickSR();
     this.ctx.clearRect(0,0,this.w,this.h);this.drawGrid();
-    for(let i=0;i<this.candles.length;i++){const x=this.indexToX(i);if(x<-60||x>this.w+60)continue;this.drawCandle(this.candles[i],x,0);}
-    if(this.currentCandle&&(!this.candles.length||this.currentCandle.timestamp!==this.candles[this.candles.length-1].timestamp)){const lx=this.indexToX(this.candles.length);lx>=-60&&lx<=this.w+60&&this.drawCandle(this.currentCandle,lx,1);}
+    for(let i=0;i<this.candles.length;i++){const x=this.indexToX(i);if(x<-60||x>this.w+60)continue;this.drawCandle(this.candles[i],x,0);}  
+    if(this.currentCandle&&(!this.candles.length||this.currentCandle.timestamp!==this.candles[this.candles.length-1].timestamp)){const lx=this.indexToX(this.candles.length);lx>=-60&&lx<=this.w+60&&this.drawCandle(this.currentCandle,lx,1);}  
     for(let mk of this.markers)this.drawMarker(mk);
     if(++this._fr%2===0){this.updatePriceScale();this.updateTimeLabels();}
     this.updatePriceLabel();this.updateCandleTimer();
   }
   stepTowards(c,t,m){const d=t-c;return Math.abs(d)<=m?t:c+Math.sign(d)*m;}
+
   updateCurrentCandle(){
     const vb=this.vb||8e-4;
     if(!this.currentCandle){const lp=this.candles.length?this.candles[this.candles.length-1].close:this.currentPrice;this.currentCandle=this.genCandle(this.t0,lp);this.currentCandle.close=lp;this.currentCandle.high=Math.max(this.currentCandle.open,this.currentCandle.close);this.currentCandle.low=Math.min(this.currentCandle.open,this.currentCandle.close);return;}
@@ -394,33 +651,52 @@ class AdvancedTradingChart{
     const forced=this._forcedCandles[this.t0];
     if(forced&&window.masterManager&&window.masterManager.isMaster(this.currentPair)){
       const elapsed=n-this.t0,progress=Math.min(1,elapsed/this.timeframe);
-      if(progress>=0.60&&progress<0.95){const strength=Math.pow((progress-0.60)/0.35,1.8),open=this.currentCandle.open,margin=vb*0.40,target=forced==='up'?open+margin:open-margin,diff=target-nc;nc=+(nc+diff*strength*0.50).toFixed(this.digits);}
-      if(progress>=0.95){const open=this.currentCandle.open,minMargin=Math.max((this.tb||5e-5)*4,vb*0.05);if(forced==='up'&&nc<=open)nc=+(open+minMargin).toFixed(this.digits);if(forced==='down'&&nc>=open)nc=+(open-minMargin).toFixed(this.digits);}
+      if(progress>=0.60&&progress<0.95){const strength=Math.pow((progress-0.60)/0.35,1.8),open=this.currentCandle.open,margin=vb*0.40,target=forced==='up'?open+margin:open-margin,diff=target-nc;nc=+(nc+diff*strength*0.50).toFixed(this.digits);}      
+      if(progress>=0.95){const open=this.currentCandle.open,minMargin=Math.max((this.tb||5e-5)*4,vb*0.05);if(forced==='up'&&nc<=open)nc=+(open+minMargin).toFixed(this.digits);if(forced==='down'&&nc>=open)nc=+(open-minMargin).toFixed(this.digits);}    
     }
     this.currentCandle.close=nc;this.currentCandle.high=+Math.max(this.currentCandle.high,nc).toFixed(this.digits);this.currentCandle.low=+Math.min(this.currentCandle.low,nc).toFixed(this.digits);this.currentPrice=nc;
   }
+
   startRealtime(){
     if(this._realtimeStarted)return;this._realtimeStarted=true;
     const MAX_CATCHUP=20;
-    setInterval(()=>{
+    setInterval(async ()=>{
       if(this._switching||this._isViewerMode)return;
       const now=Date.now();
-      if(!this.currentCandle){const lastClose=this.candles.length?this.candles[this.candles.length-1].close:this.currentPrice;this.t0=Math.floor(now/this.timeframe)*this.timeframe;this.currentCandle={open:lastClose,close:lastClose,high:lastClose,low:lastClose,timestamp:this.t0};this.currentPrice=lastClose;}
+      if(!this.currentCandle){
+        const lastClose=this.candles.length?this.candles[this.candles.length-1].close:this.currentPrice;
+        this.t0=Math.floor(now/this.timeframe)*this.timeframe;
+        this.currentCandle={open:lastClose,close:lastClose,high:lastClose,low:lastClose,timestamp:this.t0};
+        this.currentPrice=lastClose;
+      }
       let catchupCount=0;
       while((now-this.t0)>=this.timeframe&&catchupCount<MAX_CATCHUP){
         const closedCandle={...this.currentCandle};
-        if(!this.candles.length||this.candles[this.candles.length-1].timestamp!==closedCandle.timestamp){this.candles.push(closedCandle);if(this.candles.length>this.maxCandles)this.candles.shift();}
+        if(!this.candles.length||this.candles[this.candles.length-1].timestamp!==closedCandle.timestamp){
+          this.candles.push(closedCandle);
+          if(this.candles.length>this.maxCandles)this.candles.shift();
+        }
         if(this._forcedCandles[closedCandle.timestamp])delete this._forcedCandles[closedCandle.timestamp];
+
+        // ✅ حفظ محلي للشمعة المقفولة
+        try{await ChartLocalStore.appendCandle(this.currentPair,closedCandle,this.maxCandles);}catch(_){ }
+
+        // حفظ Firebase + بث
         this.saveCandleToFirebase(closedCandle,this.currentPair);
-        if(window.masterManager&&window.masterManager.isMaster(this.currentPair))window.masterManager.broadcastLiveCandle({...closedCandle},this.currentPair);
-        this.t0+=this.timeframe;const lp=closedCandle.close;this.currentCandle={open:lp,close:lp,high:lp,low:lp,timestamp:this.t0};this.currentPrice=lp;
-        if(window.masterManager&&window.masterManager.isMaster(this.currentPair))window.masterManager.broadcastLiveCandle({...this.currentCandle},this.currentPair);
+        if(window.masterManager&&window.masterManager.isMaster(this.currentPair)) window.masterManager.broadcastLiveCandle({...closedCandle},this.currentPair);
+
+        this.t0+=this.timeframe;
+        const lp=closedCandle.close;
+        this.currentCandle={open:lp,close:lp,high:lp,low:lp,timestamp:this.t0};
+        this.currentPrice=lp;
+        if(window.masterManager&&window.masterManager.isMaster(this.currentPair)) window.masterManager.broadcastLiveCandle({...this.currentCandle},this.currentPair);
         catchupCount++;
       }
       this.updateCurrentCandle();
-      if(this.currentCandle&&window.masterManager&&window.masterManager.isMaster(this.currentPair))window.masterManager.broadcastLiveCandle({...this.currentCandle},this.currentPair);
+      if(this.currentCandle&&window.masterManager&&window.masterManager.isMaster(this.currentPair)) window.masterManager.broadcastLiveCandle({...this.currentCandle},this.currentPair);
     },200);
   }
+
   updatePriceRange(){
     let v=[...this.candles];this.currentCandle&&(!v.length||this.currentCandle.timestamp!==v[v.length-1].timestamp)&&v.push(this.currentCandle);
     if(!v.length){this.priceRange={min:.95*this.basePrice,max:1.05*this.basePrice};return;}
@@ -429,6 +705,7 @@ class AdvancedTradingChart{
     const lo=sl.map(c=>c.low),hi=sl.map(c=>c.high),mn=Math.min(...lo),mx=Math.max(...hi),pd=.15*(mx-mn)||1e-9;
     this.priceRange={min:mn-pd,max:mx+pd};
   }
+
   initEvents(){
     addEventListener("resize",()=>this.setup());
     this.canvas.addEventListener("wheel",e=>{e.preventDefault();const r=this.canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,sc=e.deltaY>0?1/1.1:1.1;this.applyZoomAround(x,y,sc);},{passive:false});
@@ -463,7 +740,6 @@ loadActiveTrades();
   let _lpTimer=null,_lpProgress=null,_lpStart=0;
   const HOLD_MS=10000;
 
-  /* شريط تقدم صغير أسفل الزر */
   function _injectLPStyle(){
     if(document.getElementById('_lpCSS'))return;
     const s=document.createElement('style');s.id='_lpCSS';
@@ -482,7 +758,6 @@ loadActiveTrades();
   function _cancel(){if(_lpTimer){clearTimeout(_lpTimer);_lpTimer=null;}_stopBar();}
 
   function _start(e){
-    /* لا تشغّل على الضغط البسيط (click) */
     _lpStart=Date.now();
     _startBar();
     _lpTimer=setTimeout(()=>{
@@ -491,7 +766,6 @@ loadActiveTrades();
     },HOLD_MS);
   }
 
-  /* منع إطلاق الضغطة العادية (click→openTrade) لو اكتملت 10 ثوانٍ */
   buyBtn.addEventListener('click',e=>{if(Date.now()-_lpStart>=HOLD_MS-50)e.stopImmediatePropagation();},true);
 
   buyBtn.addEventListener('mousedown',_start);
@@ -512,7 +786,9 @@ document.addEventListener("click",()=>{timeDropdown.classList.remove("show");if(
 timeDropdown.addEventListener("click",e=>e.stopPropagation());
 tabCompensation.addEventListener("click",()=>{tabCompensation.classList.add("active");tabCustom.classList.remove("active");compensationList.style.display="grid";if(isEditingTime){timeDisplay.textContent=savedTimeValue;isEditingTime=false;}});
 tabCustom.addEventListener("click",()=>{tabCustom.classList.add("active");tabCompensation.classList.remove("active");compensationList.style.display="none";timeDisplay.textContent="";isEditingTime=true;setTimeout(()=>timeDisplay.focus(),50);});
-compensationList.addEventListener("click",e=>{if(e.target.classList.contains("dropdown-item")){savedTimeValue=e.target.textContent;timeDisplay.textContent=savedTimeValue;chart.selectedTime=parseInt(e.target.getAttribute("data-sec"));timeDropdown.classList.remove("show");}});
+compensationList.addEventListener("click",e=>{if(e.target.classList.contains("dropdown-item")){
+  savedTimeValue=e.target.textContent;timeDisplay.textContent=savedTimeValue;chart.selectedTime=parseInt(e.target.getAttribute("data-sec"));timeDropdown.classList.remove("show");
+}});
 timeDisplay.addEventListener("input",e=>{if(isEditingTime){let v=e.target.textContent.replace(/[^0-9]/g,"");if(v.length>4)v=v.slice(0,4);e.target.textContent=v;}});
 timeDisplay.addEventListener("blur",()=>{if(isEditingTime){let v=timeDisplay.textContent.replace(/[^0-9]/g,"");if(v.length===0)v="0005";v=v.padStart(4,"0");const h=v.slice(0,2),m=v.slice(2,4);savedTimeValue=`${h}:${m}`;timeDisplay.textContent=savedTimeValue;isEditingTime=false;}});
 
@@ -531,6 +807,3 @@ document.getElementById('navHistory').addEventListener('click',openHistoryPanel)
 document.getElementById('historyNavBtn').addEventListener('click',openHistoryPanel);
 document.getElementById('historyCloseBtn').addEventListener('click',closeHistoryPanel);
 document.querySelectorAll('#historyPanel .htab').forEach(btn=>{btn.addEventListener('click',()=>{document.querySelectorAll('#historyPanel .htab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');loadHistory();});});
-
-
- 
