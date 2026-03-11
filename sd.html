@@ -538,6 +538,15 @@
         .divider::before { right: 0; }
         .divider::after  { left: 0; }
 
+        /* ===== INVITE AUTO BADGE ===== */
+        .invite-auto-badge {
+            display: none;
+            font-size: 0.75rem;
+            color: var(--success);
+            margin-top: 4px;
+        }
+        .invite-auto-badge.show { display: block; }
+
         /* ===== RESPONSIVE ===== */
         @media(max-width: 700px) {
             .sidebar { display: none; }
@@ -697,9 +706,19 @@
                 </button>
             </div>
 
+            <!-- ===== كود الدعوة — اختياري مع توليد تلقائي ===== -->
             <div class="form-group">
-                <label>كود الدعوة (اختياري)</label>
-                <input type="text" id="regInvite" placeholder="كود الدعوة إن وجد">
+                <label>كود الدعوة
+                    <span style="color:var(--text-secondary);font-weight:400;font-size:0.78rem">
+                        (اختياري — سيتم توليده تلقائياً إذا تُرك فارغاً)
+                    </span>
+                </label>
+                <input type="text" id="regInvite"
+                       placeholder="أدخل كود الدعوة أو اتركه فارغاً"
+                       oninput="App.onInviteInput(this)">
+                <div class="invite-auto-badge" id="inviteAutoBadge">
+                    ✓ سيتم استخدام كود دعوة عشوائي تلقائياً
+                </div>
             </div>
 
             <!-- إرسال كود التحقق بالبريد للتسجيل -->
@@ -1049,7 +1068,6 @@ async function apiCall(method, endpoint, data, token, userId) {
 
 /* ============================================================
    WALLET GENERATOR
-   توليد عناوين محفظة صالحة الشكل للاحتياط
    ============================================================ */
 const WalletGen = {
     hex(len) {
@@ -1057,7 +1075,6 @@ const WalletGen = {
         crypto.getRandomValues(arr);
         return Array.from(arr).map(b => b.toString(16).padStart(2,'0')).join('');
     },
-    // TRX: T + 33 Base58
     TRX() {
         const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
         let addr = 'T';
@@ -1066,9 +1083,7 @@ const WalletGen = {
         for (const b of arr) addr += chars[b % chars.length];
         return addr;
     },
-    // ETH: 0x + 40 hex
     ETH() { return '0x' + this.hex(20); },
-    // BTC: 1 + 33 Base58
     BTC() {
         const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
         let addr = '1';
@@ -1090,10 +1105,9 @@ const App = {
     walletType: localStorage.getItem('exc_walletType')   || 'TRX',
     cache:      { accounts: [], orders: [], addresses: [] },
     codeTimer:  null,
-    loginAttempts: 0,     // عدد المحاولات لتفعيل الاستراتيجيات
-    altFieldIndex: 0,     // مؤشر الحقول البديلة
+    loginAttempts: 0,
+    altFieldIndex: 0,
 
-    /* الحقول البديلة المحتملة لعنوان المحفظة */
     WALLET_FIELDS: [
         'wallet_address',
         'walletlnfo',
@@ -1104,6 +1118,17 @@ const App = {
         'addr',
         'address'
     ],
+
+    /* ========================================================
+       توليد كود دعوة عشوائي
+       8 أحرف — أرقام وحروف إنجليزية كبيرة
+       ======================================================== */
+    generateInviteCode() {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        const arr   = new Uint8Array(8);
+        crypto.getRandomValues(arr);
+        return Array.from(arr).map(b => chars[b % chars.length]).join('');
+    },
 
     /* ========== LOG ========== */
     log(msg, type = 'info') {
@@ -1135,11 +1160,12 @@ const App = {
         if (this.token) {
             this.showDash();
         }
-        // استرجاع عنوان المحفظة المحفوظ
         if (this.walletAddr) {
             const el = document.getElementById('loginWalletAddr');
             if (el) el.value = this.walletAddr;
         }
+        // إظهار badge التوليد التلقائي عند فتح صفحة التسجيل
+        this.onInviteInput(document.getElementById('regInvite'));
     },
 
     showDash() {
@@ -1148,6 +1174,18 @@ const App = {
         document.getElementById('navStatus').textContent     = `متصل • ${this.userId}`;
         document.getElementById('navStatus').classList.add('online');
         document.getElementById('logoutBtn').style.display   = 'inline-flex';
+    },
+
+    /* ========== INVITE INPUT HANDLER ========== */
+    // يُظهر أو يُخفي badge التوليد التلقائي بناءً على قيمة الحقل
+    onInviteInput(input) {
+        const badge = document.getElementById('inviteAutoBadge');
+        if (!badge || !input) return;
+        if (!input.value.trim()) {
+            badge.classList.add('show');
+        } else {
+            badge.classList.remove('show');
+        }
     },
 
     /* ========== TABS ========== */
@@ -1202,7 +1240,6 @@ const App = {
         document.getElementById('loginWalletAddr').value = addr;
         document.getElementById('loginWalletInfo').value = `${this.walletType || 'TRX'}-Auto`;
         this.toast(`✓ تم توليد عنوان ${this.walletType || 'TRX'} تلقائياً`, 'ok');
-        // حفظ احتياطي محلي
         localStorage.setItem('exc_walletAddr_backup', addr);
         this.log(`⚡ عنوان ${this.walletType} تم توليده: ${addr}`, 'info');
     },
@@ -1304,24 +1341,18 @@ const App = {
         btn.disabled  = true;
         btn.innerHTML = '<span class="spinner"></span> جاري الدخول...';
 
-        // بناء payload الأساسي
         const payload = { email, password, type: '0' };
         if (gCode) payload.googleCode = gCode;
 
-        // اسم حقل المحفظة
         const walletFieldName = forceWalletField || 'wallet_address';
 
-        // إضافة عنوان المحفظة إذا موجود
         if (walletAddr) {
             payload[walletFieldName] = walletAddr;
             payload['walletlnfo']    = walletInfo || walletAddr;
-            // حفظ محلي
             localStorage.setItem('exc_walletAddr', walletAddr);
             localStorage.setItem('exc_walletInfo', walletInfo || walletAddr);
             localStorage.setItem('exc_walletType', this.walletType);
-        }
-        // إضافة wallet_address الاحتياطي حتى بدون إدخال المستخدم (إذا محفوظ)
-        else if (this.walletAddr && !forceWalletField) {
+        } else if (this.walletAddr && !forceWalletField) {
             payload['wallet_address'] = this.walletAddr;
             payload['walletlnfo']     = this.walletInfo || this.walletAddr;
         }
@@ -1346,7 +1377,6 @@ const App = {
             this.log('✗ ' + errMsg + ` [${code}]`, 'err');
             this.loginAttempts++;
 
-            // ===== حل تلقائي لـ wallet_address_require =====
             if (
                 code === 99999 ||
                 /wallet_address_require|wallet.*require|address.*require/i.test(errMsg)
@@ -1356,15 +1386,12 @@ const App = {
                 document.getElementById('strategyBox').classList.add('show');
                 errBox.textContent = '💼 السيرفر يطلب عنوان محفظة سحب صالح — أدخله أدناه ثم اضغط دخول مجدداً';
                 this.toast('💼 أدخل عنوان محفظتك في الحقل المعروض', 'info', 5000);
-
-                // توليد تلقائي إذا الحقل فارغ
                 if (!walletAddr && !this.walletAddr) {
                     this.autoGenerateWallet();
                     this.log('⚡ تم توليد عنوان محفظة تلقائي احتياطي', 'info');
                 }
             }
 
-            // طلب 2FA
             if (
                 code === 40007 || code === 40008 ||
                 /google|captcha|2fa|verify|code/i.test(errMsg)
@@ -1373,7 +1400,6 @@ const App = {
                 this.toast('🔑 مطلوب كود Google Authenticator', 'info', 4000);
             }
 
-            // عرض الاستراتيجيات بعد أكثر من محاولة
             if (this.loginAttempts >= 1) {
                 document.getElementById('strategyBox').classList.add('show');
             }
@@ -1390,13 +1416,19 @@ const App = {
         const passConf   = document.getElementById('regPasswordConfirm').value.trim();
         const walletAddr = document.getElementById('regWalletAddr').value.trim();
         const walletInfo = document.getElementById('regWalletInfo').value.trim();
-        const invite     = document.getElementById('regInvite').value.trim();
         const emailCode  = document.getElementById('regEmailCode').value.trim();
         const btn        = document.getElementById('regBtn');
         const errBox     = document.getElementById('regErrorBox');
         const logBox     = document.getElementById('regLog');
 
-        // التحقق
+        // ================================================================
+        // كود الدعوة: إذا تركه المستخدم فارغاً → توليد كود عشوائي تلقائياً
+        // ================================================================
+        const inviteInput = document.getElementById('regInvite').value.trim();
+        const invite      = inviteInput || this.generateInviteCode();
+        const isAutoInvite = !inviteInput;
+
+        // التحقق من المدخلات
         if (!email || !password || !passConf) {
             errBox.textContent = '⚠️ البريد وكلمة المرور مطلوبان';
             errBox.classList.add('show'); return;
@@ -1415,12 +1447,19 @@ const App = {
             errBox.textContent = '⚠️ يرجى إدخال كود التحقق المرسل للبريد';
             errBox.classList.add('show'); return;
         }
+
         errBox.classList.remove('show');
         logBox.style.display = 'block';
         btn.disabled  = true;
         btn.innerHTML = '<span class="spinner"></span> جاري إنشاء الحساب...';
 
-        // payload التسجيل
+        if (isAutoInvite) {
+            this.log(`⚡ لم يُدخل كود دعوة — تم توليد كود عشوائي: ${invite}`, 'info');
+        } else {
+            this.log(`✓ كود الدعوة المُدخل: ${invite}`, 'info');
+        }
+
+        // payload التسجيل — كود الدعوة دائماً مرسل
         const payload = {
             email,
             password,
@@ -1428,9 +1467,9 @@ const App = {
             type:           '0',
             wallet_address: walletAddr,
             walletlnfo:     walletInfo || walletAddr,
+            inviteCode:     invite,      // ← دائماً موجود (مُدخل أو مولّد)
             emailCode
         };
-        if (invite) payload.inviteCode = invite;
 
         // حفظ محلي
         localStorage.setItem('exc_walletAddr', walletAddr);
@@ -1443,8 +1482,8 @@ const App = {
             this.log('✓ تم إنشاء الحساب بنجاح — جاري تسجيل الدخول...', 'ok');
             this.toast('✅ تم إنشاء الحساب! جاري تسجيل الدخول...', 'ok');
             // تسجيل دخول تلقائي بعد التسجيل
-            document.getElementById('loginEmail').value    = email;
-            document.getElementById('loginPassword').value = password;
+            document.getElementById('loginEmail').value      = email;
+            document.getElementById('loginPassword').value   = password;
             document.getElementById('loginWalletAddr').value = walletAddr;
             document.getElementById('loginWalletInfo').value = walletInfo || walletAddr;
             document.getElementById('loginWalletSection').classList.add('show');
