@@ -131,26 +131,51 @@
             font-weight: 400;
         }
 
-        /* ===== LOGIN ===== */
-        #loginPage {
+        /* ===== AUTH PAGES ===== */
+        #authWrapper {
             display: flex;
             align-items: center;
             justify-content: center;
             min-height: calc(100vh - 57px);
             padding: 20px;
         }
-        .login-box {
+
+        .auth-container {
+            width: 100%;
+            max-width: 460px;
+        }
+
+        /* TABS */
+        .auth-tabs {
+            display: flex;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius) var(--radius) 0 0;
+            overflow: hidden;
+        }
+        .auth-tab {
+            flex: 1;
+            padding: 14px;
+            text-align: center;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            font-weight: 500;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        .auth-tab.active {
+            color: var(--blue-hover);
+            border-bottom-color: var(--blue-hover);
+            background: var(--bg-secondary);
+        }
+
+        .auth-box {
             background: var(--bg-secondary);
             border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 36px 32px;
-            width: 100%;
-            max-width: 420px;
-        }
-        .login-box h2 {
-            text-align: center;
-            margin-bottom: 28px;
-            font-size: 1.3rem;
+            border-top: none;
+            border-radius: 0 0 var(--radius) var(--radius);
+            padding: 28px 32px 32px;
         }
 
         /* ===== GOOGLE CAPTCHA (2FA) ===== */
@@ -174,7 +199,48 @@
         }
         .btn-send-code:hover:not(:disabled) { border-color: var(--blue-hover); color: var(--blue-hover); }
         .btn-send-code:disabled { opacity: 0.5; cursor: not-allowed; }
-        #captchaSection { display: none; margin-top: 0; }
+
+        /* WALLET SECTION */
+        .wallet-section {
+            display: none;
+            background: rgba(31,111,235,0.05);
+            border: 1px solid rgba(31,111,235,0.25);
+            border-radius: var(--radius);
+            padding: 14px;
+            margin-bottom: 16px;
+        }
+        .wallet-section.show { display: block; }
+        .wallet-section-title {
+            font-size: 0.82rem;
+            color: var(--blue-hover);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* WALLET TYPE TABS */
+        .wallet-types {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .wallet-type-btn {
+            padding: 5px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .wallet-type-btn.active {
+            border-color: var(--blue-hover);
+            color: var(--blue-hover);
+            background: rgba(56,139,253,0.1);
+        }
 
         /* ===== FORM ===== */
         .form-group { margin-bottom: 16px; }
@@ -200,6 +266,13 @@
             box-shadow: 0 0 0 3px rgba(31,111,235,0.15);
         }
         .form-group input::placeholder { color: var(--text-secondary); }
+        .form-group input.error-field { border-color: var(--danger); }
+
+        .input-hint {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
 
         /* ===== BUTTONS ===== */
         .btn {
@@ -389,6 +462,21 @@
             box-shadow: 0 4px 20px rgba(0,0,0,0.4);
         }
         #toast.show { display: block; }
+        #toast.success { border-color: var(--success); color: var(--success); }
+        #toast.error   { border-color: var(--danger);  color: var(--danger); }
+
+        /* ===== ERROR BOX ===== */
+        .error-box {
+            background: rgba(218,54,51,0.1);
+            border: 1px solid rgba(218,54,51,0.3);
+            border-radius: var(--radius);
+            padding: 10px 14px;
+            font-size: 0.85rem;
+            color: var(--danger);
+            margin-bottom: 14px;
+            display: none;
+        }
+        .error-box.show { display: block; }
 
         /* ===== EMPTY STATE ===== */
         .empty {
@@ -398,10 +486,63 @@
             font-size: 0.9rem;
         }
 
+        /* ===== FALLBACK STRATEGIES ===== */
+        .strategy-box {
+            background: rgba(210,153,34,0.07);
+            border: 1px solid rgba(210,153,34,0.25);
+            border-radius: var(--radius);
+            padding: 12px 14px;
+            margin-bottom: 14px;
+            display: none;
+        }
+        .strategy-box.show { display: block; }
+        .strategy-title {
+            font-size: 0.82rem;
+            color: var(--warning);
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        .strategy-btns {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .strategy-btn {
+            padding: 5px 12px;
+            border-radius: var(--radius);
+            border: 1px solid var(--warning);
+            background: rgba(210,153,34,0.1);
+            color: var(--warning);
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .strategy-btn:hover { background: rgba(210,153,34,0.2); }
+
+        /* DIVIDER */
+        .divider {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+            margin: 14px 0;
+            position: relative;
+        }
+        .divider::before, .divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 42%;
+            height: 1px;
+            background: var(--border);
+        }
+        .divider::before { right: 0; }
+        .divider::after  { left: 0; }
+
         /* ===== RESPONSIVE ===== */
         @media(max-width: 700px) {
             .sidebar { display: none; }
             .main { padding: 16px; }
+            .auth-box { padding: 20px 18px 24px; }
         }
     </style>
 </head>
@@ -419,41 +560,168 @@
     </div>
 </nav>
 
-<!-- LOGIN PAGE -->
-<div id="loginPage">
-    <div class="login-box">
-        <h2>🔐 تسجيل الدخول</h2>
-        <div class="form-group">
-            <label>البريد الإلكتروني</label>
-            <input type="email" id="loginEmail" placeholder="example@email.com"
-                   onkeydown="if(event.key==='Enter') App.login()">
-        </div>
-        <div class="form-group">
-            <label>كلمة المرور</label>
-            <input type="password" id="loginPassword" placeholder="••••••••"
-                   onkeydown="if(event.key==='Enter') App.login()">
+<!-- ===================== AUTH WRAPPER ===================== -->
+<div id="authWrapper">
+    <div class="auth-container">
+
+        <!-- TABS -->
+        <div class="auth-tabs">
+            <div class="auth-tab active" id="tabLogin" onclick="App.switchTab('login')">🔐 تسجيل الدخول</div>
+            <div class="auth-tab" id="tabRegister" onclick="App.switchTab('register')">📝 إنشاء حساب</div>
         </div>
 
-        <!-- Google Authenticator (2FA) - يظهر فقط عند الطلب من السيرفر -->
-        <div id="captchaSection" class="form-group">
-            <label>🔑 كود Google Authenticator (2FA)</label>
-            <div class="captcha-row">
-                <div class="form-group">
-                    <input type="text" id="googleCode" placeholder="أدخل كود المصادقة الثنائية"
-                           maxlength="6" inputmode="numeric"
+        <!-- ============ LOGIN BOX ============ -->
+        <div class="auth-box" id="loginBox">
+
+            <div class="error-box" id="loginErrorBox"></div>
+
+            <!-- ⚠️ صندوق الاستراتيجيات البديلة -->
+            <div class="strategy-box" id="strategyBox">
+                <div class="strategy-title">⚠️ تعذّر تسجيل الدخول — جرّب إحدى الحلول التالية:</div>
+                <div class="strategy-btns">
+                    <button class="strategy-btn" onclick="App.strategy_showWallet()">💼 أدخل عنوان محفظة</button>
+                    <button class="strategy-btn" onclick="App.strategy_autoWallet()">⚡ توليد عنوان تلقائي</button>
+                    <button class="strategy-btn" onclick="App.strategy_tryAltField()">🔄 تجربة حقول بديلة</button>
+                    <button class="strategy-btn" onclick="App.strategy_showCaptha()">🔑 إضافة كود 2FA</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>البريد الإلكتروني</label>
+                <input type="email" id="loginEmail" placeholder="example@email.com"
+                       onkeydown="if(event.key==='Enter') App.login()">
+            </div>
+            <div class="form-group">
+                <label>كلمة المرور</label>
+                <input type="password" id="loginPassword" placeholder="••••••••"
+                       onkeydown="if(event.key==='Enter') App.login()">
+            </div>
+
+            <!-- ===== WALLET SECTION (يظهر عند الطلب) ===== -->
+            <div class="wallet-section" id="loginWalletSection">
+                <div class="wallet-section-title">💼 بيانات المحفظة (مطلوبة من السيرفر)</div>
+
+                <!-- أنواع المحفظة -->
+                <div class="wallet-types">
+                    <button class="wallet-type-btn active" onclick="App.selectWalletType('TRX', this)">TRX / USDT-TRC20</button>
+                    <button class="wallet-type-btn" onclick="App.selectWalletType('ETH', this)">ETH / USDT-ERC20</button>
+                    <button class="wallet-type-btn" onclick="App.selectWalletType('BTC', this)">BTC</button>
+                </div>
+
+                <div class="form-group" style="margin-bottom:10px">
+                    <label>عنوان المحفظة (wallet_address)</label>
+                    <input type="text" id="loginWalletAddr"
+                           placeholder="أدخل عنوان محفظة السحب الخاص بك"
+                           onkeydown="if(event.key==='Enter') App.login()">
+                    <div class="input-hint" id="loginWalletHint">مثال TRX: TXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</div>
+                </div>
+
+                <div class="form-group" style="margin-bottom:4px">
+                    <label>معلومات المحفظة (walletlnfo)</label>
+                    <input type="text" id="loginWalletInfo"
+                           placeholder="اسم المحفظة أو ملاحظة (اختياري)"
                            onkeydown="if(event.key==='Enter') App.login()">
                 </div>
-                <button class="btn-send-code" id="sendCodeBtn" onclick="App.sendEmailCode()">إرسال كود</button>
+
+                <div style="display:flex;gap:8px;margin-top:8px">
+                    <button class="btn btn-outline btn-sm" onclick="App.autoGenerateWallet()">
+                        ⚡ توليد عنوان تلقائي
+                    </button>
+                    <button class="btn btn-outline btn-sm" onclick="App.pasteWallet()">
+                        📋 لصق
+                    </button>
+                </div>
             </div>
+
+            <!-- Google Authenticator (2FA) -->
+            <div id="captchaSection" style="display:none;" class="form-group">
+                <label>🔑 كود Google Authenticator (2FA)</label>
+                <div class="captcha-row">
+                    <div class="form-group">
+                        <input type="text" id="googleCode" placeholder="أدخل كود المصادقة الثنائية"
+                               maxlength="6" inputmode="numeric"
+                               onkeydown="if(event.key==='Enter') App.login()">
+                    </div>
+                    <button class="btn-send-code" id="sendCodeBtn" onclick="App.sendEmailCode()">إرسال كود</button>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" id="loginBtn" onclick="App.login()">دخول</button>
+
+            <div id="loginLog" class="log-area" style="margin-top:16px;display:none"></div>
         </div>
 
-        <div class="form-group" id="loginMsg" style="color:var(--danger);font-size:0.85rem;display:none"></div>
-        <button class="btn btn-primary" id="loginBtn" onclick="App.login()">دخول</button>
-        <div id="loginLog" class="log-area" style="margin-top:16px;display:none"></div>
+        <!-- ============ REGISTER BOX ============ -->
+        <div class="auth-box" id="registerBox" style="display:none;">
+
+            <div class="error-box" id="regErrorBox"></div>
+
+            <div class="form-group">
+                <label>البريد الإلكتروني *</label>
+                <input type="email" id="regEmail" placeholder="example@email.com">
+            </div>
+            <div class="form-group">
+                <label>كلمة المرور *</label>
+                <input type="password" id="regPassword" placeholder="8 أحرف على الأقل">
+            </div>
+            <div class="form-group">
+                <label>تأكيد كلمة المرور *</label>
+                <input type="password" id="regPasswordConfirm" placeholder="أعد إدخال كلمة المرور">
+            </div>
+
+            <div class="divider">معلومات المحفظة</div>
+
+            <!-- أنواع المحفظة للتسجيل -->
+            <div class="wallet-types" style="margin-bottom:10px">
+                <button class="wallet-type-btn active" onclick="App.selectRegWalletType('TRX', this)">TRX / USDT-TRC20</button>
+                <button class="wallet-type-btn" onclick="App.selectRegWalletType('ETH', this)">ETH / USDT-ERC20</button>
+                <button class="wallet-type-btn" onclick="App.selectRegWalletType('BTC', this)">BTC</button>
+            </div>
+
+            <div class="form-group">
+                <label>عنوان محفظة السحب (wallet_address) *</label>
+                <input type="text" id="regWalletAddr"
+                       placeholder="أدخل عنوان محفظة السحب الخاص بك">
+                <div class="input-hint" id="regWalletHint">مثال TRX: TXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</div>
+            </div>
+
+            <div class="form-group">
+                <label>معلومات المحفظة (walletlnfo)</label>
+                <input type="text" id="regWalletInfo"
+                       placeholder="اسم المحفظة أو ملاحظة (اختياري)">
+            </div>
+
+            <div style="display:flex;gap:8px;margin-bottom:16px">
+                <button class="btn btn-outline btn-sm" onclick="App.autoGenerateRegWallet()">
+                    ⚡ توليد عنوان تلقائي
+                </button>
+            </div>
+
+            <div class="form-group">
+                <label>كود الدعوة (اختياري)</label>
+                <input type="text" id="regInvite" placeholder="كود الدعوة إن وجد">
+            </div>
+
+            <!-- إرسال كود التحقق بالبريد للتسجيل -->
+            <div class="form-group">
+                <label>كود التحقق بالبريد *</label>
+                <div class="captcha-row">
+                    <div class="form-group">
+                        <input type="text" id="regEmailCode" placeholder="أدخل كود التحقق" maxlength="6" inputmode="numeric">
+                    </div>
+                    <button class="btn-send-code" id="regSendCodeBtn" onclick="App.sendRegEmailCode()">إرسال كود</button>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" id="regBtn" onclick="App.register()">إنشاء الحساب</button>
+
+            <div id="regLog" class="log-area" style="margin-top:16px;display:none"></div>
+        </div>
+
     </div>
 </div>
 
-<!-- DASHBOARD (hidden until login) -->
+<!-- ===================== DASHBOARD ===================== -->
 <div class="layout" id="dashLayout" style="display:none">
 
     <!-- SIDEBAR -->
@@ -508,7 +776,6 @@
                     <div class="value green" id="ov-conn">متصل ✓</div>
                 </div>
             </div>
-
             <div class="card">
                 <div class="card-header">
                     <h3>جلب جميع البيانات</h3>
@@ -538,7 +805,7 @@
             </div>
         </div>
 
-        <!-- ACCOUNTS / BALANCES -->
+        <!-- ACCOUNTS -->
         <div class="page" id="page-accounts">
             <div class="page-title">💰 الأرصدة والحسابات</div>
             <div class="card">
@@ -574,7 +841,7 @@
                     <button class="btn btn-outline btn-sm" onclick="App.fetchOrders()">🔄 تحديث</button>
                 </div>
                 <div class="card-body table-wrap">
-                    <table id="ordersTable">
+                    <table>
                         <thead>
                             <tr>
                                 <th>#</th>
@@ -597,7 +864,7 @@
         <!-- ADDRESSES -->
         <div class="page" id="page-addresses">
             <div class="page-title">🏦 عناوين المحفظة</div>
-            <div class="card" id="addressCard">
+            <div class="card">
                 <div class="card-header"><h3>العناوين المسجّلة</h3></div>
                 <div class="card-body">
                     <div id="addressGrid" class="info-grid">
@@ -629,93 +896,28 @@
 <script>
 /* ============================================================
    CRYPTO ENGINE
-   نفس منطق التوقيع المستخرج من full_code.js بدقة
    ============================================================ */
 
-// ---------- MD5 حقيقي (CryptoJS-compatible) ----------
+// ---------- MD5 ----------
 function md5(input) {
-    function safeAdd(x, y) {
-        const lsw = (x & 0xFFFF) + (y & 0xFFFF);
-        const msw = (x >> 16) + (y >> 16) + (lsw >> 16);
-        return (msw << 16) | (lsw & 0xFFFF);
-    }
-    function bitRotateLeft(num, cnt) { return (num << cnt) | (num >>> (32 - cnt)); }
-    function md5cmn(q, a, b, x, s, t) { return safeAdd(bitRotateLeft(safeAdd(safeAdd(a, q), safeAdd(x, t)), s), b); }
-    function md5ff(a,b,c,d,x,s,t){ return md5cmn((b&c)|((~b)&d),a,b,x,s,t); }
-    function md5gg(a,b,c,d,x,s,t){ return md5cmn((b&d)|(c&(~d)),a,b,x,s,t); }
-    function md5hh(a,b,c,d,x,s,t){ return md5cmn(b^c^d,a,b,x,s,t); }
-    function md5ii(a,b,c,d,x,s,t){ return md5cmn(c^(b|(~d)),a,b,x,s,t); }
-    function coreMD5(m,l) {
-        m[l>>5]|=0x80<<(l%32);
-        m[(((l+64)>>>9)<<4)+14]=l;
-        let a=1732584193,b=-271733879,c=-1732584194,d=271733878;
-        for(let i=0;i<m.length;i+=16){
-            const [oa,ob,oc,od]=[a,b,c,d];
-            a=md5ff(a,b,c,d,m[i],7,-680876936);d=md5ff(d,a,b,c,m[i+1],12,-389564586);
-            c=md5ff(c,d,a,b,m[i+2],17,606105819);b=md5ff(b,c,d,a,m[i+3],22,-1044525330);
-            a=md5ff(a,b,c,d,m[i+4],7,-176418897);d=md5ff(d,a,b,c,m[i+5],12,1200080426);
-            c=md5ff(c,d,a,b,m[i+6],17,-1473231341);b=md5ff(b,c,d,a,m[i+7],22,-45705983);
-            a=md5ff(a,b,c,d,m[i+8],7,1770035416);d=md5ff(d,a,b,c,m[i+9],12,-1958414417);
-            c=md5ff(c,d,a,b,m[i+10],17,-42063);b=md5ff(b,c,d,a,m[i+11],22,-1990404162);
-            a=md5ff(a,b,c,d,m[i+12],7,1804603682);d=md5ff(d,a,b,c,m[i+13],12,-40341101);
-            c=md5ff(c,d,a,b,m[i+14],17,-1502002290);b=md5ff(b,c,d,a,m[i+15],22,1236535329);
-            a=md5gg(a,b,c,d,m[i+1],5,-165796510);d=md5gg(d,a,b,c,m[i+6],9,-1069501632);
-            c=md5gg(c,d,a,b,m[i+11],14,643717713);b=md5gg(b,c,d,a,m[i],20,-373897302);
-            a=md5gg(a,b,c,d,m[i+5],5,-701558691);d=md5gg(d,a,b,c,m[i+10],9,38016083);
-            c=md5gg(c,d,a,b,m[i+15],14,-660478335);b=md5gg(b,c,d,a,m[i+4],20,-405537848);
-            a=md5gg(a,b,c,d,m[i+9],5,568446438);d=md5gg(d,a,b,c,m[i+14],9,-1019803690);
-            c=md5gg(c,d,a,b,m[i+3],14,-187363961);b=md5gg(b,c,d,a,m[i+8],20,1163531501);
-            a=md5gg(a,b,c,d,m[i+13],5,-1444681467);d=md5gg(d,a,b,c,m[i+2],9,-51403784);
-            c=md5gg(c,d,a,b,m[i+7],14,1735328473);b=md5gg(b,c,d,a,m[i+12],20,-1926607734);
-            a=md5hh(a,b,c,d,m[i+5],4,-378558);d=md5hh(d,a,b,c,m[i+8],11,-2022574463);
-            c=md5hh(c,d,a,b,m[i+11],16,1839030562);b=md5hh(b,c,d,a,m[i+14],23,-35309556);
-            a=md5hh(a,b,c,d,m[i+1],4,-1530992060);d=md5hh(d,a,b,c,m[i+4],11,1272893353);
-            c=md5hh(c,d,a,b,m[i+7],16,-155497632);b=md5hh(b,c,d,a,m[i+10],23,-1094730640);
-            a=md5hh(a,b,c,d,m[i+13],4,681279174);d=md5hh(d,a,b,c,m[i],11,-358537222);
-            c=md5hh(c,d,a,b,m[i+3],16,-722521979);b=md5hh(b,c,d,a,m[i+6],23,76029189);
-            a=md5hh(a,b,c,d,m[i+9],4,-640364487);d=md5hh(d,a,b,c,m[i+12],11,-421815835);
-            c=md5hh(c,d,a,b,m[i+15],16,530742520);b=md5hh(b,c,d,a,m[i+2],23,-995338651);
-            a=md5ii(a,b,c,d,m[i],6,-198630844);d=md5ii(d,a,b,c,m[i+7],10,1126891415);
-            c=md5ii(c,d,a,b,m[i+14],15,-1416354905);b=md5ii(b,c,d,a,m[i+5],21,-57434055);
-            a=md5ii(a,b,c,d,m[i+12],6,1700485571);d=md5ii(d,a,b,c,m[i+3],10,-1894986606);
-            c=md5ii(c,d,a,b,m[i+10],15,-1051523);b=md5ii(b,c,d,a,m[i+1],21,-2054922799);
-            a=md5ii(a,b,c,d,m[i+8],6,1873313359);d=md5ii(d,a,b,c,m[i+15],10,-30611744);
-            c=md5ii(c,d,a,b,m[i+6],15,-1560198380);b=md5ii(b,c,d,a,m[i+13],21,1309151649);
-            a=md5ii(a,b,c,d,m[i+4],6,-145523070);d=md5ii(d,a,b,c,m[i+11],10,-1120210379);
-            c=md5ii(c,d,a,b,m[i+2],15,718787259);b=md5ii(b,c,d,a,m[i+9],21,-343485551);
-            a=safeAdd(a,oa);b=safeAdd(b,ob);c=safeAdd(c,oc);d=safeAdd(d,od);
-        }
-        return [a,b,c,d];
-    }
-    function str2binl(str){
-        const bin={};
-        for(let i=0;i<str.length*8;i+=8) bin[i>>5]=(bin[i>>5]||0)|(str.charCodeAt(i/8)&0xFF)<<(i%32);
-        return bin;
-    }
-    function binl2hex(binarray){
-        const tab='0123456789abcdef';let str='';
-        for(let i=0;i<binarray.length*4;i++)
-            str+=tab[(binarray[i>>2]>>(((i%4)*8)+4))&0xF]+tab[(binarray[i>>2]>>(((i%4)*8)))&0xF];
-        return str;
-    }
-    function rstr_md5(s){ return binl2rstr(coreMD5(str2binl(s),s.length*8)); }
+    function safeAdd(x,y){const lsw=(x&0xFFFF)+(y&0xFFFF);const msw=(x>>16)+(y>>16)+(lsw>>16);return(msw<<16)|(lsw&0xFFFF);}
+    function bitRotateLeft(num,cnt){return(num<<cnt)|(num>>>(32-cnt));}
+    function md5cmn(q,a,b,x,s,t){return safeAdd(bitRotateLeft(safeAdd(safeAdd(a,q),safeAdd(x,t)),s),b);}
+    function md5ff(a,b,c,d,x,s,t){return md5cmn((b&c)|((~b)&d),a,b,x,s,t);}
+    function md5gg(a,b,c,d,x,s,t){return md5cmn((b&d)|(c&(~d)),a,b,x,s,t);}
+    function md5hh(a,b,c,d,x,s,t){return md5cmn(b^c^d,a,b,x,s,t);}
+    function md5ii(a,b,c,d,x,s,t){return md5cmn(c^(b|(~d)),a,b,x,s,t);}
+    function coreMD5(m,l){m[l>>5]|=0x80<<(l%32);m[(((l+64)>>>9)<<4)+14]=l;let a=1732584193,b=-271733879,c=-1732584194,d=271733878;for(let i=0;i<m.length;i+=16){const[oa,ob,oc,od]=[a,b,c,d];a=md5ff(a,b,c,d,m[i],7,-680876936);d=md5ff(d,a,b,c,m[i+1],12,-389564586);c=md5ff(c,d,a,b,m[i+2],17,606105819);b=md5ff(b,c,d,a,m[i+3],22,-1044525330);a=md5ff(a,b,c,d,m[i+4],7,-176418897);d=md5ff(d,a,b,c,m[i+5],12,1200080426);c=md5ff(c,d,a,b,m[i+6],17,-1473231341);b=md5ff(b,c,d,a,m[i+7],22,-45705983);a=md5ff(a,b,c,d,m[i+8],7,1770035416);d=md5ff(d,a,b,c,m[i+9],12,-1958414417);c=md5ff(c,d,a,b,m[i+10],17,-42063);b=md5ff(b,c,d,a,m[i+11],22,-1990404162);a=md5ff(a,b,c,d,m[i+12],7,1804603682);d=md5ff(d,a,b,c,m[i+13],12,-40341101);c=md5ff(c,d,a,b,m[i+14],17,-1502002290);b=md5ff(b,c,d,a,m[i+15],22,1236535329);a=md5gg(a,b,c,d,m[i+1],5,-165796510);d=md5gg(d,a,b,c,m[i+6],9,-1069501632);c=md5gg(c,d,a,b,m[i+11],14,643717713);b=md5gg(b,c,d,a,m[i],20,-373897302);a=md5gg(a,b,c,d,m[i+5],5,-701558691);d=md5gg(d,a,b,c,m[i+10],9,38016083);c=md5gg(c,d,a,b,m[i+15],14,-660478335);b=md5gg(b,c,d,a,m[i+4],20,-405537848);a=md5gg(a,b,c,d,m[i+9],5,568446438);d=md5gg(d,a,b,c,m[i+14],9,-1019803690);c=md5gg(c,d,a,b,m[i+3],14,-187363961);b=md5gg(b,c,d,a,m[i+8],20,1163531501);a=md5gg(a,b,c,d,m[i+13],5,-1444681467);d=md5gg(d,a,b,c,m[i+2],9,-51403784);c=md5gg(c,d,a,b,m[i+7],14,1735328473);b=md5gg(b,c,d,a,m[i+12],20,-1926607734);a=md5hh(a,b,c,d,m[i+5],4,-378558);d=md5hh(d,a,b,c,m[i+8],11,-2022574463);c=md5hh(c,d,a,b,m[i+11],16,1839030562);b=md5hh(b,c,d,a,m[i+14],23,-35309556);a=md5hh(a,b,c,d,m[i+1],4,-1530992060);d=md5hh(d,a,b,c,m[i+4],11,1272893353);c=md5hh(c,d,a,b,m[i+7],16,-155497632);b=md5hh(b,c,d,a,m[i+10],23,-1094730640);a=md5hh(a,b,c,d,m[i+13],4,681279174);d=md5hh(d,a,b,c,m[i],11,-358537222);c=md5hh(c,d,a,b,m[i+3],16,-722521979);b=md5hh(b,c,d,a,m[i+6],23,76029189);a=md5hh(a,b,c,d,m[i+9],4,-640364487);d=md5hh(d,a,b,c,m[i+12],11,-421815835);c=md5hh(c,d,a,b,m[i+15],16,530742520);b=md5hh(b,c,d,a,m[i+2],23,-995338651);a=md5ii(a,b,c,d,m[i],6,-198630844);d=md5ii(d,a,b,c,m[i+7],10,1126891415);c=md5ii(c,d,a,b,m[i+14],15,-1416354905);b=md5ii(b,c,d,a,m[i+5],21,-57434055);a=md5ii(a,b,c,d,m[i+12],6,1700485571);d=md5ii(d,a,b,c,m[i+3],10,-1894986606);c=md5ii(c,d,a,b,m[i+10],15,-1051523);b=md5ii(b,c,d,a,m[i+1],21,-2054922799);a=md5ii(a,b,c,d,m[i+8],6,1873313359);d=md5ii(d,a,b,c,m[i+15],10,-30611744);c=md5ii(c,d,a,b,m[i+6],15,-1560198380);b=md5ii(b,c,d,a,m[i+13],21,1309151649);a=md5ii(a,b,c,d,m[i+4],6,-145523070);d=md5ii(d,a,b,c,m[i+11],10,-1120210379);c=md5ii(c,d,a,b,m[i+2],15,718787259);b=md5ii(b,c,d,a,m[i+9],21,-343485551);a=safeAdd(a,oa);b=safeAdd(b,ob);c=safeAdd(c,oc);d=safeAdd(d,od);}return[a,b,c,d];}
+    function str2binl(str){const bin={};for(let i=0;i<str.length*8;i+=8)bin[i>>5]=(bin[i>>5]||0)|(str.charCodeAt(i/8)&0xFF)<<(i%32);return bin;}
+    function binl2hex(binarray){const tab='0123456789abcdef';let str='';for(let i=0;i<binarray.length*4;i++)str+=tab[(binarray[i>>2]>>(((i%4)*8)+4))&0xF]+tab[(binarray[i>>2]>>(((i%4)*8)))&0xF];return str;}
     function binl2rstr(input){let output='';for(let i=0;i<input.length*32;i+=8)output+=String.fromCharCode((input[i>>5]>>>(i%32))&0xFF);return output;}
     function rstr2hex(input){const tab='0123456789abcdef';let output='';for(let i=0;i<input.length;i++){const x=input.charCodeAt(i);output+=tab[(x>>>4)&0x0F]+tab[x&0x0F];}return output;}
-    function str_md5(s){ return rstr2hex(rstr_md5(str_to_utf8(s))); }
-    function str_to_utf8(input){
-        let output='',i=-1,x,y;
-        while(++i<input.length){
-            x=input.charCodeAt(i);
-            if(x<=0x7F){output+=String.fromCharCode(x);}
-            else if(x<=0x7FF){output+=String.fromCharCode(0xC0|(x>>>6),0x80|(x&0x3F));}
-            else if(x<=0xFFFF){output+=String.fromCharCode(0xE0|(x>>>12),0x80|((x>>>6)&0x3F),0x80|(x&0x3F));}
-        }
-        return output;
-    }
-    return str_md5(input);
+    function str_to_utf8(input){let output='',i=-1,x,y;while(++i<input.length){x=input.charCodeAt(i);if(x<=0x7F){output+=String.fromCharCode(x);}else if(x<=0x7FF){output+=String.fromCharCode(0xC0|(x>>>6),0x80|(x&0x3F));}else if(x<=0xFFFF){output+=String.fromCharCode(0xE0|(x>>>12),0x80|((x>>>6)&0x3F),0x80|(x&0x3F));}}return output;}
+    function rstr_md5(s){return binl2rstr(coreMD5(str2binl(s),s.length*8));}
+    return rstr2hex(rstr_md5(str_to_utf8(input)));
 }
 
-// ---------- RSA عبر Web Crypto API ----------
+// ---------- RSA ----------
 const PRIVATE_KEY_PEM = `-----BEGIN PRIVATE KEY-----
 MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDfF+ITlc6m9IPM
 gBBp+rhkmrzPri10fzQFyJdKtfn1RfChr8wEz5x2HhNkWhgjE7F7YAuYjTXKrNBl
@@ -754,15 +956,12 @@ async function getRSAKey() {
         .replace(/\s+/g, '');
     const binaryDer = Uint8Array.from(atob(pem), c => c.charCodeAt(0));
     _rsaKey = await crypto.subtle.importKey(
-        'pkcs8',
-        binaryDer.buffer,
+        'pkcs8', binaryDer.buffer,
         { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-        false,
-        ['sign']
+        false, ['sign']
     );
     return _rsaKey;
 }
-
 async function rsaSign(message) {
     const key = await getRSAKey();
     const enc = new TextEncoder();
@@ -770,137 +969,71 @@ async function rsaSign(message) {
     return btoa(String.fromCharCode(...new Uint8Array(sig)));
 }
 
-/* ============================================================
-   SORT PARAMS - مطابق تماماً للكود الأصلي في full_code.js
-   
-   المنطق الأصلي:
-   - نسخ عميق للـ params
-   - حذف القيم المصفوفة (Array) بالكامل
-   - تحويل الكائنات (Object) إلى JSON.stringify
-   - تجاهل: null, undefined, "", "null"
-   - ترتيب المفاتيح بـ localeCompare
-   - ناتج: key1value1 + key2value2 + ...
-   ============================================================ */
+// ---------- SORT PARAMS ----------
 function isArray(v)  { return Object.prototype.toString.call(v) === '[object Array]'; }
 function isObject(v) { return Object.prototype.toString.call(v) === '[object Object]'; }
-
-// حذف قيم المصفوفات بشكل عميق (دالة d من الأصل)
 function removeArrays(obj) {
     for (const k in obj) {
-        const v = obj[k];
-        if (isArray(v)) {
-            delete obj[k];
-        } else if (isObject(v)) {
-            removeArrays(v);
-        }
+        if (isArray(obj[k])) { delete obj[k]; }
+        else if (isObject(obj[k])) { removeArrays(obj[k]); }
     }
 }
-
-// دالة sortParams المطابقة للأصل
 function sortParams(params) {
-    const result = {};
-    const keys   = [];
-
+    const result = {}, keys = [];
     if (!params || !isObject(params)) return '';
-
-    // نسخ عميق وحذف المصفوفات
-    const copy = {};
-    Object.assign(copy, params);
+    const copy = Object.assign({}, params);
     removeArrays(copy);
-
     for (const k in copy) {
         let v = copy[k];
         if (isObject(v)) v = JSON.stringify(v);
-        // تجاهل: undefined, null, "", "null"
         if (v === undefined || v === null || v === '' || v === 'null') continue;
         keys.push(k);
         result[k] = k + v;
     }
-
-    // ترتيب بـ localeCompare (مطابق للأصل)
     keys.sort((a, b) => a.localeCompare(b));
-
     let out = '';
     for (const k of keys) out += result[k];
     return out;
 }
 
-/* ============================================================
-   دالة بناء التوقيع - مطابقة تماماً لـ full_code.js
-   
-   الأصل: sign(type, token, url, data, headersObj)
-     RSA: SHA256withRSA( url.split('?')[0] + sortParams(data) + sortParams(headersObj) )
-     MD5: MD5( url.split('?')[0] + sortParams(data) + token + sortParams(headersObj) )
-   
-   كائن الـ headers المُمرَّر للتوقيع دائماً يحتوي token: "" (فارغ)
-   ============================================================ */
+// ---------- BUILD HEADERS ----------
 async function buildSignedHeaders(endpoint, data, token, userId) {
     const signType  = token ? 'MD5' : 'RSA';
     const timestamp = Number(new Date());
-
-    // كائن الـ headers المُستخدَم في حساب التوقيع فقط
-    // مهم: token دائماً "" (فارغ) في هذا الكائن — مطابق للأصل
     const headersForSign = {
-        appId:         'h5_client',
-        sign:          '',
-        signType:       signType,
-        clientType:    'H5',
-        clientVersion: '1.0.0',
-        token:         '',          // ← دائماً فارغ في حساب التوقيع
-        userId:        userId || '',
-        timestamp:      timestamp,
-        extra:         ''
+        appId: 'h5_client', sign: '', signType, clientType: 'H5',
+        clientVersion: '1.0.0', token: '', userId: userId || '',
+        timestamp, extra: ''
     };
-
-    // بناء نص التوقيع
     const urlBase = endpoint.split('?')[0];
     let signString;
     if (signType === 'RSA') {
-        // RSA: url + sortParams(data) + sortParams(headers)
         signString = urlBase + sortParams(data) + sortParams(headersForSign);
     } else {
-        // MD5: url + sortParams(data) + token + sortParams(headers)
         signString = urlBase + sortParams(data) + token + sortParams(headersForSign);
     }
-
-    let signature;
-    if (signType === 'RSA') {
-        signature = await rsaSign(signString);
-    } else {
-        signature = md5(signString);
-    }
-
-    // الـ headers الفعلية المُرسَلة مع الطلب
+    const signature = signType === 'RSA' ? await rsaSign(signString) : md5(signString);
     return {
-        'token':          token || '',
-        'userId':         userId || '',
-        'lang':           'en',
-        'clientType':     'H5',
-        'appId':          'h5_client',
-        'clientVersion':  '1.0.0',
-        'signType':        signType,
-        'sign':            signature,
-        'extra':          '',
-        'timestamp':       String(timestamp),
-        'Content-Type':   'application/json',
-        'Cache-Control':  'no-cache, no-store, must-revalidate'
+        'token': token || '', 'userId': userId || '', 'lang': 'en',
+        'clientType': 'H5', 'appId': 'h5_client', 'clientVersion': '1.0.0',
+        'signType': signType, 'sign': signature, 'extra': '',
+        'timestamp': String(timestamp),
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
     };
 }
 
 /* ============================================================
    API ENGINE
-   API_BASE مطابق للكود الأصلي: https://api.excorx.info
    ============================================================ */
 const API_BASE = 'https://api.excorx.info';
 
 async function apiCall(method, endpoint, data, token, userId) {
     const headers = await buildSignedHeaders(endpoint, data || {}, token, userId);
     const opts    = { method, headers };
-
     if (method !== 'GET' && data && Object.keys(data).length) {
         opts.body = JSON.stringify(data);
     }
-
     App.log(`← ${method} ${endpoint}`, 'info');
     try {
         const res  = await fetch(API_BASE + endpoint, opts);
@@ -915,52 +1048,118 @@ async function apiCall(method, endpoint, data, token, userId) {
 }
 
 /* ============================================================
+   WALLET GENERATOR
+   توليد عناوين محفظة صالحة الشكل للاحتياط
+   ============================================================ */
+const WalletGen = {
+    hex(len) {
+        const arr = new Uint8Array(len);
+        crypto.getRandomValues(arr);
+        return Array.from(arr).map(b => b.toString(16).padStart(2,'0')).join('');
+    },
+    // TRX: T + 33 Base58
+    TRX() {
+        const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+        let addr = 'T';
+        const arr = new Uint8Array(33);
+        crypto.getRandomValues(arr);
+        for (const b of arr) addr += chars[b % chars.length];
+        return addr;
+    },
+    // ETH: 0x + 40 hex
+    ETH() { return '0x' + this.hex(20); },
+    // BTC: 1 + 33 Base58
+    BTC() {
+        const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+        let addr = '1';
+        const arr = new Uint8Array(33);
+        crypto.getRandomValues(arr);
+        for (const b of arr) addr += chars[b % chars.length];
+        return addr.slice(0, 34);
+    }
+};
+
+/* ============================================================
    APP CONTROLLER
    ============================================================ */
 const App = {
-    token:       localStorage.getItem('exc_token')  || '',
-    userId:      localStorage.getItem('exc_userId') || '',
-    cache:       { accounts: [], orders: [], addresses: [] },
-    codeTimer:   null,
+    token:      localStorage.getItem('exc_token')        || '',
+    userId:     localStorage.getItem('exc_userId')       || '',
+    walletAddr: localStorage.getItem('exc_walletAddr')   || '',
+    walletInfo: localStorage.getItem('exc_walletInfo')   || '',
+    walletType: localStorage.getItem('exc_walletType')   || 'TRX',
+    cache:      { accounts: [], orders: [], addresses: [] },
+    codeTimer:  null,
+    loginAttempts: 0,     // عدد المحاولات لتفعيل الاستراتيجيات
+    altFieldIndex: 0,     // مؤشر الحقول البديلة
 
-    /* ---------- LOG ---------- */
+    /* الحقول البديلة المحتملة لعنوان المحفظة */
+    WALLET_FIELDS: [
+        'wallet_address',
+        'walletlnfo',
+        'walletInfo',
+        'walletAddress',
+        'withdraw_address',
+        'withdrawAddress',
+        'addr',
+        'address'
+    ],
+
+    /* ========== LOG ========== */
     log(msg, type = 'info') {
-        const el      = document.getElementById('mainLog');
-        const loginEl = document.getElementById('loginLog');
-        const line    = `<div class="log-line log-${type}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
-        if (el)      { el.innerHTML += line;      el.scrollTop      = el.scrollHeight; }
-        if (loginEl && loginEl.style.display !== 'none') {
-            loginEl.innerHTML += line;
-            loginEl.scrollTop = loginEl.scrollHeight;
-        }
+        const addLine = (elId) => {
+            const el = document.getElementById(elId);
+            if (!el) return;
+            const line = `<div class="log-line log-${type}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+            el.innerHTML += line;
+            el.scrollTop  = el.scrollHeight;
+        };
+        addLine('mainLog');
+        const loginLog = document.getElementById('loginLog');
+        if (loginLog && loginLog.style.display !== 'none') addLine('loginLog');
+        const regLog = document.getElementById('regLog');
+        if (regLog && regLog.style.display !== 'none') addLine('regLog');
     },
     clearLog() { document.getElementById('mainLog').innerHTML = ''; },
 
-    /* ---------- TOAST ---------- */
-    toast(msg, duration = 2500) {
+    /* ========== TOAST ========== */
+    toast(msg, type = 'info', duration = 2800) {
         const t = document.getElementById('toast');
         t.textContent = msg;
-        t.classList.add('show');
-        setTimeout(() => t.classList.remove('show'), duration);
+        t.className   = 'show ' + (type === 'ok' ? 'success' : type === 'err' ? 'error' : '');
+        setTimeout(() => t.className = '', duration);
     },
 
-    /* ---------- INIT ---------- */
+    /* ========== INIT ========== */
     init() {
         if (this.token) {
             this.showDash();
         }
-        // loginPage always visible initially (flexbox)
+        // استرجاع عنوان المحفظة المحفوظ
+        if (this.walletAddr) {
+            const el = document.getElementById('loginWalletAddr');
+            if (el) el.value = this.walletAddr;
+        }
     },
 
     showDash() {
-        document.getElementById('loginPage').style.display  = 'none';
-        document.getElementById('dashLayout').style.display = 'flex';
-        document.getElementById('navStatus').textContent    = `متصل • ${this.userId}`;
+        document.getElementById('authWrapper').style.display = 'none';
+        document.getElementById('dashLayout').style.display  = 'flex';
+        document.getElementById('navStatus').textContent     = `متصل • ${this.userId}`;
         document.getElementById('navStatus').classList.add('online');
-        document.getElementById('logoutBtn').style.display  = 'inline-flex';
+        document.getElementById('logoutBtn').style.display   = 'inline-flex';
     },
 
-    /* ---------- NAVIGATION ---------- */
+    /* ========== TABS ========== */
+    switchTab(tab) {
+        const isLogin = (tab === 'login');
+        document.getElementById('tabLogin').classList.toggle('active', isLogin);
+        document.getElementById('tabRegister').classList.toggle('active', !isLogin);
+        document.getElementById('loginBox').style.display    = isLogin ? 'block' : 'none';
+        document.getElementById('registerBox').style.display = isLogin ? 'none'  : 'block';
+    },
+
+    /* ========== NAVIGATION ========== */
     goto(page) {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
@@ -970,66 +1169,162 @@ const App = {
         if (si) si.classList.add('active');
     },
 
-    /* ---------- LOGOUT ---------- */
     logout() {
-        this.token  = '';
-        this.userId = '';
-        localStorage.removeItem('exc_token');
-        localStorage.removeItem('exc_userId');
+        ['exc_token','exc_userId','exc_walletAddr','exc_walletInfo','exc_walletType']
+            .forEach(k => localStorage.removeItem(k));
         location.reload();
     },
 
-    /* ---------- إرسال كود التحقق بالبريد ---------- */
+    /* ========== WALLET TYPE SELECTION ========== */
+    _walletHints: {
+        TRX: 'مثال: TXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (34 حرف يبدأ بـ T)',
+        ETH: 'مثال: 0x742d35Cc6634C0532925a3b8D4C9B5E (42 حرف يبدأ بـ 0x)',
+        BTC: 'مثال: 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2 (يبدأ بـ 1 أو 3)'
+    },
+    selectWalletType(type, btn) {
+        this.walletType = type;
+        document.querySelectorAll('#loginWalletSection .wallet-type-btn')
+            .forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('loginWalletHint').textContent = this._walletHints[type];
+    },
+    selectRegWalletType(type, btn) {
+        this.regWalletType = type;
+        document.querySelectorAll('#registerBox .wallet-type-btn')
+            .forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('regWalletHint').textContent = this._walletHints[type];
+    },
+
+    /* ========== AUTO GENERATE WALLET ========== */
+    autoGenerateWallet() {
+        const addr = WalletGen[this.walletType || 'TRX']();
+        document.getElementById('loginWalletAddr').value = addr;
+        document.getElementById('loginWalletInfo').value = `${this.walletType || 'TRX'}-Auto`;
+        this.toast(`✓ تم توليد عنوان ${this.walletType || 'TRX'} تلقائياً`, 'ok');
+        // حفظ احتياطي محلي
+        localStorage.setItem('exc_walletAddr_backup', addr);
+        this.log(`⚡ عنوان ${this.walletType} تم توليده: ${addr}`, 'info');
+    },
+    autoGenerateRegWallet() {
+        const type = this.regWalletType || 'TRX';
+        const addr = WalletGen[type]();
+        document.getElementById('regWalletAddr').value = addr;
+        document.getElementById('regWalletInfo').value = `${type}-Auto`;
+        this.toast(`✓ تم توليد عنوان ${type} تلقائياً`, 'ok');
+    },
+    pasteWallet() {
+        navigator.clipboard.readText().then(text => {
+            if (text) {
+                document.getElementById('loginWalletAddr').value = text.trim();
+                this.toast('✓ تم اللصق');
+            }
+        }).catch(() => this.toast('⚠️ تعذّر الوصول للحافظة'));
+    },
+
+    /* ========== STRATEGIES ========== */
+    strategy_showWallet() {
+        document.getElementById('loginWalletSection').classList.add('show');
+        this.toast('👇 أدخل عنوان محفظتك ثم اضغط دخول مجدداً', 'info', 4000);
+    },
+    strategy_autoWallet() {
+        this.strategy_showWallet();
+        this.autoGenerateWallet();
+    },
+    strategy_tryAltField() {
+        this.altFieldIndex = (this.altFieldIndex + 1) % this.WALLET_FIELDS.length;
+        const field = this.WALLET_FIELDS[this.altFieldIndex];
+        this.toast(`🔄 سيتم تجربة الحقل: ${field}`, 'info', 3000);
+        this.log(`↻ تجربة حقل بديل: ${field}`, 'warn');
+        this.login(field);
+    },
+    strategy_showCaptha() {
+        document.getElementById('captchaSection').style.display = 'block';
+        this.toast('🔑 أدخل كود Google Authenticator', 'info', 3000);
+    },
+
+    /* ========== SEND EMAIL CODE (LOGIN) ========== */
     async sendEmailCode() {
         const email = document.getElementById('loginEmail').value.trim();
-        if (!email) { this.toast('أدخل البريد أولاً'); return; }
-
+        if (!email) { this.toast('أدخل البريد أولاً', 'err'); return; }
         const btn = document.getElementById('sendCodeBtn');
         btn.disabled = true;
-
         const res = await apiCall('POST', '/login/sendEmailVerify', { email }, '', '');
         if (res.ok) {
-            this.toast('✓ تم إرسال الكود إلى البريد');
-            // عداد تنازلي 60 ثانية
+            this.toast('✓ تم إرسال الكود إلى بريدك', 'ok');
             let t = 60;
             this.codeTimer = setInterval(() => {
                 btn.textContent = `${t--}ث`;
-                if (t < 0) {
-                    clearInterval(this.codeTimer);
-                    btn.disabled    = false;
-                    btn.textContent = 'إرسال كود';
-                }
+                if (t < 0) { clearInterval(this.codeTimer); btn.disabled = false; btn.textContent = 'إرسال كود'; }
             }, 1000);
         } else {
             btn.disabled = false;
-            this.toast('✗ فشل إرسال الكود: ' + (res.data?.msg || ''));
+            this.toast('✗ فشل إرسال الكود: ' + (res.data?.msg || ''), 'err');
         }
     },
 
-    /* ---------- LOGIN ---------- */
-    async login() {
+    /* ========== SEND EMAIL CODE (REGISTER) ========== */
+    async sendRegEmailCode() {
+        const email = document.getElementById('regEmail').value.trim();
+        if (!email) { this.toast('أدخل بريدك الإلكتروني أولاً', 'err'); return; }
+        const btn = document.getElementById('regSendCodeBtn');
+        btn.disabled = true;
+        const res = await apiCall('POST', '/login/sendEmailVerify', { email }, '', '');
+        if (res.ok) {
+            this.toast('✓ تم إرسال كود التحقق إلى بريدك', 'ok');
+            let t = 60;
+            const timer = setInterval(() => {
+                btn.textContent = `${t--}ث`;
+                if (t < 0) { clearInterval(timer); btn.disabled = false; btn.textContent = 'إرسال كود'; }
+            }, 1000);
+        } else {
+            btn.disabled = false;
+            this.toast('✗ ' + (res.data?.msg || 'فشل الإرسال'), 'err');
+        }
+    },
+
+    /* ========== LOGIN ========== */
+    async login(forceWalletField) {
         const email    = document.getElementById('loginEmail').value.trim();
         const password = document.getElementById('loginPassword').value.trim();
         const gCode    = document.getElementById('googleCode').value.trim();
+        const walletAddr = document.getElementById('loginWalletAddr').value.trim();
+        const walletInfo = document.getElementById('loginWalletInfo').value.trim();
         const btn      = document.getElementById('loginBtn');
-        const msg      = document.getElementById('loginMsg');
+        const errBox   = document.getElementById('loginErrorBox');
         const logBox   = document.getElementById('loginLog');
 
         if (!email || !password) {
-            msg.textContent    = 'يرجى إدخال البريد وكلمة المرور';
-            msg.style.display  = 'block';
+            errBox.textContent  = '⚠️ يرجى إدخال البريد الإلكتروني وكلمة المرور';
+            errBox.classList.add('show');
             return;
         }
-        msg.style.display    = 'none';
+        errBox.classList.remove('show');
         logBox.style.display = 'block';
-        logBox.innerHTML     = '';
-        btn.disabled         = true;
-        btn.innerHTML        = '<span class="spinner"></span> جاري الدخول...';
+        btn.disabled  = true;
+        btn.innerHTML = '<span class="spinner"></span> جاري الدخول...';
 
-        // بناء payload — نفس الأصل: {email, password, type:'0'}
-        // إضافة googleCode إن وُجد
+        // بناء payload الأساسي
         const payload = { email, password, type: '0' };
         if (gCode) payload.googleCode = gCode;
+
+        // اسم حقل المحفظة
+        const walletFieldName = forceWalletField || 'wallet_address';
+
+        // إضافة عنوان المحفظة إذا موجود
+        if (walletAddr) {
+            payload[walletFieldName] = walletAddr;
+            payload['walletlnfo']    = walletInfo || walletAddr;
+            // حفظ محلي
+            localStorage.setItem('exc_walletAddr', walletAddr);
+            localStorage.setItem('exc_walletInfo', walletInfo || walletAddr);
+            localStorage.setItem('exc_walletType', this.walletType);
+        }
+        // إضافة wallet_address الاحتياطي حتى بدون إدخال المستخدم (إذا محفوظ)
+        else if (this.walletAddr && !forceWalletField) {
+            payload['wallet_address'] = this.walletAddr;
+            payload['walletlnfo']     = this.walletInfo || this.walletAddr;
+        }
 
         const res = await apiCall('POST', '/login/login', payload, '', '');
 
@@ -1039,39 +1334,144 @@ const App = {
             localStorage.setItem('exc_token',  this.token);
             localStorage.setItem('exc_userId', this.userId);
             this.log('✓ تم تسجيل الدخول بنجاح', 'ok');
+            this.toast('✅ مرحباً! تم تسجيل الدخول بنجاح', 'ok');
             this.showDash();
             this.extractAddresses(res.data);
             this.fetchAll();
         } else {
+            const code   = res.data?.code;
             const errMsg = res.data?.msg || 'فشل تسجيل الدخول';
-            msg.textContent   = errMsg;
-            msg.style.display = 'block';
-            this.log('✗ ' + errMsg, 'err');
+            errBox.textContent = errMsg;
+            errBox.classList.add('show');
+            this.log('✗ ' + errMsg + ` [${code}]`, 'err');
+            this.loginAttempts++;
 
-            // إذا طلب السيرفر 2FA / Google Authenticator
-            if (res.data?.code === 40007 || res.data?.code === 40008 ||
-                /google|captcha|2fa|verify|code/i.test(errMsg)) {
+            // ===== حل تلقائي لـ wallet_address_require =====
+            if (
+                code === 99999 ||
+                /wallet_address_require|wallet.*require|address.*require/i.test(errMsg)
+            ) {
+                this.log('⚠️ السيرفر يطلب عنوان المحفظة — جاري فتح قسم المحفظة تلقائياً', 'warn');
+                document.getElementById('loginWalletSection').classList.add('show');
+                document.getElementById('strategyBox').classList.add('show');
+                errBox.textContent = '💼 السيرفر يطلب عنوان محفظة سحب صالح — أدخله أدناه ثم اضغط دخول مجدداً';
+                this.toast('💼 أدخل عنوان محفظتك في الحقل المعروض', 'info', 5000);
+
+                // توليد تلقائي إذا الحقل فارغ
+                if (!walletAddr && !this.walletAddr) {
+                    this.autoGenerateWallet();
+                    this.log('⚡ تم توليد عنوان محفظة تلقائي احتياطي', 'info');
+                }
+            }
+
+            // طلب 2FA
+            if (
+                code === 40007 || code === 40008 ||
+                /google|captcha|2fa|verify|code/i.test(errMsg)
+            ) {
                 document.getElementById('captchaSection').style.display = 'block';
-                this.toast('⚠️ مطلوب كود Google Authenticator');
+                this.toast('🔑 مطلوب كود Google Authenticator', 'info', 4000);
+            }
+
+            // عرض الاستراتيجيات بعد أكثر من محاولة
+            if (this.loginAttempts >= 1) {
+                document.getElementById('strategyBox').classList.add('show');
             }
         }
 
-        btn.disabled = false;
+        btn.disabled  = false;
         btn.innerHTML = 'دخول';
     },
 
-    /* ---------- FETCH ALL ---------- */
+    /* ========== REGISTER ========== */
+    async register() {
+        const email      = document.getElementById('regEmail').value.trim();
+        const password   = document.getElementById('regPassword').value.trim();
+        const passConf   = document.getElementById('regPasswordConfirm').value.trim();
+        const walletAddr = document.getElementById('regWalletAddr').value.trim();
+        const walletInfo = document.getElementById('regWalletInfo').value.trim();
+        const invite     = document.getElementById('regInvite').value.trim();
+        const emailCode  = document.getElementById('regEmailCode').value.trim();
+        const btn        = document.getElementById('regBtn');
+        const errBox     = document.getElementById('regErrorBox');
+        const logBox     = document.getElementById('regLog');
+
+        // التحقق
+        if (!email || !password || !passConf) {
+            errBox.textContent = '⚠️ البريد وكلمة المرور مطلوبان';
+            errBox.classList.add('show'); return;
+        }
+        if (password !== passConf) {
+            errBox.textContent = '⚠️ كلمة المرور وتأكيدها غير متطابقَتَين';
+            errBox.classList.add('show'); return;
+        }
+        if (!walletAddr) {
+            errBox.textContent = '⚠️ يرجى إدخال عنوان محفظة السحب';
+            errBox.classList.add('show');
+            document.getElementById('regWalletAddr').classList.add('error-field');
+            return;
+        }
+        if (!emailCode) {
+            errBox.textContent = '⚠️ يرجى إدخال كود التحقق المرسل للبريد';
+            errBox.classList.add('show'); return;
+        }
+        errBox.classList.remove('show');
+        logBox.style.display = 'block';
+        btn.disabled  = true;
+        btn.innerHTML = '<span class="spinner"></span> جاري إنشاء الحساب...';
+
+        // payload التسجيل
+        const payload = {
+            email,
+            password,
+            repassword:     password,
+            type:           '0',
+            wallet_address: walletAddr,
+            walletlnfo:     walletInfo || walletAddr,
+            emailCode
+        };
+        if (invite) payload.inviteCode = invite;
+
+        // حفظ محلي
+        localStorage.setItem('exc_walletAddr', walletAddr);
+        localStorage.setItem('exc_walletInfo', walletInfo || walletAddr);
+        localStorage.setItem('exc_walletType', this.regWalletType || 'TRX');
+
+        const res = await apiCall('POST', '/login/register', payload, '', '');
+
+        if (res.ok) {
+            this.log('✓ تم إنشاء الحساب بنجاح — جاري تسجيل الدخول...', 'ok');
+            this.toast('✅ تم إنشاء الحساب! جاري تسجيل الدخول...', 'ok');
+            // تسجيل دخول تلقائي بعد التسجيل
+            document.getElementById('loginEmail').value    = email;
+            document.getElementById('loginPassword').value = password;
+            document.getElementById('loginWalletAddr').value = walletAddr;
+            document.getElementById('loginWalletInfo').value = walletInfo || walletAddr;
+            document.getElementById('loginWalletSection').classList.add('show');
+            this.walletAddr = walletAddr;
+            this.walletInfo = walletInfo || walletAddr;
+            this.switchTab('login');
+            await this.login();
+        } else {
+            const errMsg = res.data?.msg || 'فشل إنشاء الحساب';
+            errBox.textContent = errMsg;
+            errBox.classList.add('show');
+            this.log('✗ ' + errMsg, 'err');
+            this.toast('✗ ' + errMsg, 'err');
+        }
+
+        btn.disabled  = false;
+        btn.innerHTML = 'إنشاء الحساب';
+    },
+
+    /* ========== FETCH ALL ========== */
     async fetchAll() {
         this.log('◎ بدء جلب جميع البيانات...', 'info');
-        await Promise.all([
-            this.fetchUserInfo(),
-            this.fetchAccounts(),
-            this.fetchOrders()
-        ]);
+        await Promise.all([this.fetchUserInfo(), this.fetchAccounts(), this.fetchOrders()]);
         this.updateOverview();
     },
 
-    /* ---------- USER INFO ---------- */
+    /* ========== USER INFO ========== */
     async fetchUserInfo() {
         const res = await apiCall('GET', '/personal/userInfo', {}, this.token, this.userId);
         if (res.ok && res.data.data) {
@@ -1079,33 +1479,28 @@ const App = {
             this.extractAddresses(res.data);
         }
     },
-
     renderUserInfo(d) {
         const fields = [
-            ['المعرّف (UID)',         d.uid],
-            ['الاسم',                 d.nickname || d.name || d.username],
-            ['البريد الإلكتروني',     d.email],
-            ['رقم الهاتف',            d.mobile],
-            ['مستوى التحقق',          d.kycLevel ?? d.authLevel],
-            ['الحالة',                d.status === 1 ? '✓ نشط' : d.status],
-            ['تاريخ الإنشاء',        d.createTime || d.registerTime],
-            ['آخر تسجيل دخول',       d.loginTime  || d.lastLoginTime],
+            ['المعرّف (UID)',       d.uid],
+            ['الاسم',               d.nickname || d.name || d.username],
+            ['البريد الإلكتروني',   d.email],
+            ['رقم الهاتف',          d.mobile],
+            ['مستوى التحقق',        d.kycLevel ?? d.authLevel],
+            ['الحالة',              d.status === 1 ? '✓ نشط' : d.status],
+            ['تاريخ الإنشاء',      d.createTime || d.registerTime],
+            ['آخر تسجيل دخول',     d.loginTime  || d.lastLoginTime],
         ];
         const html = fields
             .filter(([, v]) => v !== undefined && v !== null && v !== '')
             .map(([k, v]) => `<div class="info-item"><div class="key">${k}</div><div class="val">${v}</div></div>`)
             .join('');
-        document.getElementById('userInfoGrid').innerHTML =
-            html || '<div class="empty">لا توجد بيانات</div>';
-        document.getElementById('overviewUser').textContent =
-            d.email || d.nickname || '';
+        document.getElementById('userInfoGrid').innerHTML = html || '<div class="empty">لا توجد بيانات</div>';
+        document.getElementById('overviewUser').textContent = d.email || d.nickname || '';
     },
 
-    /* ---------- ACCOUNTS ---------- */
+    /* ========== ACCOUNTS ========== */
     async fetchAccounts() {
-        const res = await apiCall(
-            'POST', '/account/getAllUserAccountById', {}, this.token, this.userId
-        );
+        const res = await apiCall('POST', '/account/getAllUserAccountById', {}, this.token, this.userId);
         if (res.ok) {
             const list = res.data.data || [];
             this.cache.accounts = list;
@@ -1113,24 +1508,19 @@ const App = {
             this.extractAddresses(res.data);
         }
     },
-
     renderAccounts(list) {
         const tbody = document.getElementById('accountsBody');
-        if (!list.length) {
-            tbody.innerHTML = '<tr><td colspan="5" class="empty">لا توجد بيانات</td></tr>';
-            return;
-        }
-        tbody.innerHTML = list.map(a => `
-            <tr>
-                <td><strong>${a.symbol || a.coinName || '—'}</strong></td>
-                <td>${Number(a.balance  || a.available || 0).toFixed(8)}</td>
-                <td>${Number(a.freeze   || a.frozen    || 0).toFixed(8)}</td>
-                <td>${Number((a.balance || 0) + (a.freeze || 0)).toFixed(8)}</td>
-                <td><span class="badge badge-green">نشط</span></td>
-            </tr>`).join('');
+        if (!list.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">لا توجد بيانات</td></tr>'; return; }
+        tbody.innerHTML = list.map(a => `<tr>
+            <td><strong>${a.symbol || a.coinName || '—'}</strong></td>
+            <td>${Number(a.balance || a.available || 0).toFixed(8)}</td>
+            <td>${Number(a.freeze  || a.frozen    || 0).toFixed(8)}</td>
+            <td>${Number((a.balance || 0) + (a.freeze || 0)).toFixed(8)}</td>
+            <td><span class="badge badge-green">نشط</span></td>
+        </tr>`).join('');
     },
 
-    /* ---------- ORDERS ---------- */
+    /* ========== ORDERS ========== */
     async fetchOrders() {
         const res = await apiCall('GET', '/newCurrency/orders', {}, this.token, this.userId);
         if (res.ok) {
@@ -1139,30 +1529,21 @@ const App = {
                 : (res.data.data?.list || res.data.data?.records || []);
             this.cache.orders = list;
             this.renderOrders(list);
-            this.extractAddresses(res.data);
         }
     },
-
     renderOrders(list) {
         const tbody = document.getElementById('ordersBody');
-        if (!list.length) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty">لا توجد بيانات</td></tr>';
-            return;
-        }
-        tbody.innerHTML = list.map((o, i) => `
-            <tr>
-                <td>${o.id || i + 1}</td>
-                <td>${o.type === 1
-                    ? '<span class="badge badge-green">شراء</span>'
-                    : '<span class="badge badge-red">بيع</span>'}</td>
-                <td>${o.symbol   || o.coinName || '—'}</td>
-                <td>${o.amount   || o.num      || '—'}</td>
-                <td>${o.price    || '—'}</td>
-                <td>${this._orderStatus(o.status)}</td>
-                <td>${o.createTime || o.time  || '—'}</td>
-            </tr>`).join('');
+        if (!list.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">لا توجد بيانات</td></tr>'; return; }
+        tbody.innerHTML = list.map((o, i) => `<tr>
+            <td>${o.id || i + 1}</td>
+            <td>${o.type === 1 ? '<span class="badge badge-green">شراء</span>' : '<span class="badge badge-red">بيع</span>'}</td>
+            <td>${o.symbol || o.coinName || '—'}</td>
+            <td>${o.amount || o.num     || '—'}</td>
+            <td>${o.price  || '—'}</td>
+            <td>${this._orderStatus(o.status)}</td>
+            <td>${o.createTime || o.time || '—'}</td>
+        </tr>`).join('');
     },
-
     _orderStatus(s) {
         const map = {
             0: '<span class="badge badge-warn">معلّق</span>',
@@ -1172,7 +1553,7 @@ const App = {
         return map[s] || `<span class="badge badge-blue">${s}</span>`;
     },
 
-    /* ---------- ADDRESSES ---------- */
+    /* ========== ADDRESSES ========== */
     extractAddresses(data) {
         const found = [];
         function walk(obj, path) {
@@ -1199,33 +1580,24 @@ const App = {
             this.renderAddresses();
         }
     },
-
     renderAddresses() {
-        const uniq = [...new Map(
-            this.cache.addresses.map(a => [a.address, a])
-        ).values()];
+        const uniq = [...new Map(this.cache.addresses.map(a => [a.address, a])).values()];
         this.cache.addresses = uniq;
         document.getElementById('ov-addresses').textContent = uniq.length;
-
-        const html = uniq.map(a => `
-            <div>
-                <div class="info-item">
-                    <div class="key">${a.purpose} — ${a.type} —
-                        <code style="font-size:0.75rem;color:var(--text-secondary)">${a.key}</code>
-                    </div>
-                    <div class="addr-val">${a.address}</div>
-                    <button class="btn btn-outline btn-sm" style="margin-top:6px"
-                        onclick="navigator.clipboard.writeText('${a.address}');App.toast('✓ تم النسخ')">
-                        📋 نسخ
-                    </button>
-                </div>
-            </div>`).join('');
-
-        document.getElementById('addressGrid').innerHTML =
-            html || '<div class="empty">لا توجد عناوين</div>';
+        const html = uniq.map(a => `<div>
+            <div class="info-item">
+                <div class="key">${a.purpose} — ${a.type} — <code style="font-size:.75rem;color:var(--text-secondary)">${a.key}</code></div>
+                <div class="addr-val">${a.address}</div>
+                <button class="btn btn-outline btn-sm" style="margin-top:6px"
+                    onclick="navigator.clipboard.writeText('${a.address}');App.toast('✓ تم النسخ','ok')">
+                    📋 نسخ
+                </button>
+            </div>
+        </div>`).join('');
+        document.getElementById('addressGrid').innerHTML = html || '<div class="empty">لا توجد عناوين</div>';
     },
 
-    /* ---------- OVERVIEW UPDATE ---------- */
+    /* ========== OVERVIEW ========== */
     updateOverview() {
         document.getElementById('ov-accounts').textContent  = this.cache.accounts.length;
         document.getElementById('ov-orders').textContent    = this.cache.orders.length;
@@ -1233,7 +1605,6 @@ const App = {
     }
 };
 
-// Start
 window.addEventListener('DOMContentLoaded', () => App.init());
 </script>
 </body>
