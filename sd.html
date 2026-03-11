@@ -153,6 +153,29 @@
             font-size: 1.3rem;
         }
 
+        /* ===== GOOGLE CAPTCHA (2FA) ===== */
+        .captcha-row {
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+        }
+        .captcha-row .form-group { flex: 1; margin-bottom: 0; }
+        .btn-send-code {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 10px 14px;
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-size: 0.82rem;
+            white-space: nowrap;
+            transition: all 0.2s;
+            height: 42px;
+        }
+        .btn-send-code:hover:not(:disabled) { border-color: var(--blue-hover); color: var(--blue-hover); }
+        .btn-send-code:disabled { opacity: 0.5; cursor: not-allowed; }
+        #captchaSection { display: none; margin-top: 0; }
+
         /* ===== FORM ===== */
         .form-group { margin-bottom: 16px; }
         .form-group label {
@@ -402,12 +425,28 @@
         <h2>🔐 تسجيل الدخول</h2>
         <div class="form-group">
             <label>البريد الإلكتروني</label>
-            <input type="email" id="loginEmail" placeholder="example@email.com">
+            <input type="email" id="loginEmail" placeholder="example@email.com"
+                   onkeydown="if(event.key==='Enter') App.login()">
         </div>
         <div class="form-group">
             <label>كلمة المرور</label>
-            <input type="password" id="loginPassword" placeholder="••••••••">
+            <input type="password" id="loginPassword" placeholder="••••••••"
+                   onkeydown="if(event.key==='Enter') App.login()">
         </div>
+
+        <!-- Google Authenticator (2FA) - يظهر فقط عند الطلب من السيرفر -->
+        <div id="captchaSection" class="form-group">
+            <label>🔑 كود Google Authenticator (2FA)</label>
+            <div class="captcha-row">
+                <div class="form-group">
+                    <input type="text" id="googleCode" placeholder="أدخل كود المصادقة الثنائية"
+                           maxlength="6" inputmode="numeric"
+                           onkeydown="if(event.key==='Enter') App.login()">
+                </div>
+                <button class="btn-send-code" id="sendCodeBtn" onclick="App.sendEmailCode()">إرسال كود</button>
+            </div>
+        </div>
+
         <div class="form-group" id="loginMsg" style="color:var(--danger);font-size:0.85rem;display:none"></div>
         <button class="btn btn-primary" id="loginBtn" onclick="App.login()">دخول</button>
         <div id="loginLog" class="log-area" style="margin-top:16px;display:none"></div>
@@ -589,10 +628,11 @@
 
 <script>
 /* ============================================================
-   CRYPTO ENGINE - RSA (Web Crypto API) + MD5 حقيقي
+   CRYPTO ENGINE
+   نفس منطق التوقيع المستخرج من full_code.js بدقة
    ============================================================ */
 
-// ---------- MD5 حقيقي ----------
+// ---------- MD5 حقيقي (CryptoJS-compatible) ----------
 function md5(input) {
     function safeAdd(x, y) {
         const lsw = (x & 0xFFFF) + (y & 0xFFFF);
@@ -675,7 +715,7 @@ function md5(input) {
     return str_md5(input);
 }
 
-// ---------- RSA حقيقي عبر Web Crypto ----------
+// ---------- RSA عبر Web Crypto API ----------
 const PRIVATE_KEY_PEM = `-----BEGIN PRIVATE KEY-----
 MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDfF+ITlc6m9IPM
 gBBp+rhkmrzPri10fzQFyJdKtfn1RfChr8wEz5x2HhNkWhgjE7F7YAuYjTXKrNBl
@@ -708,9 +748,10 @@ f0I9iSQe0vQLksxTBFVgevFl
 let _rsaKey = null;
 async function getRSAKey() {
     if (_rsaKey) return _rsaKey;
-    const pem = PRIVATE_KEY_PEM.replace(/-----BEGIN PRIVATE KEY-----/, '')
-                               .replace(/-----END PRIVATE KEY-----/, '')
-                               .replace(/\s+/g, '');
+    const pem = PRIVATE_KEY_PEM
+        .replace(/-----BEGIN PRIVATE KEY-----/, '')
+        .replace(/-----END PRIVATE KEY-----/, '')
+        .replace(/\s+/g, '');
     const binaryDer = Uint8Array.from(atob(pem), c => c.charCodeAt(0));
     _rsaKey = await crypto.subtle.importKey(
         'pkcs8',
@@ -730,42 +771,97 @@ async function rsaSign(message) {
 }
 
 /* ============================================================
-   API ENGINE
+   SORT PARAMS - مطابق تماماً للكود الأصلي في full_code.js
+   
+   المنطق الأصلي:
+   - نسخ عميق للـ params
+   - حذف القيم المصفوفة (Array) بالكامل
+   - تحويل الكائنات (Object) إلى JSON.stringify
+   - تجاهل: null, undefined, "", "null"
+   - ترتيب المفاتيح بـ localeCompare
+   - ناتج: key1value1 + key2value2 + ...
    ============================================================ */
-const API_BASE = 'https://api.excorex.info';
+function isArray(v)  { return Object.prototype.toString.call(v) === '[object Array]'; }
+function isObject(v) { return Object.prototype.toString.call(v) === '[object Object]'; }
 
-function sortParams(params) {
-    if (!params) return '';
-    const valid = {};
-    for (const [k, v] of Object.entries(params)) {
-        if (v === null || v === undefined) continue;
-        if (typeof v === 'string' && (v === '' || v.toLowerCase() === 'null')) continue;
-        if (Array.isArray(v) && v.length === 0) continue;
-        valid[k] = v;
+// حذف قيم المصفوفات بشكل عميق (دالة d من الأصل)
+function removeArrays(obj) {
+    for (const k in obj) {
+        const v = obj[k];
+        if (isArray(v)) {
+            delete obj[k];
+        } else if (isObject(v)) {
+            removeArrays(v);
+        }
     }
-    return Object.keys(valid).sort().map(k => k + valid[k]).join('');
 }
 
-function buildBaseHeaders(token, userId, signType, sign) {
-    return {
-        'token':         token || '',
-        'userId':        userId || '',
-        'lang':          'en',
-        'clientType':    'H5',
-        'appId':         'h5_client',
-        'clientVersion': '1.0.0',
-        'signType':      signType,
-        'sign':          sign,
-        'extra':         '',
-        'timestamp':     Date.now().toString(),
-        'Content-Type':  'application/json'
-    };
+// دالة sortParams المطابقة للأصل
+function sortParams(params) {
+    const result = {};
+    const keys   = [];
+
+    if (!params || !isObject(params)) return '';
+
+    // نسخ عميق وحذف المصفوفات
+    const copy = {};
+    Object.assign(copy, params);
+    removeArrays(copy);
+
+    for (const k in copy) {
+        let v = copy[k];
+        if (isObject(v)) v = JSON.stringify(v);
+        // تجاهل: undefined, null, "", "null"
+        if (v === undefined || v === null || v === '' || v === 'null') continue;
+        keys.push(k);
+        result[k] = k + v;
+    }
+
+    // ترتيب بـ localeCompare (مطابق للأصل)
+    keys.sort((a, b) => a.localeCompare(b));
+
+    let out = '';
+    for (const k of keys) out += result[k];
+    return out;
 }
 
+/* ============================================================
+   دالة بناء التوقيع - مطابقة تماماً لـ full_code.js
+   
+   الأصل: sign(type, token, url, data, headersObj)
+     RSA: SHA256withRSA( url.split('?')[0] + sortParams(data) + sortParams(headersObj) )
+     MD5: MD5( url.split('?')[0] + sortParams(data) + token + sortParams(headersObj) )
+   
+   كائن الـ headers المُمرَّر للتوقيع دائماً يحتوي token: "" (فارغ)
+   ============================================================ */
 async function buildSignedHeaders(endpoint, data, token, userId) {
-    const signType = token ? 'MD5' : 'RSA';
-    const tempHeaders = buildBaseHeaders(token, userId, signType, '');
-    const signString  = endpoint + sortParams(data) + (token || '') + sortParams(tempHeaders);
+    const signType  = token ? 'MD5' : 'RSA';
+    const timestamp = Number(new Date());
+
+    // كائن الـ headers المُستخدَم في حساب التوقيع فقط
+    // مهم: token دائماً "" (فارغ) في هذا الكائن — مطابق للأصل
+    const headersForSign = {
+        appId:         'h5_client',
+        sign:          '',
+        signType:       signType,
+        clientType:    'H5',
+        clientVersion: '1.0.0',
+        token:         '',          // ← دائماً فارغ في حساب التوقيع
+        userId:        userId || '',
+        timestamp:      timestamp,
+        extra:         ''
+    };
+
+    // بناء نص التوقيع
+    const urlBase = endpoint.split('?')[0];
+    let signString;
+    if (signType === 'RSA') {
+        // RSA: url + sortParams(data) + sortParams(headers)
+        signString = urlBase + sortParams(data) + sortParams(headersForSign);
+    } else {
+        // MD5: url + sortParams(data) + token + sortParams(headers)
+        signString = urlBase + sortParams(data) + token + sortParams(headersForSign);
+    }
 
     let signature;
     if (signType === 'RSA') {
@@ -773,20 +869,45 @@ async function buildSignedHeaders(endpoint, data, token, userId) {
     } else {
         signature = md5(signString);
     }
-    return buildBaseHeaders(token, userId, signType, signature);
+
+    // الـ headers الفعلية المُرسَلة مع الطلب
+    return {
+        'token':          token || '',
+        'userId':         userId || '',
+        'lang':           'en',
+        'clientType':     'H5',
+        'appId':          'h5_client',
+        'clientVersion':  '1.0.0',
+        'signType':        signType,
+        'sign':            signature,
+        'extra':          '',
+        'timestamp':       String(timestamp),
+        'Content-Type':   'application/json',
+        'Cache-Control':  'no-cache, no-store, must-revalidate'
+    };
 }
 
+/* ============================================================
+   API ENGINE
+   API_BASE مطابق للكود الأصلي: https://api.excorx.info
+   ============================================================ */
+const API_BASE = 'https://api.excorx.info';
+
 async function apiCall(method, endpoint, data, token, userId) {
-    const headers = await buildSignedHeaders(endpoint, data, token, userId);
-    const opts = { method, headers };
-    if (method !== 'GET' && data) opts.body = JSON.stringify(data);
+    const headers = await buildSignedHeaders(endpoint, data || {}, token, userId);
+    const opts    = { method, headers };
+
+    if (method !== 'GET' && data && Object.keys(data).length) {
+        opts.body = JSON.stringify(data);
+    }
 
     App.log(`← ${method} ${endpoint}`, 'info');
     try {
-        const res = await fetch(API_BASE + endpoint, opts);
+        const res  = await fetch(API_BASE + endpoint, opts);
         const json = await res.json();
-        App.log(`→ ${res.status} ${json.msg || 'OK'}`, res.status === 200 ? 'ok' : 'warn');
-        return { ok: res.status === 200 && json.code === 200, data: json, status: res.status };
+        const ok   = (res.status === 200) && (json.code === 200);
+        App.log(`→ ${res.status} [${json.code}] ${json.msg || 'OK'}`, ok ? 'ok' : 'warn');
+        return { ok, data: json, status: res.status };
     } catch (e) {
         App.log(`✗ خطأ في الاتصال: ${e.message}`, 'err');
         return { ok: false, error: e.message };
@@ -797,22 +918,26 @@ async function apiCall(method, endpoint, data, token, userId) {
    APP CONTROLLER
    ============================================================ */
 const App = {
-    token:  localStorage.getItem('exc_token')  || '',
-    userId: localStorage.getItem('exc_userId') || '',
-    cache:  { accounts: [], orders: [], addresses: [] },
+    token:       localStorage.getItem('exc_token')  || '',
+    userId:      localStorage.getItem('exc_userId') || '',
+    cache:       { accounts: [], orders: [], addresses: [] },
+    codeTimer:   null,
 
     /* ---------- LOG ---------- */
-    log(msg, type='info') {
-        const el = document.getElementById('mainLog');
+    log(msg, type = 'info') {
+        const el      = document.getElementById('mainLog');
         const loginEl = document.getElementById('loginLog');
-        const line = `<div class="log-line log-${type}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
-        if (el) { el.innerHTML += line; el.scrollTop = el.scrollHeight; }
-        if (loginEl && loginEl.style.display !== 'none') { loginEl.innerHTML += line; loginEl.scrollTop = loginEl.scrollHeight; }
+        const line    = `<div class="log-line log-${type}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+        if (el)      { el.innerHTML += line;      el.scrollTop      = el.scrollHeight; }
+        if (loginEl && loginEl.style.display !== 'none') {
+            loginEl.innerHTML += line;
+            loginEl.scrollTop = loginEl.scrollHeight;
+        }
     },
     clearLog() { document.getElementById('mainLog').innerHTML = ''; },
 
     /* ---------- TOAST ---------- */
-    toast(msg, duration=2500) {
+    toast(msg, duration = 2500) {
         const t = document.getElementById('toast');
         t.textContent = msg;
         t.classList.add('show');
@@ -823,51 +948,89 @@ const App = {
     init() {
         if (this.token) {
             this.showDash();
-        } else {
-            document.getElementById('loginPage').style.display = 'flex';
         }
+        // loginPage always visible initially (flexbox)
     },
 
     showDash() {
-        document.getElementById('loginPage').style.display = 'none';
+        document.getElementById('loginPage').style.display  = 'none';
         document.getElementById('dashLayout').style.display = 'flex';
-        document.getElementById('navStatus').textContent = `مرحباً • ${this.userId}`;
+        document.getElementById('navStatus').textContent    = `متصل • ${this.userId}`;
         document.getElementById('navStatus').classList.add('online');
-        document.getElementById('logoutBtn').style.display = 'inline-flex';
+        document.getElementById('logoutBtn').style.display  = 'inline-flex';
     },
 
     /* ---------- NAVIGATION ---------- */
     goto(page) {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
-        document.getElementById('page-' + page).classList.add('active');
-        document.querySelector(`[data-page="${page}"]`).classList.add('active');
+        const pg = document.getElementById('page-' + page);
+        if (pg) pg.classList.add('active');
+        const si = document.querySelector(`[data-page="${page}"]`);
+        if (si) si.classList.add('active');
     },
 
     /* ---------- LOGOUT ---------- */
     logout() {
-        this.token = ''; this.userId = '';
+        this.token  = '';
+        this.userId = '';
         localStorage.removeItem('exc_token');
         localStorage.removeItem('exc_userId');
         location.reload();
+    },
+
+    /* ---------- إرسال كود التحقق بالبريد ---------- */
+    async sendEmailCode() {
+        const email = document.getElementById('loginEmail').value.trim();
+        if (!email) { this.toast('أدخل البريد أولاً'); return; }
+
+        const btn = document.getElementById('sendCodeBtn');
+        btn.disabled = true;
+
+        const res = await apiCall('POST', '/login/sendEmailVerify', { email }, '', '');
+        if (res.ok) {
+            this.toast('✓ تم إرسال الكود إلى البريد');
+            // عداد تنازلي 60 ثانية
+            let t = 60;
+            this.codeTimer = setInterval(() => {
+                btn.textContent = `${t--}ث`;
+                if (t < 0) {
+                    clearInterval(this.codeTimer);
+                    btn.disabled    = false;
+                    btn.textContent = 'إرسال كود';
+                }
+            }, 1000);
+        } else {
+            btn.disabled = false;
+            this.toast('✗ فشل إرسال الكود: ' + (res.data?.msg || ''));
+        }
     },
 
     /* ---------- LOGIN ---------- */
     async login() {
         const email    = document.getElementById('loginEmail').value.trim();
         const password = document.getElementById('loginPassword').value.trim();
+        const gCode    = document.getElementById('googleCode').value.trim();
         const btn      = document.getElementById('loginBtn');
         const msg      = document.getElementById('loginMsg');
         const logBox   = document.getElementById('loginLog');
 
-        if (!email || !password) { msg.textContent = 'يرجى إدخال البريد وكلمة المرور'; msg.style.display='block'; return; }
-        msg.style.display = 'none';
+        if (!email || !password) {
+            msg.textContent    = 'يرجى إدخال البريد وكلمة المرور';
+            msg.style.display  = 'block';
+            return;
+        }
+        msg.style.display    = 'none';
         logBox.style.display = 'block';
-        logBox.innerHTML = '';
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span> جاري الدخول...';
+        logBox.innerHTML     = '';
+        btn.disabled         = true;
+        btn.innerHTML        = '<span class="spinner"></span> جاري الدخول...';
 
+        // بناء payload — نفس الأصل: {email, password, type:'0'}
+        // إضافة googleCode إن وُجد
         const payload = { email, password, type: '0' };
+        if (gCode) payload.googleCode = gCode;
+
         const res = await apiCall('POST', '/login/login', payload, '', '');
 
         if (res.ok && res.data.data) {
@@ -875,16 +1038,24 @@ const App = {
             this.userId = String(res.data.data.uid);
             localStorage.setItem('exc_token',  this.token);
             localStorage.setItem('exc_userId', this.userId);
-            this.log('✓ تم تسجيل الدخول', 'ok');
+            this.log('✓ تم تسجيل الدخول بنجاح', 'ok');
             this.showDash();
             this.extractAddresses(res.data);
             this.fetchAll();
         } else {
             const errMsg = res.data?.msg || 'فشل تسجيل الدخول';
-            msg.textContent = errMsg;
+            msg.textContent   = errMsg;
             msg.style.display = 'block';
             this.log('✗ ' + errMsg, 'err');
+
+            // إذا طلب السيرفر 2FA / Google Authenticator
+            if (res.data?.code === 40007 || res.data?.code === 40008 ||
+                /google|captcha|2fa|verify|code/i.test(errMsg)) {
+                document.getElementById('captchaSection').style.display = 'block';
+                this.toast('⚠️ مطلوب كود Google Authenticator');
+            }
         }
+
         btn.disabled = false;
         btn.innerHTML = 'دخول';
     },
@@ -892,7 +1063,11 @@ const App = {
     /* ---------- FETCH ALL ---------- */
     async fetchAll() {
         this.log('◎ بدء جلب جميع البيانات...', 'info');
-        await Promise.all([this.fetchUserInfo(), this.fetchAccounts(), this.fetchOrders()]);
+        await Promise.all([
+            this.fetchUserInfo(),
+            this.fetchAccounts(),
+            this.fetchOrders()
+        ]);
         this.updateOverview();
     },
 
@@ -907,24 +1082,30 @@ const App = {
 
     renderUserInfo(d) {
         const fields = [
-            ['المعرّف (UID)',           d.uid],
-            ['الاسم',                   d.nickname || d.name || d.username],
-            ['البريد الإلكتروني',       d.email],
-            ['رقم الهاتف',              d.mobile],
-            ['مستوى التحقق',            d.kycLevel ?? d.authLevel],
-            ['الحالة',                  d.status === 1 ? '✓ نشط' : d.status],
-            ['تاريخ الإنشاء',          d.createTime || d.registerTime],
-            ['آخر تسجيل دخول',         d.loginTime || d.lastLoginTime],
+            ['المعرّف (UID)',         d.uid],
+            ['الاسم',                 d.nickname || d.name || d.username],
+            ['البريد الإلكتروني',     d.email],
+            ['رقم الهاتف',            d.mobile],
+            ['مستوى التحقق',          d.kycLevel ?? d.authLevel],
+            ['الحالة',                d.status === 1 ? '✓ نشط' : d.status],
+            ['تاريخ الإنشاء',        d.createTime || d.registerTime],
+            ['آخر تسجيل دخول',       d.loginTime  || d.lastLoginTime],
         ];
-        const html = fields.filter(([,v]) => v !== undefined && v !== null && v !== '')
-            .map(([k,v]) => `<div class="info-item"><div class="key">${k}</div><div class="val">${v}</div></div>`).join('');
-        document.getElementById('userInfoGrid').innerHTML = html || '<div class="empty">لا توجد بيانات</div>';
-        document.getElementById('overviewUser').textContent = d.email || d.nickname || '';
+        const html = fields
+            .filter(([, v]) => v !== undefined && v !== null && v !== '')
+            .map(([k, v]) => `<div class="info-item"><div class="key">${k}</div><div class="val">${v}</div></div>`)
+            .join('');
+        document.getElementById('userInfoGrid').innerHTML =
+            html || '<div class="empty">لا توجد بيانات</div>';
+        document.getElementById('overviewUser').textContent =
+            d.email || d.nickname || '';
     },
 
     /* ---------- ACCOUNTS ---------- */
     async fetchAccounts() {
-        const res = await apiCall('POST', '/account/getAllUserAccountById', {}, this.token, this.userId);
+        const res = await apiCall(
+            'POST', '/account/getAllUserAccountById', {}, this.token, this.userId
+        );
         if (res.ok) {
             const list = res.data.data || [];
             this.cache.accounts = list;
@@ -935,13 +1116,16 @@ const App = {
 
     renderAccounts(list) {
         const tbody = document.getElementById('accountsBody');
-        if (!list.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">لا توجد بيانات</td></tr>'; return; }
+        if (!list.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty">لا توجد بيانات</td></tr>';
+            return;
+        }
         tbody.innerHTML = list.map(a => `
             <tr>
                 <td><strong>${a.symbol || a.coinName || '—'}</strong></td>
-                <td>${Number(a.balance || a.available || 0).toFixed(8)}</td>
-                <td>${Number(a.freeze  || a.frozen    || 0).toFixed(8)}</td>
-                <td>${Number((a.balance||0) + (a.freeze||0)).toFixed(8)}</td>
+                <td>${Number(a.balance  || a.available || 0).toFixed(8)}</td>
+                <td>${Number(a.freeze   || a.frozen    || 0).toFixed(8)}</td>
+                <td>${Number((a.balance || 0) + (a.freeze || 0)).toFixed(8)}</td>
                 <td><span class="badge badge-green">نشط</span></td>
             </tr>`).join('');
     },
@@ -950,8 +1134,9 @@ const App = {
     async fetchOrders() {
         const res = await apiCall('GET', '/newCurrency/orders', {}, this.token, this.userId);
         if (res.ok) {
-            const list = Array.isArray(res.data.data) ? res.data.data :
-                         (res.data.data?.list || res.data.data?.records || []);
+            const list = Array.isArray(res.data.data)
+                ? res.data.data
+                : (res.data.data?.list || res.data.data?.records || []);
             this.cache.orders = list;
             this.renderOrders(list);
             this.extractAddresses(res.data);
@@ -960,21 +1145,30 @@ const App = {
 
     renderOrders(list) {
         const tbody = document.getElementById('ordersBody');
-        if (!list.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">لا توجد بيانات</td></tr>'; return; }
-        tbody.innerHTML = list.map((o,i) => `
+        if (!list.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty">لا توجد بيانات</td></tr>';
+            return;
+        }
+        tbody.innerHTML = list.map((o, i) => `
             <tr>
-                <td>${o.id || i+1}</td>
-                <td>${o.type === 1 ? '<span class="badge badge-green">شراء</span>' : '<span class="badge badge-red">بيع</span>'}</td>
-                <td>${o.symbol || o.coinName || '—'}</td>
-                <td>${o.amount || o.num || '—'}</td>
-                <td>${o.price || '—'}</td>
+                <td>${o.id || i + 1}</td>
+                <td>${o.type === 1
+                    ? '<span class="badge badge-green">شراء</span>'
+                    : '<span class="badge badge-red">بيع</span>'}</td>
+                <td>${o.symbol   || o.coinName || '—'}</td>
+                <td>${o.amount   || o.num      || '—'}</td>
+                <td>${o.price    || '—'}</td>
                 <td>${this._orderStatus(o.status)}</td>
-                <td>${o.createTime || o.time || '—'}</td>
+                <td>${o.createTime || o.time  || '—'}</td>
             </tr>`).join('');
     },
 
     _orderStatus(s) {
-        const map = { 0:'<span class="badge badge-warn">معلّق</span>', 1:'<span class="badge badge-green">مكتمل</span>', 2:'<span class="badge badge-red">ملغي</span>' };
+        const map = {
+            0: '<span class="badge badge-warn">معلّق</span>',
+            1: '<span class="badge badge-green">مكتمل</span>',
+            2: '<span class="badge badge-red">ملغي</span>'
+        };
         return map[s] || `<span class="badge badge-blue">${s}</span>`;
     },
 
@@ -990,8 +1184,8 @@ const App = {
                     const isBtc = /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(v);
                     const isTrx = /^T[A-Za-z0-9]{33}$/.test(v);
                     if (isEth || isBtc || isTrx) {
-                        const type = isEth ? 'ETH/ERC20' : isBtc ? 'BTC' : 'TRX/TRC20';
-                        const purpose = /withdraw|member|payout/i.test(k) ? 'سحب' :
+                        const type    = isEth ? 'ETH/ERC20' : isBtc ? 'BTC' : 'TRX/TRC20';
+                        const purpose = /withdraw|member|payout/i.test(k)  ? 'سحب'  :
                                         /recharge|deposit|funding/i.test(k) ? 'إيداع' : 'عام';
                         found.push({ key: p, address: v, type, purpose });
                     }
@@ -1007,14 +1201,18 @@ const App = {
     },
 
     renderAddresses() {
-        const uniq = [...new Map(this.cache.addresses.map(a => [a.address, a])).values()];
+        const uniq = [...new Map(
+            this.cache.addresses.map(a => [a.address, a])
+        ).values()];
         this.cache.addresses = uniq;
         document.getElementById('ov-addresses').textContent = uniq.length;
 
         const html = uniq.map(a => `
             <div>
                 <div class="info-item">
-                    <div class="key">${a.purpose} — ${a.type} — <code style="font-size:0.75rem;color:var(--text-secondary)">${a.key}</code></div>
+                    <div class="key">${a.purpose} — ${a.type} —
+                        <code style="font-size:0.75rem;color:var(--text-secondary)">${a.key}</code>
+                    </div>
                     <div class="addr-val">${a.address}</div>
                     <button class="btn btn-outline btn-sm" style="margin-top:6px"
                         onclick="navigator.clipboard.writeText('${a.address}');App.toast('✓ تم النسخ')">
@@ -1022,7 +1220,9 @@ const App = {
                     </button>
                 </div>
             </div>`).join('');
-        document.getElementById('addressGrid').innerHTML = html || '<div class="empty">لا توجد عناوين</div>';
+
+        document.getElementById('addressGrid').innerHTML =
+            html || '<div class="empty">لا توجد عناوين</div>';
     },
 
     /* ---------- OVERVIEW UPDATE ---------- */
