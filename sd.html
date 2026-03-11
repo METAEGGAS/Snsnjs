@@ -1,933 +1,217 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Excorex - لوحة التحكم</title>
-    <style>
-        :root {
-            --bg-primary:    #0d1117;
-            --bg-secondary:  #161b22;
-            --bg-card:       #1c2128;
-            --border:        #30363d;
-            --accent:        #238636;
-            --accent-hover:  #2ea043;
-            --blue:          #1f6feb;
-            --blue-hover:    #388bfd;
-            --text-primary:  #e6edf3;
-            --text-secondary:#8b949e;
-            --danger:        #da3633;
-            --warning:       #d29922;
-            --success:       #3fb950;
-            --radius:        8px;
-        }
-
-        * { margin:0; padding:0; box-sizing:border-box; }
-
-        body {
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            min-height: 100vh;
-        }
-
-        /* ===== NAVBAR ===== */
-        .navbar {
-            background: var(--bg-secondary);
-            border-bottom: 1px solid var(--border);
-            padding: 14px 28px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-        .navbar .logo {
-            font-size: 1.4rem;
-            font-weight: 700;
-            color: var(--blue-hover);
-            letter-spacing: 1px;
-        }
-        .navbar .logo span { color: var(--text-secondary); font-weight: 400; font-size: 0.9rem; margin-right: 8px; }
-        .navbar .nav-right {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .nav-badge {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 5px 14px;
-            font-size: 0.82rem;
-            color: var(--text-secondary);
-        }
-        .nav-badge.online { border-color: var(--success); color: var(--success); }
-
-        /* ===== LAYOUT ===== */
-        .layout {
-            display: flex;
-            min-height: calc(100vh - 57px);
-        }
-
-        /* ===== SIDEBAR ===== */
-        .sidebar {
-            width: 220px;
-            background: var(--bg-secondary);
-            border-left: 1px solid var(--border);
-            padding: 20px 0;
-            flex-shrink: 0;
-        }
-        .sidebar-section { margin-bottom: 24px; }
-        .sidebar-label {
-            font-size: 0.72rem;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            padding: 0 16px 8px;
-        }
-        .sidebar-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 9px 16px;
-            cursor: pointer;
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            transition: all 0.15s;
-            border-right: 3px solid transparent;
-        }
-        .sidebar-item:hover, .sidebar-item.active {
-            background: rgba(56,139,253,0.1);
-            color: var(--text-primary);
-            border-right-color: var(--blue-hover);
-        }
-        .sidebar-item .icon { font-size: 1rem; }
-
-        /* ===== MAIN ===== */
-        .main {
-            flex: 1;
-            padding: 28px;
-            overflow-y: auto;
-        }
-
-        /* ===== PAGES ===== */
-        .page { display: none; }
-        .page.active { display: block; }
-
-        /* ===== PAGE TITLE ===== */
-        .page-title {
-            font-size: 1.4rem;
-            font-weight: 600;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .page-title .sub {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            font-weight: 400;
-        }
-
-        /* ===== AUTH PAGES ===== */
-        #authWrapper {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: calc(100vh - 57px);
-            padding: 20px;
-        }
-
-        .auth-container {
-            width: 100%;
-            max-width: 460px;
-        }
-
-        /* TABS */
-        .auth-tabs {
-            display: flex;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius) var(--radius) 0 0;
-            overflow: hidden;
-        }
-        .auth-tab {
-            flex: 1;
-            padding: 14px;
-            text-align: center;
-            cursor: pointer;
-            color: var(--text-secondary);
-            font-size: 0.95rem;
-            font-weight: 500;
-            border-bottom: 3px solid transparent;
-            transition: all 0.2s;
-        }
-        .auth-tab.active {
-            color: var(--blue-hover);
-            border-bottom-color: var(--blue-hover);
-            background: var(--bg-secondary);
-        }
-
-        .auth-box {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-top: none;
-            border-radius: 0 0 var(--radius) var(--radius);
-            padding: 28px 32px 32px;
-        }
-
-        /* ===== GOOGLE CAPTCHA (2FA) ===== */
-        .captcha-row {
-            display: flex;
-            gap: 8px;
-            align-items: flex-end;
-        }
-        .captcha-row .form-group { flex: 1; margin-bottom: 0; }
-        .btn-send-code {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            color: var(--text-secondary);
-            padding: 10px 14px;
-            border-radius: var(--radius);
-            cursor: pointer;
-            font-size: 0.82rem;
-            white-space: nowrap;
-            transition: all 0.2s;
-            height: 42px;
-        }
-        .btn-send-code:hover:not(:disabled) { border-color: var(--blue-hover); color: var(--blue-hover); }
-        .btn-send-code:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        /* WALLET SECTION */
-        .wallet-section {
-            display: none;
-            background: rgba(31,111,235,0.05);
-            border: 1px solid rgba(31,111,235,0.25);
-            border-radius: var(--radius);
-            padding: 14px;
-            margin-bottom: 16px;
-        }
-        .wallet-section.show { display: block; }
-        .wallet-section-title {
-            font-size: 0.82rem;
-            color: var(--blue-hover);
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        /* WALLET TYPE TABS */
-        .wallet-types {
-            display: flex;
-            gap: 6px;
-            margin-bottom: 10px;
-            flex-wrap: wrap;
-        }
-        .wallet-type-btn {
-            padding: 5px 12px;
-            border-radius: 20px;
-            border: 1px solid var(--border);
-            background: var(--bg-card);
-            color: var(--text-secondary);
-            font-size: 0.78rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .wallet-type-btn.active {
-            border-color: var(--blue-hover);
-            color: var(--blue-hover);
-            background: rgba(56,139,253,0.1);
-        }
-
-        /* ===== FORM ===== */
-        .form-group { margin-bottom: 16px; }
-        .form-group label {
-            display: block;
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            margin-bottom: 6px;
-        }
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 10px 14px;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            color: var(--text-primary);
-            font-size: 0.95rem;
-            transition: border-color 0.2s;
-        }
-        .form-group input:focus, .form-group select:focus {
-            outline: none;
-            border-color: var(--blue);
-            box-shadow: 0 0 0 3px rgba(31,111,235,0.15);
-        }
-        .form-group input::placeholder { color: var(--text-secondary); }
-        .form-group input.error-field { border-color: var(--danger); }
-
-        .input-hint {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            margin-top: 4px;
-        }
-
-        /* ===== BUTTONS ===== */
-        .btn {
-            padding: 9px 20px;
-            border-radius: var(--radius);
-            border: none;
-            cursor: pointer;
-            font-size: 0.9rem;
-            font-weight: 500;
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .btn-primary {
-            background: var(--accent);
-            color: #fff;
-            width: 100%;
-            justify-content: center;
-            padding: 11px;
-        }
-        .btn-primary:hover { background: var(--accent-hover); }
-        .btn-blue { background: var(--blue); color: #fff; }
-        .btn-blue:hover { background: var(--blue-hover); }
-        .btn-outline {
-            background: transparent;
-            border: 1px solid var(--border);
-            color: var(--text-primary);
-        }
-        .btn-outline:hover { border-color: var(--blue-hover); color: var(--blue-hover); }
-        .btn-danger { background: var(--danger); color: #fff; }
-        .btn-sm { padding: 5px 12px; font-size: 0.8rem; }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        /* ===== STATS ===== */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-        .stat-card {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 20px;
-        }
-        .stat-card .label {
-            font-size: 0.78rem;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            margin-bottom: 8px;
-        }
-        .stat-card .value {
-            font-size: 1.6rem;
-            font-weight: 700;
-        }
-        .stat-card .value.green { color: var(--success); }
-        .stat-card .value.blue  { color: var(--blue-hover); }
-        .stat-card .value.warn  { color: var(--warning); }
-
-        /* ===== CARD ===== */
-        .card {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            margin-bottom: 20px;
-        }
-        .card-header {
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .card-header h3 { font-size: 1rem; font-weight: 600; }
-        .card-body { padding: 20px; }
-
-        /* ===== TABLE ===== */
-        .table-wrap { overflow-x: auto; }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.875rem;
-        }
-        thead th {
-            text-align: right;
-            padding: 10px 14px;
-            color: var(--text-secondary);
-            font-weight: 500;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.8rem;
-            text-transform: uppercase;
-        }
-        tbody td {
-            padding: 12px 14px;
-            border-bottom: 1px solid rgba(48,54,61,0.5);
-            color: var(--text-primary);
-        }
-        tbody tr:last-child td { border-bottom: none; }
-        tbody tr:hover td { background: rgba(56,139,253,0.04); }
-
-        /* ===== BADGE ===== */
-        .badge {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            font-weight: 500;
-        }
-        .badge-green { background: rgba(63,185,80,0.15); color: var(--success); }
-        .badge-red   { background: rgba(218,54,51,0.15); color: var(--danger); }
-        .badge-blue  { background: rgba(56,139,253,0.15); color: var(--blue-hover); }
-        .badge-warn  { background: rgba(210,153,34,0.15); color: var(--warning); }
-
-        /* ===== USER INFO ===== */
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 16px;
-        }
-        .info-item { margin-bottom: 14px; }
-        .info-item .key {
-            font-size: 0.78rem;
-            color: var(--text-secondary);
-            margin-bottom: 4px;
-        }
-        .info-item .val {
-            font-size: 0.95rem;
-            word-break: break-all;
-        }
-
-        /* ===== LOG ===== */
-        .log-area {
-            background: var(--bg-primary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 16px;
-            max-height: 300px;
-            overflow-y: auto;
-            font-family: 'Courier New', monospace;
-            font-size: 0.82rem;
-        }
-        .log-line { padding: 3px 0; border-bottom: 1px solid rgba(48,54,61,0.3); }
-        .log-line:last-child { border-bottom: none; }
-        .log-ok   { color: var(--success); }
-        .log-err  { color: var(--danger); }
-        .log-info { color: var(--text-secondary); }
-        .log-warn { color: var(--warning); }
-
-        /* ===== ADDRESS ===== */
-        .addr-val {
-            font-family: monospace;
-            font-size: 0.8rem;
-            background: var(--bg-primary);
-            padding: 8px 12px;
-            border-radius: 6px;
-            word-break: break-all;
-            border: 1px solid var(--border);
-        }
-
-        /* ===== SPINNER ===== */
-        .spinner {
-            display: inline-block;
-            width: 14px; height: 14px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-top-color: #fff;
-            border-radius: 50%;
-            animation: spin 0.7s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* ===== TOAST ===== */
-        #toast {
-            position: fixed;
-            bottom: 24px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 12px 24px;
-            font-size: 0.9rem;
-            display: none;
-            z-index: 999;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-        }
-        #toast.show { display: block; }
-        #toast.success { border-color: var(--success); color: var(--success); }
-        #toast.error   { border-color: var(--danger);  color: var(--danger); }
-
-        /* ===== ERROR BOX ===== */
-        .error-box {
-            background: rgba(218,54,51,0.1);
-            border: 1px solid rgba(218,54,51,0.3);
-            border-radius: var(--radius);
-            padding: 10px 14px;
-            font-size: 0.85rem;
-            color: var(--danger);
-            margin-bottom: 14px;
-            display: none;
-        }
-        .error-box.show { display: block; }
-
-        /* ===== EMPTY STATE ===== */
-        .empty {
-            text-align: center;
-            padding: 40px;
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-        }
-
-        /* ===== FALLBACK STRATEGIES ===== */
-        .strategy-box {
-            background: rgba(210,153,34,0.07);
-            border: 1px solid rgba(210,153,34,0.25);
-            border-radius: var(--radius);
-            padding: 12px 14px;
-            margin-bottom: 14px;
-            display: none;
-        }
-        .strategy-box.show { display: block; }
-        .strategy-title {
-            font-size: 0.82rem;
-            color: var(--warning);
-            margin-bottom: 8px;
-            font-weight: 600;
-        }
-        .strategy-btns {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        .strategy-btn {
-            padding: 5px 12px;
-            border-radius: var(--radius);
-            border: 1px solid var(--warning);
-            background: rgba(210,153,34,0.1);
-            color: var(--warning);
-            font-size: 0.78rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .strategy-btn:hover { background: rgba(210,153,34,0.2); }
-
-        /* DIVIDER */
-        .divider {
-            text-align: center;
-            color: var(--text-secondary);
-            font-size: 0.78rem;
-            margin: 14px 0;
-            position: relative;
-        }
-        .divider::before, .divider::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            width: 42%;
-            height: 1px;
-            background: var(--border);
-        }
-        .divider::before { right: 0; }
-        .divider::after  { left: 0; }
-
-        /* ===== RESPONSIVE ===== */
-        @media(max-width: 700px) {
-            .sidebar { display: none; }
-            .main { padding: 16px; }
-            .auth-box { padding: 20px 18px 24px; }
-        }
-    </style>
-</head>
-<body>
-
-<!-- TOAST -->
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Excorex</title><style>
+:root{--bg:#0d1117;--bg2:#161b22;--bgc:#1c2128;--br:#30363d;--ac:#238636;--ac2:#2ea043;--bl:#1f6feb;--bl2:#388bfd;--tx:#e6edf3;--tx2:#8b949e;--err:#da3633;--wa:#d29922;--ok:#3fb950;--r:8px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh}
+.nav{background:var(--bg2);border-bottom:1px solid var(--br);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo{font-size:1.4rem;font-weight:700;color:var(--bl2);letter-spacing:1px}
+.logo span{color:var(--tx2);font-weight:400;font-size:.9rem;margin-right:8px}
+.nbadge{background:var(--bgc);border:1px solid var(--br);border-radius:20px;padding:5px 14px;font-size:.82rem;color:var(--tx2)}
+.nbadge.on{border-color:var(--ok);color:var(--ok)}
+.layout{display:flex;min-height:calc(100vh - 57px)}
+.sb{width:220px;background:var(--bg2);border-left:1px solid var(--br);padding:20px 0;flex-shrink:0}
+.sblbl{font-size:.72rem;color:var(--tx2);text-transform:uppercase;letter-spacing:1px;padding:0 16px 8px}
+.sbi{display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;color:var(--tx2);font-size:.9rem;transition:all .15s;border-right:3px solid transparent}
+.sbi:hover,.sbi.active{background:rgba(56,139,253,.1);color:var(--tx);border-right-color:var(--bl2)}
+.main{flex:1;padding:28px;overflow-y:auto}
+.page{display:none}.page.active{display:block}
+.ptitle{font-size:1.4rem;font-weight:600;margin-bottom:20px;display:flex;align-items:center;gap:10px}
+.ptitle .sub{font-size:.85rem;color:var(--tx2);font-weight:400}
+#aw{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 57px);padding:20px}
+.ac{width:100%;max-width:460px}
+.atabs{display:flex;background:var(--bgc);border:1px solid var(--br);border-radius:var(--r) var(--r) 0 0;overflow:hidden}
+.atab{flex:1;padding:14px;text-align:center;cursor:pointer;color:var(--tx2);font-size:.95rem;font-weight:500;border-bottom:3px solid transparent;transition:all .2s}
+.atab.active{color:var(--bl2);border-bottom-color:var(--bl2);background:var(--bg2)}
+.abox{background:var(--bg2);border:1px solid var(--br);border-top:none;border-radius:0 0 var(--r) var(--r);padding:28px 32px 32px}
+.crow{display:flex;gap:8px;align-items:flex-end}
+.crow .fg{flex:1;margin-bottom:0}
+.bsc{background:var(--bgc);border:1px solid var(--br);color:var(--tx2);padding:10px 14px;border-radius:var(--r);cursor:pointer;font-size:.82rem;white-space:nowrap;transition:all .2s;height:42px}
+.bsc:hover:not(:disabled){border-color:var(--bl2);color:var(--bl2)}
+.bsc:disabled{opacity:.5;cursor:not-allowed}
+.wtypes{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.wtbtn{padding:5px 12px;border-radius:20px;border:1px solid var(--br);background:var(--bgc);color:var(--tx2);font-size:.78rem;cursor:pointer;transition:all .2s}
+.wtbtn.active{border-color:var(--bl2);color:var(--bl2);background:rgba(56,139,253,.1)}
+.fg{margin-bottom:16px}
+.fg label{display:block;font-size:.85rem;color:var(--tx2);margin-bottom:6px}
+.fg input,.fg select{width:100%;padding:10px 14px;background:var(--bgc);border:1px solid var(--br);border-radius:var(--r);color:var(--tx);font-size:.95rem;transition:border-color .2s}
+.fg input:focus,.fg select:focus{outline:none;border-color:var(--bl);box-shadow:0 0 0 3px rgba(31,111,235,.15)}
+.fg input::placeholder{color:var(--tx2)}
+.fg input.ef{border-color:var(--err)}
+.hint{font-size:.75rem;color:var(--tx2);margin-top:4px}
+.btn{padding:9px 20px;border-radius:var(--r);border:none;cursor:pointer;font-size:.9rem;font-weight:500;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.bp{background:var(--ac);color:#fff;width:100%;justify-content:center;padding:11px}.bp:hover{background:var(--ac2)}
+.bbl{background:var(--bl);color:#fff}.bbl:hover{background:var(--bl2)}
+.bo{background:transparent;border:1px solid var(--br);color:var(--tx)}.bo:hover{border-color:var(--bl2);color:var(--bl2)}
+.bd{background:var(--err);color:#fff}
+.bs{padding:5px 12px;font-size:.8rem}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.sc{background:var(--bg2);border:1px solid var(--br);border-radius:var(--r);padding:20px}
+.sc .lbl{font-size:.78rem;color:var(--tx2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
+.sc .val{font-size:1.6rem;font-weight:700}
+.sc .val.g{color:var(--ok)}.sc .val.b{color:var(--bl2)}.sc .val.w{color:var(--wa)}
+.card{background:var(--bg2);border:1px solid var(--br);border-radius:var(--r);margin-bottom:20px}
+.ch{padding:16px 20px;border-bottom:1px solid var(--br);display:flex;justify-content:space-between;align-items:center}
+.ch h3{font-size:1rem;font-weight:600}
+.cb{padding:20px}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.875rem}
+thead th{text-align:right;padding:10px 14px;color:var(--tx2);font-weight:500;border-bottom:1px solid var(--br);font-size:.8rem;text-transform:uppercase}
+tbody td{padding:12px 14px;border-bottom:1px solid rgba(48,54,61,.5);color:var(--tx)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:rgba(56,139,253,.04)}
+.badge{display:inline-block;padding:3px 8px;border-radius:12px;font-size:.75rem;font-weight:500}
+.bg{background:rgba(63,185,80,.15);color:var(--ok)}.br2{background:rgba(218,54,51,.15);color:var(--err)}.bb{background:rgba(56,139,253,.15);color:var(--bl2)}.bw{background:rgba(210,153,34,.15);color:var(--wa)}
+.ig{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.ii{margin-bottom:14px}.ii .k{font-size:.78rem;color:var(--tx2);margin-bottom:4px}.ii .v{font-size:.95rem;word-break:break-all}
+.la{background:var(--bg);border:1px solid var(--br);border-radius:var(--r);padding:16px;max-height:300px;overflow-y:auto;font-family:'Courier New',monospace;font-size:.82rem}
+.ll{padding:3px 0;border-bottom:1px solid rgba(48,54,61,.3)}.ll:last-child{border-bottom:none}
+.lok{color:var(--ok)}.ler{color:var(--err)}.lin{color:var(--tx2)}.lwa{color:var(--wa)}
+.av{font-family:monospace;font-size:.8rem;background:var(--bg);padding:8px 12px;border-radius:6px;word-break:break-all;border:1px solid var(--br)}
+.sp{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bgc);border:1px solid var(--br);border-radius:var(--r);padding:12px 24px;font-size:.9rem;display:none;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+#toast.show{display:block}#toast.success{border-color:var(--ok);color:var(--ok)}#toast.error{border-color:var(--err);color:var(--err)}
+.eb{background:rgba(218,54,51,.1);border:1px solid rgba(218,54,51,.3);border-radius:var(--r);padding:10px 14px;font-size:.85rem;color:var(--err);margin-bottom:14px;display:none}
+.eb.show{display:block}
+.empty{text-align:center;padding:40px;color:var(--tx2);font-size:.9rem}
+.div{text-align:center;color:var(--tx2);font-size:.78rem;margin:14px 0;position:relative}
+.div::before,.div::after{content:'';position:absolute;top:50%;width:42%;height:1px;background:var(--br)}
+.div::before{right:0}.div::after{left:0}
+@media(max-width:700px){.sb{display:none}.main{padding:16px}.abox{padding:20px 18px 24px}}
+</style></head><body>
 <div id="toast"></div>
-
-<!-- NAVBAR -->
-<nav class="navbar">
-    <div class="logo">EXCOREX <span>Dashboard</span></div>
-    <div class="nav-right">
-        <div class="nav-badge" id="navStatus">غير مسجّل</div>
-        <button class="btn btn-outline btn-sm" id="logoutBtn" style="display:none" onclick="App.logout()">تسجيل خروج</button>
-    </div>
+<nav class="nav">
+  <div class="logo">EXCOREX <span>Dashboard</span></div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="nbadge" id="navStatus">غير مسجّل</div>
+    <button class="btn bo bs" id="logoutBtn" style="display:none" onclick="A.logout()">تسجيل خروج</button>
+  </div>
 </nav>
 
-<!-- ===================== AUTH WRAPPER ===================== -->
-<div id="authWrapper">
-    <div class="auth-container">
-
-        <!-- TABS -->
-        <div class="auth-tabs">
-            <div class="auth-tab active" id="tabLogin" onclick="App.switchTab('login')">🔐 تسجيل الدخول</div>
-            <div class="auth-tab" id="tabRegister" onclick="App.switchTab('register')">📝 إنشاء حساب</div>
-        </div>
-
-        <!-- ============ LOGIN BOX ============ -->
-        <div class="auth-box" id="loginBox">
-
-            <div class="error-box" id="loginErrorBox"></div>
-
-            <!-- ⚠️ صندوق الاستراتيجيات البديلة -->
-            <div class="strategy-box" id="strategyBox">
-                <div class="strategy-title">⚠️ تعذّر تسجيل الدخول — جرّب إحدى الحلول التالية:</div>
-                <div class="strategy-btns">
-                    <button class="strategy-btn" onclick="App.strategy_showWallet()">💼 أدخل عنوان محفظة</button>
-                    <button class="strategy-btn" onclick="App.strategy_autoWallet()">⚡ توليد عنوان تلقائي</button>
-                    <button class="strategy-btn" onclick="App.strategy_tryAltField()">🔄 تجربة حقول بديلة</button>
-                    <button class="strategy-btn" onclick="App.strategy_showCaptha()">🔑 إضافة كود 2FA</button>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label>البريد الإلكتروني</label>
-                <input type="email" id="loginEmail" placeholder="example@email.com"
-                       onkeydown="if(event.key==='Enter') App.login()">
-            </div>
-            <div class="form-group">
-                <label>كلمة المرور</label>
-                <input type="password" id="loginPassword" placeholder="••••••••"
-                       onkeydown="if(event.key==='Enter') App.login()">
-            </div>
-
-            <!-- ===== WALLET SECTION (يظهر عند الطلب) ===== -->
-            <div class="wallet-section" id="loginWalletSection">
-                <div class="wallet-section-title">💼 بيانات المحفظة (مطلوبة من السيرفر)</div>
-
-                <!-- أنواع المحفظة -->
-                <div class="wallet-types">
-                    <button class="wallet-type-btn active" onclick="App.selectWalletType('TRX', this)">TRX / USDT-TRC20</button>
-                    <button class="wallet-type-btn" onclick="App.selectWalletType('ETH', this)">ETH / USDT-ERC20</button>
-                    <button class="wallet-type-btn" onclick="App.selectWalletType('BTC', this)">BTC</button>
-                </div>
-
-                <div class="form-group" style="margin-bottom:10px">
-                    <label>عنوان المحفظة (wallet_address)</label>
-                    <input type="text" id="loginWalletAddr"
-                           placeholder="أدخل عنوان محفظة السحب الخاص بك"
-                           onkeydown="if(event.key==='Enter') App.login()">
-                    <div class="input-hint" id="loginWalletHint">مثال TRX: TXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</div>
-                </div>
-
-                <div class="form-group" style="margin-bottom:4px">
-                    <label>معلومات المحفظة (walletlnfo)</label>
-                    <input type="text" id="loginWalletInfo"
-                           placeholder="اسم المحفظة أو ملاحظة (اختياري)"
-                           onkeydown="if(event.key==='Enter') App.login()">
-                </div>
-
-                <div style="display:flex;gap:8px;margin-top:8px">
-                    <button class="btn btn-outline btn-sm" onclick="App.autoGenerateWallet()">
-                        ⚡ توليد عنوان تلقائي
-                    </button>
-                    <button class="btn btn-outline btn-sm" onclick="App.pasteWallet()">
-                        📋 لصق
-                    </button>
-                </div>
-            </div>
-
-            <!-- Google Authenticator (2FA) -->
-            <div id="captchaSection" style="display:none;" class="form-group">
-                <label>🔑 كود Google Authenticator (2FA)</label>
-                <div class="captcha-row">
-                    <div class="form-group">
-                        <input type="text" id="googleCode" placeholder="أدخل كود المصادقة الثنائية"
-                               maxlength="6" inputmode="numeric"
-                               onkeydown="if(event.key==='Enter') App.login()">
-                    </div>
-                    <button class="btn-send-code" id="sendCodeBtn" onclick="App.sendEmailCode()">إرسال كود</button>
-                </div>
-            </div>
-
-            <button class="btn btn-primary" id="loginBtn" onclick="App.login()">دخول</button>
-
-            <div id="loginLog" class="log-area" style="margin-top:16px;display:none"></div>
-        </div>
-
-        <!-- ============ REGISTER BOX ============ -->
-        <div class="auth-box" id="registerBox" style="display:none;">
-
-            <div class="error-box" id="regErrorBox"></div>
-
-            <div class="form-group">
-                <label>البريد الإلكتروني *</label>
-                <input type="email" id="regEmail" placeholder="example@email.com">
-            </div>
-            <div class="form-group">
-                <label>كلمة المرور *</label>
-                <input type="password" id="regPassword" placeholder="8 أحرف على الأقل">
-            </div>
-            <div class="form-group">
-                <label>تأكيد كلمة المرور *</label>
-                <input type="password" id="regPasswordConfirm" placeholder="أعد إدخال كلمة المرور">
-            </div>
-
-            <div class="divider">معلومات المحفظة</div>
-
-            <!-- أنواع المحفظة للتسجيل -->
-            <div class="wallet-types" style="margin-bottom:10px">
-                <button class="wallet-type-btn active" onclick="App.selectRegWalletType('TRX', this)">TRX / USDT-TRC20</button>
-                <button class="wallet-type-btn" onclick="App.selectRegWalletType('ETH', this)">ETH / USDT-ERC20</button>
-                <button class="wallet-type-btn" onclick="App.selectRegWalletType('BTC', this)">BTC</button>
-            </div>
-
-            <div class="form-group">
-                <label>عنوان محفظة السحب (wallet_address) *</label>
-                <input type="text" id="regWalletAddr"
-                       placeholder="أدخل عنوان محفظة السحب الخاص بك">
-                <div class="input-hint" id="regWalletHint">مثال TRX: TXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</div>
-            </div>
-
-            <div class="form-group">
-                <label>معلومات المحفظة (walletlnfo)</label>
-                <input type="text" id="regWalletInfo"
-                       placeholder="اسم المحفظة أو ملاحظة (اختياري)">
-            </div>
-
-            <div style="display:flex;gap:8px;margin-bottom:16px">
-                <button class="btn btn-outline btn-sm" onclick="App.autoGenerateRegWallet()">
-                    ⚡ توليد عنوان تلقائي
-                </button>
-            </div>
-
-            <!-- ===== كود الدعوة — اختياري (لا يتم توليده/إرساله تلقائياً) ===== -->
-            <div class="form-group">
-                <label>كود الدعوة
-                    <span style="color:var(--text-secondary);font-weight:400;font-size:0.78rem">
-                        (اختياري — لو فاضي مش هيأثر ومش هيتبعت)
-                    </span>
-                </label>
-                <input type="text" id="regInvite"
-                       placeholder="أدخل كود الدعوة (اختياري)">
-            </div>
-
-            <!-- إرسال كود التحقق بالبريد للتسجيل (اختياري) -->
-            <div class="form-group">
-                <label>كود التحقق بالبريد
-                    <span style="color:var(--text-secondary);font-weight:400;font-size:0.78rem">
-                        (اختياري — لو فاضي مش هيمنع التسجيل من ناحية الواجهة)
-                    </span>
-                </label>
-                <div class="captcha-row">
-                    <div class="form-group">
-                        <input type="text" id="regEmailCode" placeholder="أدخل كود التحقق (اختياري)" maxlength="6" inputmode="numeric">
-                    </div>
-                    <button class="btn-send-code" id="regSendCodeBtn" onclick="App.sendRegEmailCode()">إرسال كود</button>
-                </div>
-            </div>
-
-            <button class="btn btn-primary" id="regBtn" onclick="App.register()">إنشاء الحساب</button>
-
-            <div id="regLog" class="log-area" style="margin-top:16px;display:none"></div>
-        </div>
-
+<div id="aw">
+  <div class="ac">
+    <div class="atabs">
+      <div class="atab active" id="tl" onclick="A.tab('login')">🔐 تسجيل الدخول</div>
+      <div class="atab" id="tr" onclick="A.tab('reg')">📝 إنشاء حساب</div>
     </div>
+
+    <!-- LOGIN -->
+    <div class="abox" id="lb">
+      <div class="eb" id="le"></div>
+      <div class="fg"><label>البريد الإلكتروني</label><input type="email" id="lm" placeholder="example@email.com" onkeydown="if(event.key==='Enter')A.login()"></div>
+      <div class="fg"><label>كلمة المرور</label><input type="password" id="lp" placeholder="••••••••" onkeydown="if(event.key==='Enter')A.login()"></div>
+      <div id="cs" style="display:none" class="fg">
+        <label>🔑 كود Google Authenticator (2FA)</label>
+        <div class="crow"><div class="fg"><input type="text" id="gc" placeholder="كود المصادقة الثنائية" maxlength="6" inputmode="numeric" onkeydown="if(event.key==='Enter')A.login()"></div>
+        <button class="bsc" id="scb" onclick="A.sendCode()">إرسال كود</button></div>
+      </div>
+      <button class="btn bp" id="lbtn" onclick="A.login()">دخول</button>
+      <div id="ll" class="la" style="margin-top:16px;display:none"></div>
+    </div>
+
+    <!-- REGISTER -->
+    <div class="abox" id="rb" style="display:none">
+      <div class="eb" id="re"></div>
+      <div class="fg"><label>البريد الإلكتروني *</label><input type="email" id="rm" placeholder="example@email.com"></div>
+      <div class="fg"><label>كلمة المرور *</label><input type="password" id="rp" placeholder="8 أحرف على الأقل"></div>
+      <div class="fg"><label>تأكيد كلمة المرور *</label><input type="password" id="rpc" placeholder="أعد إدخال كلمة المرور"></div>
+      <div class="div">معلومات المحفظة</div>
+      <div class="wtypes">
+        <button class="wtbtn active" onclick="A.rwt('TRX',this)">TRX/TRC20</button>
+        <button class="wtbtn" onclick="A.rwt('ETH',this)">ETH/ERC20</button>
+        <button class="wtbtn" onclick="A.rwt('BTC',this)">BTC</button>
+      </div>
+      <div class="fg"><label>عنوان محفظة السحب (wallet_address) *</label><input type="text" id="rwa" placeholder="أدخل عنوان محفظة السحب"><div class="hint" id="rwh">مثال TRX: TXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</div></div>
+      <div class="fg"><label>معلومات المحفظة (walletlnfo)</label><input type="text" id="rwi" placeholder="اسم المحفظة أو ملاحظة (اختياري)"></div>
+      <div style="display:flex;gap:8px;margin-bottom:16px"><button class="btn bo bs" onclick="A.genRW()">⚡ توليد تلقائي</button></div>
+      <div class="fg"><label>كود الدعوة <span style="color:var(--tx2);font-size:.78rem">(اختياري)</span></label><input type="text" id="ri" placeholder="كود الدعوة (اختياري)"></div>
+      <div class="fg"><label>كود التحقق بالبريد <span style="color:var(--tx2);font-size:.78rem">(اختياري)</span></label>
+        <div class="crow"><div class="fg"><input type="text" id="rec" placeholder="كود التحقق (اختياري)" maxlength="6" inputmode="numeric"></div>
+        <button class="bsc" id="rscb" onclick="A.sendRegCode()">إرسال كود</button></div>
+      </div>
+      <button class="btn bp" id="rbtn" onclick="A.register()">إنشاء الحساب</button>
+      <div id="rl" class="la" style="margin-top:16px;display:none"></div>
+    </div>
+  </div>
 </div>
 
-<!-- ===================== DASHBOARD ===================== -->
-<div class="layout" id="dashLayout" style="display:none">
-
-    <!-- SIDEBAR -->
-    <nav class="sidebar">
-        <div class="sidebar-section">
-            <div class="sidebar-label">القائمة</div>
-            <div class="sidebar-item active" data-page="overview" onclick="App.goto('overview')">
-                <span class="icon">📊</span> نظرة عامة
-            </div>
-            <div class="sidebar-item" data-page="userInfo" onclick="App.goto('userInfo')">
-                <span class="icon">👤</span> بيانات الحساب
-            </div>
-            <div class="sidebar-item" data-page="accounts" onclick="App.goto('accounts')">
-                <span class="icon">💰</span> الأرصدة
-            </div>
-            <div class="sidebar-item" data-page="orders" onclick="App.goto('orders')">
-                <span class="icon">📋</span> الأوامر
-            </div>
-            <div class="sidebar-item" data-page="addresses" onclick="App.goto('addresses')">
-                <span class="icon">🏦</span> العناوين
-            </div>
+<!-- DASHBOARD -->
+<div class="layout" id="dl" style="display:none">
+  <nav class="sb">
+    <div style="margin-bottom:24px">
+      <div class="sblbl">القائمة</div>
+      <div class="sbi active" data-p="ov" onclick="A.go('ov')"><span>📊</span> نظرة عامة</div>
+      <div class="sbi" data-p="ui" onclick="A.go('ui')"><span>👤</span> بيانات الحساب</div>
+      <div class="sbi" data-p="ac" onclick="A.go('ac')"><span>💰</span> الأرصدة</div>
+      <div class="sbi" data-p="or" onclick="A.go('or')"><span>📋</span> الأوامر</div>
+      <div class="sbi" data-p="ad" onclick="A.go('ad')"><span>🏦</span> العناوين</div>
+    </div>
+    <div>
+      <div class="sblbl">النظام</div>
+      <div class="sbi" data-p="lg" onclick="A.go('lg')"><span>🔌</span> سجل الطلبات</div>
+    </div>
+  </nav>
+  <main class="main">
+    <div class="page active" id="p-ov">
+      <div class="ptitle">📊 نظرة عامة <span class="sub" id="ou"></span></div>
+      <div class="sg">
+        <div class="sc"><div class="lbl">إجمالي الحسابات</div><div class="val b" id="oa">—</div></div>
+        <div class="sc"><div class="lbl">إجمالي الأوامر</div><div class="val g" id="oo">—</div></div>
+        <div class="sc"><div class="lbl">العناوين المسجّلة</div><div class="val w" id="odr">—</div></div>
+        <div class="sc"><div class="lbl">حالة الاتصال</div><div class="val g">متصل ✓</div></div>
+      </div>
+      <div class="card"><div class="ch"><h3>جلب جميع البيانات</h3></div>
+        <div class="cb" style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn bbl" onclick="A.all()">🔄 تحديث الكل</button>
+          <button class="btn bo" onclick="A.fui()">👤 بيانات المستخدم</button>
+          <button class="btn bo" onclick="A.fac()">💰 الأرصدة</button>
+          <button class="btn bo" onclick="A.for()">📋 الأوامر</button>
         </div>
-        <div class="sidebar-section">
-            <div class="sidebar-label">النظام</div>
-            <div class="sidebar-item" data-page="apiLog" onclick="App.goto('apiLog')">
-                <span class="icon">🔌</span> سجل الطلبات
-            </div>
-        </div>
-    </nav>
-
-    <!-- MAIN -->
-    <main class="main">
-
-        <!-- OVERVIEW -->
-        <div class="page active" id="page-overview">
-            <div class="page-title">📊 نظرة عامة <span class="sub" id="overviewUser"></span></div>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="label">إجمالي الحسابات</div>
-                    <div class="value blue" id="ov-accounts">—</div>
-                </div>
-                <div class="stat-card">
-                    <div class="label">إجمالي الأوامر</div>
-                    <div class="value green" id="ov-orders">—</div>
-                </div>
-                <div class="stat-card">
-                    <div class="label">العناوين المسجّلة</div>
-                    <div class="value warn" id="ov-addresses">—</div>
-                </div>
-                <div class="stat-card">
-                    <div class="label">حالة الاتصال</div>
-                    <div class="value green" id="ov-conn">متصل ✓</div>
-                </div>
-            </div>
-            <div class="card">
-                <div class="card-header">
-                    <h3>جلب جميع البيانات</h3>
-                </div>
-                <div class="card-body" style="display:flex;gap:10px;flex-wrap:wrap">
-                    <button class="btn btn-blue" onclick="App.fetchAll()">🔄 تحديث الكل</button>
-                    <button class="btn btn-outline" onclick="App.fetchUserInfo()">👤 بيانات المستخدم</button>
-                    <button class="btn btn-outline" onclick="App.fetchAccounts()">💰 الأرصدة</button>
-                    <button class="btn btn-outline" onclick="App.fetchOrders()">📋 الأوامر</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- USER INFO -->
-        <div class="page" id="page-userInfo">
-            <div class="page-title">👤 بيانات الحساب</div>
-            <div class="card">
-                <div class="card-header">
-                    <h3>معلومات المستخدم</h3>
-                    <button class="btn btn-outline btn-sm" onclick="App.fetchUserInfo()">🔄 تحديث</button>
-                </div>
-                <div class="card-body">
-                    <div class="info-grid" id="userInfoGrid">
-                        <div class="empty">لم يتم جلب البيانات بعد</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ACCOUNTS -->
-        <div class="page" id="page-accounts">
-            <div class="page-title">💰 الأرصدة والحسابات</div>
-            <div class="card">
-                <div class="card-header">
-                    <h3>قائمة الحسابات</h3>
-                    <button class="btn btn-outline btn-sm" onclick="App.fetchAccounts()">🔄 تحديث</button>
-                </div>
-                <div class="card-body table-wrap">
-                    <table id="accountsTable">
-                        <thead>
-                            <tr>
-                                <th>العملة</th>
-                                <th>الرصيد المتاح</th>
-                                <th>الرصيد المجمّد</th>
-                                <th>الإجمالي</th>
-                                <th>الحالة</th>
-                            </tr>
-                        </thead>
-                        <tbody id="accountsBody">
-                            <tr><td colspan="5" class="empty">لا توجد بيانات</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- ORDERS -->
-        <div class="page" id="page-orders">
-            <div class="page-title">📋 الأوامر</div>
-            <div class="card">
-                <div class="card-header">
-                    <h3>سجل الأوامر</h3>
-                    <button class="btn btn-outline btn-sm" onclick="App.fetchOrders()">🔄 تحديث</button>
-                </div>
-                <div class="card-body table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>النوع</th>
-                                <th>العملة</th>
-                                <th>الكمية</th>
-                                <th>السعر</th>
-                                <th>الحالة</th>
-                                <th>التاريخ</th>
-                            </tr>
-                        </thead>
-                        <tbody id="ordersBody">
-                            <tr><td colspan="7" class="empty">لا توجد بيانات</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- ADDRESSES -->
-        <div class="page" id="page-addresses">
-            <div class="page-title">🏦 عناوين المحفظة</div>
-            <div class="card">
-                <div class="card-header"><h3>العناوين المسجّلة</h3></div>
-                <div class="card-body">
-                    <div id="addressGrid" class="info-grid">
-                        <div class="empty">لم يتم جلب بيانات بعد</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- API LOG -->
-        <div class="page" id="page-apiLog">
-            <div class="page-title">🔌 سجل طلبات API</div>
-            <div class="card">
-                <div class="card-header">
-                    <h3>الطلبات المُرسَلة</h3>
-                    <button class="btn btn-outline btn-sm" onclick="App.clearLog()">مسح</button>
-                </div>
-                <div class="card-body">
-                    <div class="log-area" id="mainLog">
-                        <div class="log-line log-info">جاهز للاتصال...</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-    </main>
+      </div>
+    </div>
+    <div class="page" id="p-ui">
+      <div class="ptitle">👤 بيانات الحساب</div>
+      <div class="card"><div class="ch"><h3>معلومات المستخدم</h3><button class="btn bo bs" onclick="A.fui()">🔄 تحديث</button></div>
+        <div class="cb"><div class="ig" id="uig"><div class="empty">لم يتم جلب البيانات بعد</div></div></div>
+      </div>
+    </div>
+    <div class="page" id="p-ac">
+      <div class="ptitle">💰 الأرصدة والحسابات</div>
+      <div class="card"><div class="ch"><h3>قائمة الحسابات</h3><button class="btn bo bs" onclick="A.fac()">🔄 تحديث</button></div>
+        <div class="cb tw"><table><thead><tr><th>العملة</th><th>المتاح</th><th>المجمّد</th><th>الإجمالي</th><th>الحالة</th></tr></thead><tbody id="acb"><tr><td colspan="5" class="empty">لا توجد بيانات</td></tr></tbody></table></div>
+      </div>
+    </div>
+    <div class="page" id="p-or">
+      <div class="ptitle">📋 الأوامر</div>
+      <div class="card"><div class="ch"><h3>سجل الأوامر</h3><button class="btn bo bs" onclick="A.for()">🔄 تحديث</button></div>
+        <div class="cb tw"><table><thead><tr><th>#</th><th>النوع</th><th>العملة</th><th>الكمية</th><th>السعر</th><th>الحالة</th><th>التاريخ</th></tr></thead><tbody id="orb"><tr><td colspan="7" class="empty">لا توجد بيانات</td></tr></tbody></table></div>
+      </div>
+    </div>
+    <div class="page" id="p-ad">
+      <div class="ptitle">🏦 عناوين المحفظة</div>
+      <div class="card"><div class="ch"><h3>العناوين المسجّلة</h3></div><div class="cb"><div id="adg" class="ig"><div class="empty">لم يتم جلب بيانات بعد</div></div></div></div>
+    </div>
+    <div class="page" id="p-lg">
+      <div class="ptitle">🔌 سجل طلبات API</div>
+      <div class="card"><div class="ch"><h3>الطلبات المُرسَلة</h3><button class="btn bo bs" onclick="A.clr()">مسح</button></div>
+        <div class="cb"><div class="la" id="ml"><div class="ll lin">جاهز للاتصال...</div></div></div>
+      </div>
+    </div>
+  </main>
 </div>
 
 <script>
-/* ============================================================
-   CRYPTO ENGINE
-   ============================================================ */
+// ===== MD5 =====
+function md5(s){function sa(x,y){const l=(x&65535)+(y&65535);return((x>>16)+(y>>16)+(l>>16)<<16)|(l&65535)}function br(n,c){return(n<<c)|(n>>>(32-c))}function cm(q,a,b,x,s,t){return sa(br(sa(sa(a,q),sa(x,t)),s),b)}function ff(a,b,c,d,x,s,t){return cm((b&c)|(~b&d),a,b,x,s,t)}function gg(a,b,c,d,x,s,t){return cm((b&d)|(c&~d),a,b,x,s,t)}function hh(a,b,c,d,x,s,t){return cm(b^c^d,a,b,x,s,t)}function ii(a,b,c,d,x,s,t){return cm(c^(b|~d),a,b,x,s,t)}
+function core(m,l){m[l>>5]|=128<<(l%32);m[(((l+64)>>>9)<<4)+14]=l;let a=1732584193,b=-271733879,c=-1732584194,d=271733878;for(let i=0;i<m.length;i+=16){const[oa,ob,oc,od]=[a,b,c,d];a=ff(a,b,c,d,m[i],7,-680876936);d=ff(d,a,b,c,m[i+1],12,-389564586);c=ff(c,d,a,b,m[i+2],17,606105819);b=ff(b,c,d,a,m[i+3],22,-1044525330);a=ff(a,b,c,d,m[i+4],7,-176418897);d=ff(d,a,b,c,m[i+5],12,1200080426);c=ff(c,d,a,b,m[i+6],17,-1473231341);b=ff(b,c,d,a,m[i+7],22,-45705983);a=ff(a,b,c,d,m[i+8],7,1770035416);d=ff(d,a,b,c,m[i+9],12,-1958414417);c=ff(c,d,a,b,m[i+10],17,-42063);b=ff(b,c,d,a,m[i+11],22,-1990404162);a=ff(a,b,c,d,m[i+12],7,1804603682);d=ff(d,a,b,c,m[i+13],12,-40341101);c=ff(c,d,a,b,m[i+14],17,-1502002290);b=ff(b,c,d,a,m[i+15],22,1236535329);a=gg(a,b,c,d,m[i+1],5,-165796510);d=gg(d,a,b,c,m[i+6],9,-1069501632);c=gg(c,d,a,b,m[i+11],14,643717713);b=gg(b,c,d,a,m[i],20,-373897302);a=gg(a,b,c,d,m[i+5],5,-701558691);d=gg(d,a,b,c,m[i+10],9,38016083);c=gg(c,d,a,b,m[i+15],14,-660478335);b=gg(b,c,d,a,m[i+4],20,-405537848);a=gg(a,b,c,d,m[i+9],5,568446438);d=gg(d,a,b,c,m[i+14],9,-1019803690);c=gg(c,d,a,b,m[i+3],14,-187363961);b=gg(b,c,d,a,m[i+8],20,1163531501);a=gg(a,b,c,d,m[i+13],5,-1444681467);d=gg(d,a,b,c,m[i+2],9,-51403784);c=gg(c,d,a,b,m[i+7],14,1735328473);b=gg(b,c,d,a,m[i+12],20,-1926607734);a=hh(a,b,c,d,m[i+5],4,-378558);d=hh(d,a,b,c,m[i+8],11,-2022574463);c=hh(c,d,a,b,m[i+11],16,1839030562);b=hh(b,c,d,a,m[i+14],23,-35309556);a=hh(a,b,c,d,m[i+1],4,-1530992060);d=hh(d,a,b,c,m[i+4],11,1272893353);c=hh(c,d,a,b,m[i+7],16,-155497632);b=hh(b,c,d,a,m[i+10],23,-1094730640);a=hh(a,b,c,d,m[i+13],4,681279174);d=hh(d,a,b,c,m[i],11,-358537222);c=hh(c,d,a,b,m[i+3],16,-722521979);b=hh(b,c,d,a,m[i+6],23,76029189);a=hh(a,b,c,d,m[i+9],4,-640364487);d=hh(d,a,b,c,m[i+12],11,-421815835);c=hh(c,d,a,b,m[i+15],16,530742520);b=hh(b,c,d,a,m[i+2],23,-995338651);a=ii(a,b,c,d,m[i],6,-198630844);d=ii(d,a,b,c,m[i+7],10,1126891415);c=ii(c,d,a,b,m[i+14],15,-1416354905);b=ii(b,c,d,a,m[i+5],21,-57434055);a=ii(a,b,c,d,m[i+12],6,1700485571);d=ii(d,a,b,c,m[i+3],10,-1894986606);c=ii(c,d,a,b,m[i+10],15,-1051523);b=ii(b,c,d,a,m[i+1],21,-2054922799);a=ii(a,b,c,d,m[i+8],6,1873313359);d=ii(d,a,b,c,m[i+15],10,-30611744);c=ii(c,d,a,b,m[i+6],15,-1560198380);b=ii(b,c,d,a,m[i+13],21,1309151649);a=ii(a,b,c,d,m[i+4],6,-145523070);d=ii(d,a,b,c,m[i+11],10,-1120210379);c=ii(c,d,a,b,m[i+2],15,718787259);b=ii(b,c,d,a,m[i+9],21,-343485551);a=sa(a,oa);b=sa(b,ob);c=sa(c,oc);d=sa(d,od)}return[a,b,c,d]}
+function s2b(s){const b={};for(let i=0;i<s.length*8;i+=8)b[i>>5]=(b[i>>5]||0)|(s.charCodeAt(i/8)&255)<<(i%32);return b}
+function b2r(i){let o='';for(let j=0;j<i.length*32;j+=8)o+=String.fromCharCode((i[j>>5]>>>(j%32))&255);return o}
+function r2h(i){const t='0123456789abcdef';let o='';for(let j=0;j<i.length;j++){const x=i.charCodeAt(j);o+=t[(x>>>4)&15]+t[x&15]}return o}
+function utf8(s){let o='',i=-1,x;while(++i<s.length){x=s.charCodeAt(i);if(x<=127)o+=String.fromCharCode(x);else if(x<=2047)o+=String.fromCharCode(192|(x>>>6),128|(x&63));else o+=String.fromCharCode(224|(x>>>12),128|((x>>>6)&63),128|(x&63))}return o}
+return r2h(b2r(core(s2b(utf8(s)),utf8(s).length*8)))}
 
-// ---------- MD5 ----------
-function md5(input) {
-    function safeAdd(x,y){const lsw=(x&0xFFFF)+(y&0xFFFF);const msw=(x>>16)+(y>>16)+(lsw>>16);return(msw<<16)|(lsw&0xFFFF);}
-    function bitRotateLeft(num,cnt){return(num<<cnt)|(num>>>(32-cnt));}
-    function md5cmn(q,a,b,x,s,t){return safeAdd(bitRotateLeft(safeAdd(safeAdd(a,q),safeAdd(x,t)),s),b);}
-    function md5ff(a,b,c,d,x,s,t){return md5cmn((b&c)|((~b)&d),a,b,x,s,t);}
-    function md5gg(a,b,c,d,x,s,t){return md5cmn((b&d)|(c&(~d)),a,b,x,s,t);}
-    function md5hh(a,b,c,d,x,s,t){return md5cmn(b^c^d,a,b,x,s,t);}
-    function md5ii(a,b,c,d,x,s,t){return md5cmn(c^(b|(~d)),a,b,x,s,t);}
-    function coreMD5(m,l){m[l>>5]|=0x80<<(l%32);m[(((l+64)>>>9)<<4)+14]=l;let a=1732584193,b=-271733879,c=-1732584194,d=271733878;for(let i=0;i<m.length;i+=16){const[oa,ob,oc,od]=[a,b,c,d];a=md5ff(a,b,c,d,m[i],7,-680876936);d=md5ff(d,a,b,c,m[i+1],12,-389564586);c=md5ff(c,d,a,b,m[i+2],17,606105819);b=md5ff(b,c,d,a,m[i+3],22,-1044525330);a=md5ff(a,b,c,d,m[i+4],7,-176418897);d=md5ff(d,a,b,c,m[i+5],12,1200080426);c=md5ff(c,d,a,b,m[i+6],17,-1473231341);b=md5ff(b,c,d,a,m[i+7],22,-45705983);a=md5ff(a,b,c,d,m[i+8],7,1770035416);d=md5ff(d,a,b,c,m[i+9],12,-1958414417);c=md5ff(c,d,a,b,m[i+10],17,-42063);b=md5ff(b,c,d,a,m[i+11],22,-1990404162);a=md5ff(a,b,c,d,m[i+12],7,1804603682);d=md5ff(d,a,b,c,m[i+13],12,-40341101);c=md5ff(c,d,a,b,m[i+14],17,-1502002290);b=md5ff(b,c,d,a,m[i+15],22,1236535329);a=md5gg(a,b,c,d,m[i+1],5,-165796510);d=md5gg(d,a,b,c,m[i+6],9,-1069501632);c=md5gg(c,d,a,b,m[i+11],14,643717713);b=md5gg(b,c,d,a,m[i],20,-373897302);a=md5gg(a,b,c,d,m[i+5],5,-701558691);d=md5gg(d,a,b,c,m[i+10],9,38016083);c=md5gg(c,d,a,b,m[i+15],14,-660478335);b=md5gg(b,c,d,a,m[i+4],20,-405537848);a=md5gg(a,b,c,d,m[i+9],5,568446438);d=md5gg(d,a,b,c,m[i+14],9,-1019803690);c=md5gg(c,d,a,b,m[i+3],14,-187363961);b=md5gg(b,c,d,a,m[i+8],20,1163531501);a=md5gg(a,b,c,d,m[i+13],5,-1444681467);d=md5gg(d,a,b,c,m[i+2],9,-51403784);c=md5gg(c,d,a,b,m[i+7],14,1735328473);b=md5gg(b,c,d,a,m[i+12],20,-1926607734);a=md5hh(a,b,c,d,m[i+5],4,-378558);d=md5hh(d,a,b,c,m[i+8],11,-2022574463);c=md5hh(c,d,a,b,m[i+11],16,1839030562);b=md5hh(b,c,d,a,m[i+14],23,-35309556);a=md5hh(a,b,c,d,m[i+1],4,-1530992060);d=md5hh(d,a,b,c,m[i+4],11,1272893353);c=md5hh(c,d,a,b,m[i+7],16,-155497632);b=md5hh(b,c,d,a,m[i+10],23,-1094730640);a=md5hh(a,b,c,d,m[i+13],4,681279174);d=md5hh(d,a,b,c,m[i],11,-358537222);c=md5hh(c,d,a,b,m[i+3],16,-722521979);b=md5hh(b,c,d,a,m[i+6],23,76029189);a=md5hh(a,b,c,d,m[i+9],4,-640364487);d=md5hh(d,a,b,c,m[i+12],11,-421815835);c=md5hh(c,d,a,b,m[i+15],16,530742520);b=md5hh(b,c,d,a,m[i+2],23,-995338651);a=md5ii(a,b,c,d,m[i],6,-198630844);d=md5ii(d,a,b,c,m[i+7],10,1126891415);c=md5ii(c,d,a,b,m[i+14],15,-1416354905);b=md5ii(b,c,d,a,m[i+5],21,-57434055);a=md5ii(a,b,c,d,m[i+12],6,1700485571);d=md5ii(d,a,b,c,m[i+3],10,-1894986606);c=md5ii(c,d,a,b,m[i+10],15,-1051523);b=md5ii(b,c,d,a,m[i+1],21,-2054922799);a=md5ii(a,b,c,d,m[i+8],6,1873313359);d=md5ii(d,a,b,c,m[i+15],10,-30611744);c=md5ii(c,d,a,b,m[i+6],15,-1560198380);b=md5ii(b,c,d,a,m[i+13],21,1309151649);a=md5ii(a,b,c,d,m[i+4],6,-145523070);d=md5ii(d,a,b,c,m[i+11],10,-1120210379);c=md5ii(c,d,a,b,m[i+2],15,718787259);b=md5ii(b,c,d,a,m[i+9],21,-343485551);a=safeAdd(a,oa);b=safeAdd(b,ob);c=safeAdd(c,oc);d=safeAdd(d,od);}return[a,b,c,d];}
-    function str2binl(str){const bin={};for(let i=0;i<str.length*8;i+=8)bin[i>>5]=(bin[i>>5]||0)|(str.charCodeAt(i/8)&0xFF)<<(i%32);return bin;}
-    function binl2rstr(input){let output='';for(let i=0;i<input.length*32;i+=8)output+=String.fromCharCode((input[i>>5]>>>(i%32))&0xFF);return output;}
-    function rstr2hex(input){const tab='0123456789abcdef';let output='';for(let i=0;i<input.length;i++){const x=input.charCodeAt(i);output+=tab[(x>>>4)&0x0F]+tab[x&0x0F];}return output;}
-    function str_to_utf8(input){let output='',i=-1,x;while(++i<input.length){x=input.charCodeAt(i);if(x<=0x7F){output+=String.fromCharCode(x);}else if(x<=0x7FF){output+=String.fromCharCode(0xC0|(x>>>6),0x80|(x&0x3F));}else if(x<=0xFFFF){output+=String.fromCharCode(0xE0|(x>>>12),0x80|((x>>>6)&0x3F),0x80|(x&0x3F));}}return output;}
-    function rstr_md5(s){return binl2rstr(coreMD5(str2binl(s),s.length*8));}
-    return rstr2hex(rstr_md5(str_to_utf8(input)));
-}
-
-// ---------- RSA ----------
-const PRIVATE_KEY_PEM = `-----BEGIN PRIVATE KEY-----
+// ===== RSA =====
+const PK=`-----BEGIN PRIVATE KEY-----
 MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDfF+ITlc6m9IPM
 gBBp+rhkmrzPri10fzQFyJdKtfn1RfChr8wEz5x2HhNkWhgjE7F7YAuYjTXKrNBl
 W7/c9vipahvZwWdkthGd3jlWkYTcPkLsOYJPMQLcig7S1VYtT2uab3VC21ZMNV5V
@@ -955,657 +239,214 @@ s8a4H/pa+GyRh3fMqeZHYKwHrfWWbNhO6te2XYmVrkEcsu7z59lt8gnMSBTsgwdZ
 GClbi66qDiZ66TYq2v5NI4knON0DWLmuzWuqikcN5PGsKbllpl9/+reGHHK9cl1S
 f0I9iSQe0vQLksxTBFVgevFl
 -----END PRIVATE KEY-----`;
+let _rk=null;
+async function getRK(){if(_rk)return _rk;const p=PK.replace(/-----[^-]+-----/g,'').replace(/\s+/g,'');const b=Uint8Array.from(atob(p),c=>c.charCodeAt(0));_rk=await crypto.subtle.importKey('pkcs8',b.buffer,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['sign']);return _rk}
+async function rsaSign(msg){const k=await getRK();const s=await crypto.subtle.sign('RSASSA-PKCS1-v1_5',k,new TextEncoder().encode(msg));return btoa(String.fromCharCode(...new Uint8Array(s)))}
 
-let _rsaKey = null;
-async function getRSAKey() {
-    if (_rsaKey) return _rsaKey;
-    const pem = PRIVATE_KEY_PEM
-        .replace(/-----BEGIN PRIVATE KEY-----/, '')
-        .replace(/-----END PRIVATE KEY-----/, '')
-        .replace(/\s+/g, '');
-    const binaryDer = Uint8Array.from(atob(pem), c => c.charCodeAt(0));
-    _rsaKey = await crypto.subtle.importKey(
-        'pkcs8', binaryDer.buffer,
-        { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-        false, ['sign']
-    );
-    return _rsaKey;
-}
-async function rsaSign(message) {
-    const key = await getRSAKey();
-    const enc = new TextEncoder();
-    const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, enc.encode(message));
-    return btoa(String.fromCharCode(...new Uint8Array(sig)));
-}
+// ===== SIGN HELPERS =====
+function isArr(v){return Object.prototype.toString.call(v)==='[object Array]'}
+function isObj(v){return Object.prototype.toString.call(v)==='[object Object]'}
+function rmArr(o){for(const k in o){if(isArr(o[k]))delete o[k];else if(isObj(o[k]))rmArr(o[k])}}
+function sortP(p){const r={},ks=[];if(!p||!isObj(p))return'';const c=Object.assign({},p);rmArr(c);for(const k in c){let v=c[k];if(isObj(v))v=JSON.stringify(v);if(v===undefined||v===null||v===''||v==='null')continue;ks.push(k);r[k]=k+v}ks.sort((a,b)=>a.localeCompare(b));let o='';for(const k of ks)o+=r[k];return o}
+async function hdrs(ep,data,tok,uid){const st=tok?'MD5':'RSA';const ts=Number(new Date());const hf={appId:'h5_client',sign:'',signType:st,clientType:'H5',clientVersion:'1.0.0',token:'',userId:uid||'',timestamp:ts,extra:''};const ub=ep.split('?')[0];let ss;if(st==='RSA')ss=ub+sortP(data)+sortP(hf);else ss=ub+sortP(data)+tok+sortP(hf);const sig=st==='RSA'?await rsaSign(ss):md5(ss);return{'token':tok||'','userId':uid||'','lang':'en','clientType':'H5','appId':'h5_client','clientVersion':'1.0.0','signType':st,'sign':sig,'extra':'','timestamp':String(ts),'Content-Type':'application/json','Cache-Control':'no-cache'}}
 
-// ---------- SORT PARAMS ----------
-function isArray(v)  { return Object.prototype.toString.call(v) === '[object Array]'; }
-function isObject(v) { return Object.prototype.toString.call(v) === '[object Object]'; }
-function removeArrays(obj) {
-    for (const k in obj) {
-        if (isArray(obj[k])) { delete obj[k]; }
-        else if (isObject(obj[k])) { removeArrays(obj[k]); }
-    }
-}
-function sortParams(params) {
-    const result = {}, keys = [];
-    if (!params || !isObject(params)) return '';
-    const copy = Object.assign({}, params);
-    removeArrays(copy);
-    for (const k in copy) {
-        let v = copy[k];
-        if (isObject(v)) v = JSON.stringify(v);
-        if (v === undefined || v === null || v === '' || v === 'null') continue;
-        keys.push(k);
-        result[k] = k + v;
-    }
-    keys.sort((a, b) => a.localeCompare(b));
-    let out = '';
-    for (const k of keys) out += result[k];
-    return out;
-}
+// ===== API =====
+const BASE='https://api.excorx.info';
+async function api(m,ep,data,tok,uid){const h=await hdrs(ep,data||{},tok,uid);const o={method:m,headers:h};if(m!=='GET'&&data&&Object.keys(data).length)o.body=JSON.stringify(data);A.log(`← ${m} ${ep}`,'lin');try{const r=await fetch(BASE+ep,o);const j=await r.json();const ok=(r.status===200)&&(j.code===200);A.log(`→ ${r.status} [${j.code}] ${j.msg||'OK'}`,ok?'lok':'lwa');return{ok,data:j,status:r.status}}catch(e){A.log('✗ خطأ: '+e.message,'ler');return{ok:false,error:e.message}}}
 
-// ---------- BUILD HEADERS ----------
-async function buildSignedHeaders(endpoint, data, token, userId) {
-    const signType  = token ? 'MD5' : 'RSA';
-    const timestamp = Number(new Date());
-    const headersForSign = {
-        appId: 'h5_client', sign: '', signType, clientType: 'H5',
-        clientVersion: '1.0.0', token: '', userId: userId || '',
-        timestamp, extra: ''
-    };
-    const urlBase = endpoint.split('?')[0];
-    let signString;
-    if (signType === 'RSA') {
-        signString = urlBase + sortParams(data) + sortParams(headersForSign);
+// ===== WALLET GEN =====
+const WG={
+  h(l){const a=new Uint8Array(l);crypto.getRandomValues(a);return Array.from(a).map(b=>b.toString(16).padStart(2,'0')).join('')},
+  TRX(){const c='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';let a='T';const r=new Uint8Array(33);crypto.getRandomValues(r);for(const b of r)a+=c[b%c.length];return a},
+  ETH(){return'0x'+this.h(20)},
+  BTC(){const c='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';let a='1';const r=new Uint8Array(33);crypto.getRandomValues(r);for(const b of r)a+=c[b%c.length];return a.slice(0,34)}
+};
+
+// ===== APP =====
+const A={
+  tok:localStorage.getItem('exc_token')||'',
+  uid:localStorage.getItem('exc_userId')||'',
+  wAddr:localStorage.getItem('exc_walletAddr')||'',
+  wInfo:localStorage.getItem('exc_walletInfo')||'',
+  wType:localStorage.getItem('exc_walletType')||'TRX',
+  rWType:'TRX',
+  cache:{ac:[],or:[],ad:[]},
+  _wh:{TRX:'مثال: TXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (34 حرف يبدأ بـ T)',ETH:'مثال: 0x742d35Cc... (42 حرف يبدأ بـ 0x)',BTC:'مثال: 1BvBMSEYstWet... (يبدأ بـ 1 أو 3)'},
+
+  log(msg,cls='lin'){
+    const add=id=>{const e=document.getElementById(id);if(!e)return;e.innerHTML+=`<div class="ll ${cls}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;e.scrollTop=e.scrollHeight};
+    add('ml');
+    const ll=document.getElementById('ll');if(ll&&ll.style.display!=='none')add('ll');
+    const rl=document.getElementById('rl');if(rl&&rl.style.display!=='none')add('rl')
+  },
+  clr(){document.getElementById('ml').innerHTML=''},
+
+  toast(msg,t='',d=2800){const e=document.getElementById('toast');e.textContent=msg;e.className='show'+(t==='lok'?' success':t==='ler'?' error':'');setTimeout(()=>e.className='',d)},
+
+  init(){if(this.tok)this.dash()},
+
+  dash(){
+    document.getElementById('aw').style.display='none';
+    document.getElementById('dl').style.display='flex';
+    document.getElementById('navStatus').textContent=`متصل • ${this.uid}`;
+    document.getElementById('navStatus').classList.add('on');
+    document.getElementById('logoutBtn').style.display='inline-flex'
+  },
+
+  tab(t){
+    const l=t==='login';
+    document.getElementById('tl').classList.toggle('active',l);
+    document.getElementById('tr').classList.toggle('active',!l);
+    document.getElementById('lb').style.display=l?'block':'none';
+    document.getElementById('rb').style.display=l?'none':'block'
+  },
+
+  go(p){
+    document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.sbi').forEach(x=>x.classList.remove('active'));
+    const pg=document.getElementById('p-'+p);if(pg)pg.classList.add('active');
+    const si=document.querySelector(`[data-p="${p}"]`);if(si)si.classList.add('active')
+  },
+
+  logout(){['exc_token','exc_userId','exc_walletAddr','exc_walletInfo','exc_walletType'].forEach(k=>localStorage.removeItem(k));location.reload()},
+
+  rwt(t,btn){this.rWType=t;document.querySelectorAll('#rb .wtbtn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');document.getElementById('rwh').textContent=this._wh[t]},
+
+  genRW(){const t=this.rWType||'TRX';const a=WG[t]();document.getElementById('rwa').value=a;document.getElementById('rwi').value=t+'-Auto';this.toast('✓ تم توليد عنوان '+t+' تلقائياً','lok')},
+
+  // ===== إرسال كود تسجيل الدخول =====
+  async sendCode(){
+    const email=document.getElementById('lm').value.trim();
+    if(!email){this.toast('أدخل البريد أولاً','ler');return}
+    const btn=document.getElementById('scb');btn.disabled=true;
+    const r=await api('POST','/login/sendEmailVerify',{email},'','');
+    if(r.ok){this.toast('✓ تم إرسال الكود','lok');let t=60;const tm=setInterval(()=>{btn.textContent=`${t--}ث`;if(t<0){clearInterval(tm);btn.disabled=false;btn.textContent='إرسال كود'}},1000)}
+    else{btn.disabled=false;this.toast('✗ '+(r.data?.msg||'فشل'),'ler')}
+  },
+
+  // ===== إرسال كود التسجيل =====
+  async sendRegCode(){
+    const email=document.getElementById('rm').value.trim();
+    if(!email){this.toast('أدخل بريدك الإلكتروني أولاً','ler');return}
+    const btn=document.getElementById('rscb');btn.disabled=true;
+    const r=await api('POST','/login/sendEmailVerify',{email},'','');
+    if(r.ok){this.toast('✓ تم إرسال الكود','lok');let t=60;const tm=setInterval(()=>{btn.textContent=`${t--}ث`;if(t<0){clearInterval(tm);btn.disabled=false;btn.textContent='إرسال كود'}},1000)}
+    else{btn.disabled=false;this.toast('✗ '+(r.data?.msg||'فشل'),'ler')}
+  },
+
+  // ============================================================
+  // ✅ LOGIN — لا يُرسَل wallet_address هنا أبداً (يسبب SQL error)
+  // ============================================================
+  async login(){
+    const email=document.getElementById('lm').value.trim();
+    const pass=document.getElementById('lp').value.trim();
+    const gc=document.getElementById('gc').value.trim();
+    const eb=document.getElementById('le');
+    const ll=document.getElementById('ll');
+    const btn=document.getElementById('lbtn');
+    if(!email||!pass){eb.textContent='⚠️ يرجى إدخال البريد وكلمة المرور';eb.classList.add('show');return}
+    eb.classList.remove('show');ll.style.display='block';
+    btn.disabled=true;btn.innerHTML='<span class="sp"></span> جاري الدخول...';
+
+    // ✅ الـ payload يحتوي فقط على email + password + type
+    // ❌ لا يحتوي wallet_address (يسبب: Unknown column 'wallet_address' in where clause)
+    const payload={email,password:pass,type:'0'};
+    if(gc)payload.googleCode=gc;
+
+    const r=await api('POST','/login/login',payload,'','');
+    if(r.ok&&r.data.data){
+      this.tok=r.data.data.token;
+      this.uid=String(r.data.data.uid);
+      localStorage.setItem('exc_token',this.tok);
+      localStorage.setItem('exc_userId',this.uid);
+      this.log('✓ تم تسجيل الدخول بنجاح','lok');
+      this.toast('✅ مرحباً! تم تسجيل الدخول بنجاح','lok');
+      this.dash();this.exAddr(r.data);this.all()
     } else {
-        signString = urlBase + sortParams(data) + token + sortParams(headersForSign);
+      const code=r.data?.code;
+      const msg=r.data?.msg||'فشل تسجيل الدخول';
+      eb.textContent=msg;eb.classList.add('show');
+      this.log('✗ '+msg+` [${code}]`,'ler');
+      if(code===40007||code===40008||/google|captcha|2fa|verify|code/i.test(msg)){
+        document.getElementById('cs').style.display='block';
+        this.toast('🔑 مطلوب كود Google Authenticator','',4000)
+      }
     }
-    const signature = signType === 'RSA' ? await rsaSign(signString) : md5(signString);
-    return {
-        'token': token || '', 'userId': userId || '', 'lang': 'en',
-        'clientType': 'H5', 'appId': 'h5_client', 'clientVersion': '1.0.0',
-        'signType': signType, 'sign': signature, 'extra': '',
-        'timestamp': String(timestamp),
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache, no-store, must-revalidate'
-    };
-}
+    btn.disabled=false;btn.innerHTML='دخول'
+  },
 
-/* ============================================================
-   API ENGINE
-   ============================================================ */
-const API_BASE = 'https://api.excorx.info';
+  // ===== REGISTER =====
+  async register(){
+    const email=document.getElementById('rm').value.trim();
+    const pass=document.getElementById('rp').value.trim();
+    const conf=document.getElementById('rpc').value.trim();
+    const wa=document.getElementById('rwa').value.trim();
+    const wi=document.getElementById('rwi').value.trim();
+    const inv=document.getElementById('ri').value.trim();
+    const ec=document.getElementById('rec').value.trim();
+    const eb=document.getElementById('re');
+    const btn=document.getElementById('rbtn');
+    if(!email||!pass||!conf){eb.textContent='⚠️ البريد وكلمة المرور مطلوبان';eb.classList.add('show');return}
+    if(pass!==conf){eb.textContent='⚠️ كلمة المرور غير متطابقة';eb.classList.add('show');return}
+    if(!wa){eb.textContent='⚠️ يرجى إدخال عنوان محفظة السحب';eb.classList.add('show');document.getElementById('rwa').classList.add('ef');return}
+    eb.classList.remove('show');
+    document.getElementById('rl').style.display='block';
+    btn.disabled=true;btn.innerHTML='<span class="sp"></span> جاري إنشاء الحساب...';
 
-async function apiCall(method, endpoint, data, token, userId) {
-    const headers = await buildSignedHeaders(endpoint, data || {}, token, userId);
-    const opts    = { method, headers };
-    if (method !== 'GET' && data && Object.keys(data).length) {
-        opts.body = JSON.stringify(data);
-    }
-    App.log(`← ${method} ${endpoint}`, 'info');
-    try {
-        const res  = await fetch(API_BASE + endpoint, opts);
-        const json = await res.json();
-        const ok   = (res.status === 200) && (json.code === 200);
-        App.log(`→ ${res.status} [${json.code}] ${json.msg || 'OK'}`, ok ? 'ok' : 'warn');
-        return { ok, data: json, status: res.status };
-    } catch (e) {
-        App.log(`✗ خطأ في الاتصال: ${e.message}`, 'err');
-        return { ok: false, error: e.message };
-    }
-}
+    // ✅ wallet_address يُرسَل فقط في التسجيل
+    const payload={email,password:pass,repassword:pass,type:'0',wallet_address:wa,walletlnfo:wi||wa};
+    if(inv)payload.inviteCode=inv;
+    if(ec)payload.emailCode=ec;
 
-/* ============================================================
-   WALLET GENERATOR
-   ============================================================ */
-const WalletGen = {
-    hex(len) {
-        const arr = new Uint8Array(len);
-        crypto.getRandomValues(arr);
-        return Array.from(arr).map(b => b.toString(16).padStart(2,'0')).join('');
-    },
-    TRX() {
-        const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-        let addr = 'T';
-        const arr = new Uint8Array(33);
-        crypto.getRandomValues(arr);
-        for (const b of arr) addr += chars[b % chars.length];
-        return addr;
-    },
-    ETH() { return '0x' + this.hex(20); },
-    BTC() {
-        const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-        let addr = '1';
-        const arr = new Uint8Array(33);
-        crypto.getRandomValues(arr);
-        for (const b of arr) addr += chars[b % chars.length];
-        return addr.slice(0, 34);
+    localStorage.setItem('exc_walletAddr',wa);
+    localStorage.setItem('exc_walletInfo',wi||wa);
+    localStorage.setItem('exc_walletType',this.rWType||'TRX');
+
+    const r=await api('POST','/login/register',payload,'','');
+    if(r.ok){
+      this.log('✓ تم إنشاء الحساب — جاري تسجيل الدخول...','lok');
+      this.toast('✅ تم إنشاء الحساب! جاري تسجيل الدخول...','lok');
+      document.getElementById('lm').value=email;
+      document.getElementById('lp').value=pass;
+      this.tab('login');await this.login()
+    } else {
+      const msg=r.data?.msg||'فشل إنشاء الحساب';
+      eb.textContent=msg;eb.classList.add('show');
+      this.log('✗ '+msg,'ler');this.toast('✗ '+msg,'ler')
     }
+    btn.disabled=false;btn.innerHTML='إنشاء الحساب'
+  },
+
+  // ===== FETCH =====
+  async all(){this.log('◎ جلب جميع البيانات...','lin');await Promise.all([this.fui(),this.fac(),this.for()]);this.ovr()},
+
+  async fui(){const r=await api('GET','/personal/userInfo',{},this.tok,this.uid);if(r.ok&&r.data.data){this.rui(r.data.data);this.exAddr(r.data)}},
+  rui(d){
+    const f=[['المعرّف (UID)',d.uid],['الاسم',d.nickname||d.name||d.username],['البريد',d.email],['الهاتف',d.mobile],['مستوى التحقق',d.kycLevel??d.authLevel],['الحالة',d.status===1?'✓ نشط':d.status],['تاريخ الإنشاء',d.createTime||d.registerTime],['آخر دخول',d.loginTime||d.lastLoginTime]];
+    document.getElementById('uig').innerHTML=f.filter(([,v])=>v!=null&&v!=='').map(([k,v])=>`<div class="ii"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('')||'<div class="empty">لا بيانات</div>';
+    document.getElementById('ou').textContent=d.email||d.nickname||''
+  },
+
+  async fac(){const r=await api('POST','/account/getAllUserAccountById',{},this.tok,this.uid);if(r.ok){const l=r.data.data||[];this.cache.ac=l;this.rac(l);this.exAddr(r.data)}},
+  rac(l){const b=document.getElementById('acb');if(!l.length){b.innerHTML='<tr><td colspan="5" class="empty">لا توجد بيانات</td></tr>';return}b.innerHTML=l.map(a=>`<tr><td><strong>${a.symbol||a.coinName||'—'}</strong></td><td>${Number(a.balance||a.available||0).toFixed(8)}</td><td>${Number(a.freeze||a.frozen||0).toFixed(8)}</td><td>${Number((a.balance||0)+(a.freeze||0)).toFixed(8)}</td><td><span class="badge bg">نشط</span></td></tr>`).join('')},
+
+  async for(){const r=await api('GET','/newCurrency/orders',{},this.tok,this.uid);if(r.ok){const l=Array.isArray(r.data.data)?r.data.data:(r.data.data?.list||r.data.data?.records||[]);this.cache.or=l;this.ror(l)}},
+  ror(l){const b=document.getElementById('orb');if(!l.length){b.innerHTML='<tr><td colspan="7" class="empty">لا توجد بيانات</td></tr>';return}b.innerHTML=l.map((o,i)=>`<tr><td>${o.id||i+1}</td><td>${o.type===1?'<span class="badge bg">شراء</span>':'<span class="badge br2">بيع</span>'}</td><td>${o.symbol||o.coinName||'—'}</td><td>${o.amount||o.num||'—'}</td><td>${o.price||'—'}</td><td>${this._os(o.status)}</td><td>${o.createTime||o.time||'—'}</td></tr>`).join('')},
+  _os(s){return({0:'<span class="badge bw">معلّق</span>',1:'<span class="badge bg">مكتمل</span>',2:'<span class="badge br2">ملغي</span>'})[s]||`<span class="badge bb">${s}</span>`},
+
+  exAddr(data){
+    const f=[];
+    function w(o,p){if(!o||typeof o!=='object')return;for(const[k,v]of Object.entries(o)){const pt=p?`${p}.${k}`:k;if(typeof v==='string'){const e=/^0x[0-9a-fA-F]{40}$/.test(v);const b=/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(v);const t=/^T[A-Za-z0-9]{33}$/.test(v);if(e||b||t){const tp=e?'ETH/ERC20':b?'BTC':'TRX/TRC20';const pu=/withdraw|member|payout/i.test(k)?'سحب':/recharge|deposit|funding/i.test(k)?'إيداع':'عام';f.push({key:pt,address:v,type:tp,purpose:pu})}}if(typeof v==='object')w(v,pt)}}
+    w(data,'');
+    if(f.length){this.cache.ad.push(...f);this.rad()}
+  },
+  rad(){
+    const u=[...new Map(this.cache.ad.map(a=>[a.address,a])).values()];this.cache.ad=u;
+    document.getElementById('odr').textContent=u.length;
+    document.getElementById('adg').innerHTML=u.map(a=>`<div><div class="ii"><div class="k">${a.purpose} — ${a.type} — <code style="font-size:.75rem;color:var(--tx2)">${a.key}</code></div><div class="av">${a.address}</div><button class="btn bo bs" style="margin-top:6px" onclick="navigator.clipboard.writeText('${a.address}');A.toast('✓ تم النسخ','lok')">📋 نسخ</button></div></div>`).join('')||'<div class="empty">لا توجد عناوين</div>'
+  },
+
+  ovr(){document.getElementById('oa').textContent=this.cache.ac.length;document.getElementById('oo').textContent=this.cache.or.length;document.getElementById('odr').textContent=this.cache.ad.length}
 };
-
-/* ============================================================
-   APP CONTROLLER
-   ============================================================ */
-const App = {
-    token:      localStorage.getItem('exc_token')        || '',
-    userId:     localStorage.getItem('exc_userId')       || '',
-    walletAddr: localStorage.getItem('exc_walletAddr')   || '',
-    walletInfo: localStorage.getItem('exc_walletInfo')   || '',
-    walletType: localStorage.getItem('exc_walletType')   || 'TRX',
-    cache:      { accounts: [], orders: [], addresses: [] },
-    codeTimer:  null,
-    loginAttempts: 0,
-    altFieldIndex: 0,
-
-    WALLET_FIELDS: [
-        'wallet_address',
-        'walletlnfo',
-        'walletInfo',
-        'walletAddress',
-        'withdraw_address',
-        'withdrawAddress',
-        'addr',
-        'address'
-    ],
-
-    /* ========== LOG ========== */
-    log(msg, type = 'info') {
-        const addLine = (elId) => {
-            const el = document.getElementById(elId);
-            if (!el) return;
-            const line = `<div class="log-line log-${type}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
-            el.innerHTML += line;
-            el.scrollTop  = el.scrollHeight;
-        };
-        addLine('mainLog');
-        const loginLog = document.getElementById('loginLog');
-        if (loginLog && loginLog.style.display !== 'none') addLine('loginLog');
-        const regLog = document.getElementById('regLog');
-        if (regLog && regLog.style.display !== 'none') addLine('regLog');
-    },
-    clearLog() { document.getElementById('mainLog').innerHTML = ''; },
-
-    /* ========== TOAST ========== */
-    toast(msg, type = 'info', duration = 2800) {
-        const t = document.getElementById('toast');
-        t.textContent = msg;
-        t.className   = 'show ' + (type === 'ok' ? 'success' : type === 'err' ? 'error' : '');
-        setTimeout(() => t.className = '', duration);
-    },
-
-    /* ========== INIT ========== */
-    init() {
-        if (this.token) {
-            this.showDash();
-        }
-        if (this.walletAddr) {
-            const el = document.getElementById('loginWalletAddr');
-            if (el) el.value = this.walletAddr;
-        }
-    },
-
-    showDash() {
-        document.getElementById('authWrapper').style.display = 'none';
-        document.getElementById('dashLayout').style.display  = 'flex';
-        document.getElementById('navStatus').textContent     = `متصل • ${this.userId}`;
-        document.getElementById('navStatus').classList.add('online');
-        document.getElementById('logoutBtn').style.display   = 'inline-flex';
-    },
-
-    /* ========== TABS ========== */
-    switchTab(tab) {
-        const isLogin = (tab === 'login');
-        document.getElementById('tabLogin').classList.toggle('active', isLogin);
-        document.getElementById('tabRegister').classList.toggle('active', !isLogin);
-        document.getElementById('loginBox').style.display    = isLogin ? 'block' : 'none';
-        document.getElementById('registerBox').style.display = isLogin ? 'none'  : 'block';
-    },
-
-    /* ========== NAVIGATION ========== */
-    goto(page) {
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
-        const pg = document.getElementById('page-' + page);
-        if (pg) pg.classList.add('active');
-        const si = document.querySelector(`[data-page="${page}"]`);
-        if (si) si.classList.add('active');
-    },
-
-    logout() {
-        ['exc_token','exc_userId','exc_walletAddr','exc_walletInfo','exc_walletType']
-            .forEach(k => localStorage.removeItem(k));
-        location.reload();
-    },
-
-    /* ========== WALLET TYPE SELECTION ========== */
-    _walletHints: {
-        TRX: 'مثال: TXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (34 حرف يبدأ بـ T)',
-        ETH: 'مثال: 0x742d35Cc6634C0532925a3b8D4C9B5E (42 حرف يبدأ بـ 0x)',
-        BTC: 'مثال: 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2 (يبدأ بـ 1 أو 3)'
-    },
-    selectWalletType(type, btn) {
-        this.walletType = type;
-        document.querySelectorAll('#loginWalletSection .wallet-type-btn')
-            .forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById('loginWalletHint').textContent = this._walletHints[type];
-    },
-    selectRegWalletType(type, btn) {
-        this.regWalletType = type;
-        document.querySelectorAll('#registerBox .wallet-type-btn')
-            .forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById('regWalletHint').textContent = this._walletHints[type];
-    },
-
-    /* ========== AUTO GENERATE WALLET ========== */
-    autoGenerateWallet() {
-        const addr = WalletGen[this.walletType || 'TRX']();
-        document.getElementById('loginWalletAddr').value = addr;
-        document.getElementById('loginWalletInfo').value = `${this.walletType || 'TRX'}-Auto`;
-        this.toast(`✓ تم توليد عنوان ${this.walletType || 'TRX'} تلقائياً`, 'ok');
-        localStorage.setItem('exc_walletAddr_backup', addr);
-        this.log(`⚡ عنوان ${this.walletType} تم توليده: ${addr}`, 'info');
-    },
-    autoGenerateRegWallet() {
-        const type = this.regWalletType || 'TRX';
-        const addr = WalletGen[type]();
-        document.getElementById('regWalletAddr').value = addr;
-        document.getElementById('regWalletInfo').value = `${type}-Auto`;
-        this.toast(`✓ تم توليد عنوان ${type} تلقائياً`, 'ok');
-    },
-    pasteWallet() {
-        navigator.clipboard.readText().then(text => {
-            if (text) {
-                document.getElementById('loginWalletAddr').value = text.trim();
-                this.toast('✓ تم اللصق');
-            }
-        }).catch(() => this.toast('⚠️ تعذّر الوصول للحافظة'));
-    },
-
-    /* ========== STRATEGIES ========== */
-    strategy_showWallet() {
-        document.getElementById('loginWalletSection').classList.add('show');
-        this.toast('👇 أدخل عنوان محفظتك ثم اضغط دخول مجدداً', 'info', 4000);
-    },
-    strategy_autoWallet() {
-        this.strategy_showWallet();
-        this.autoGenerateWallet();
-    },
-    strategy_tryAltField() {
-        this.altFieldIndex = (this.altFieldIndex + 1) % this.WALLET_FIELDS.length;
-        const field = this.WALLET_FIELDS[this.altFieldIndex];
-        this.toast(`🔄 سيتم تجربة الحقل: ${field}`, 'info', 3000);
-        this.log(`↻ تجربة حقل بديل: ${field}`, 'warn');
-        this.login(field);
-    },
-    strategy_showCaptha() {
-        document.getElementById('captchaSection').style.display = 'block';
-        this.toast('🔑 أدخل كود Google Authenticator', 'info', 3000);
-    },
-
-    /* ========== SEND EMAIL CODE (LOGIN) ========== */
-    async sendEmailCode() {
-        const email = document.getElementById('loginEmail').value.trim();
-        if (!email) { this.toast('أدخل البريد أولاً', 'err'); return; }
-        const btn = document.getElementById('sendCodeBtn');
-        btn.disabled = true;
-        const res = await apiCall('POST', '/login/sendEmailVerify', { email }, '', '');
-        if (res.ok) {
-            this.toast('✓ تم إرسال الكود إلى بريدك', 'ok');
-            let t = 60;
-            this.codeTimer = setInterval(() => {
-                btn.textContent = `${t--}ث`;
-                if (t < 0) { clearInterval(this.codeTimer); btn.disabled = false; btn.textContent = 'إرسال كود'; }
-            }, 1000);
-        } else {
-            btn.disabled = false;
-            this.toast('✗ فشل إرسال الكود: ' + (res.data?.msg || ''), 'err');
-        }
-    },
-
-    /* ========== SEND EMAIL CODE (REGISTER) ========== */
-    async sendRegEmailCode() {
-        const email = document.getElementById('regEmail').value.trim();
-        if (!email) { this.toast('أدخل بريدك الإلكتروني أولاً', 'err'); return; }
-        const btn = document.getElementById('regSendCodeBtn');
-        btn.disabled = true;
-        const res = await apiCall('POST', '/login/sendEmailVerify', { email }, '', '');
-        if (res.ok) {
-            this.toast('✓ تم إرسال كود التحقق إلى بريدك', 'ok');
-            let t = 60;
-            const timer = setInterval(() => {
-                btn.textContent = `${t--}ث`;
-                if (t < 0) { clearInterval(timer); btn.disabled = false; btn.textContent = 'إرسال كود'; }
-            }, 1000);
-        } else {
-            btn.disabled = false;
-            this.toast('✗ ' + (res.data?.msg || 'فشل الإرسال'), 'err');
-        }
-    },
-
-    /* ========== LOGIN ========== */
-    async login(forceWalletField) {
-        const email    = document.getElementById('loginEmail').value.trim();
-        const password = document.getElementById('loginPassword').value.trim();
-        const gCode    = document.getElementById('googleCode').value.trim();
-        const walletAddr = document.getElementById('loginWalletAddr').value.trim();
-        const walletInfo = document.getElementById('loginWalletInfo').value.trim();
-        const btn      = document.getElementById('loginBtn');
-        const errBox   = document.getElementById('loginErrorBox');
-        const logBox   = document.getElementById('loginLog');
-
-        if (!email || !password) {
-            errBox.textContent  = '⚠️ يرجى إدخال البريد الإلكتروني وكلمة المرور';
-            errBox.classList.add('show');
-            return;
-        }
-        errBox.classList.remove('show');
-        logBox.style.display = 'block';
-        btn.disabled  = true;
-        btn.innerHTML = '<span class="spinner"></span> جاري الدخول...';
-
-        const payload = { email, password, type: '0' };
-        if (gCode) payload.googleCode = gCode;
-
-        const walletFieldName = forceWalletField || 'wallet_address';
-
-        if (walletAddr) {
-            payload[walletFieldName] = walletAddr;
-            payload['walletlnfo']    = walletInfo || walletAddr;
-            localStorage.setItem('exc_walletAddr', walletAddr);
-            localStorage.setItem('exc_walletInfo', walletInfo || walletAddr);
-            localStorage.setItem('exc_walletType', this.walletType);
-        } else if (this.walletAddr && !forceWalletField) {
-            payload['wallet_address'] = this.walletAddr;
-            payload['walletlnfo']     = this.walletInfo || this.walletAddr;
-        }
-
-        const res = await apiCall('POST', '/login/login', payload, '', '');
-
-        if (res.ok && res.data.data) {
-            this.token  = res.data.data.token;
-            this.userId = String(res.data.data.uid);
-            localStorage.setItem('exc_token',  this.token);
-            localStorage.setItem('exc_userId', this.userId);
-            this.log('✓ تم تسجيل الدخول بنجاح', 'ok');
-            this.toast('✅ مرحباً! تم تسجيل الدخول بنجاح', 'ok');
-            this.showDash();
-            this.extractAddresses(res.data);
-            this.fetchAll();
-        } else {
-            const code   = res.data?.code;
-            const errMsg = res.data?.msg || 'فشل تسجيل الدخول';
-            errBox.textContent = errMsg;
-            errBox.classList.add('show');
-            this.log('✗ ' + errMsg + ` [${code}]`, 'err');
-            this.loginAttempts++;
-
-            if (
-                code === 99999 ||
-                /wallet_address_require|wallet.*require|address.*require/i.test(errMsg)
-            ) {
-                this.log('⚠️ السيرفر يطلب عنوان المحفظة — جاري فتح قسم المحفظة تلقائياً', 'warn');
-                document.getElementById('loginWalletSection').classList.add('show');
-                document.getElementById('strategyBox').classList.add('show');
-                errBox.textContent = '💼 السيرفر يطلب عنوان محفظة سحب صالح — أدخله أدناه ثم اضغط دخول مجدداً';
-                this.toast('💼 أدخل عنوان محفظتك في الحقل المعروض', 'info', 5000);
-                if (!walletAddr && !this.walletAddr) {
-                    this.autoGenerateWallet();
-                    this.log('⚡ تم توليد عنوان محفظة تلقائي احتياطي', 'info');
-                }
-            }
-
-            if (
-                code === 40007 || code === 40008 ||
-                /google|captcha|2fa|verify|code/i.test(errMsg)
-            ) {
-                document.getElementById('captchaSection').style.display = 'block';
-                this.toast('🔑 مطلوب كود Google Authenticator', 'info', 4000);
-            }
-
-            if (this.loginAttempts >= 1) {
-                document.getElementById('strategyBox').classList.add('show');
-            }
-        }
-
-        btn.disabled  = false;
-        btn.innerHTML = 'دخول';
-    },
-
-    /* ========== REGISTER ========== */
-    async register() {
-        const email      = document.getElementById('regEmail').value.trim();
-        const password   = document.getElementById('regPassword').value.trim();
-        const passConf   = document.getElementById('regPasswordConfirm').value.trim();
-        const walletAddr = document.getElementById('regWalletAddr').value.trim();
-        const walletInfo = document.getElementById('regWalletInfo').value.trim();
-
-        // ✅ (اختياري) كود الدعوة: لا يتم توليده تلقائياً ولا يوقف أي شيء لو فاضي
-        const invite     = document.getElementById('regInvite').value.trim();
-
-        // ✅ (اختياري) كود البريد: لا يوقف الواجهة لو فاضي
-        const emailCode  = document.getElementById('regEmailCode').value.trim();
-
-        const btn        = document.getElementById('regBtn');
-        const errBox     = document.getElementById('regErrorBox');
-        const logBox     = document.getElementById('regLog');
-
-        // التحقق من المدخلات الأساسية فقط
-        if (!email || !password || !passConf) {
-            errBox.textContent = '⚠️ البريد وكلمة المرور مطلوبان';
-            errBox.classList.add('show'); return;
-        }
-        if (password !== passConf) {
-            errBox.textContent = '⚠️ كلمة المرور وتأكيدها غير متطابقَتَين';
-            errBox.classList.add('show'); return;
-        }
-        if (!walletAddr) {
-            errBox.textContent = '⚠️ يرجى إدخال عنوان محفظة السحب';
-            errBox.classList.add('show');
-            document.getElementById('regWalletAddr').classList.add('error-field');
-            return;
-        }
-
-        errBox.classList.remove('show');
-        logBox.style.display = 'block';
-        btn.disabled  = true;
-        btn.innerHTML = '<span class="spinner"></span> جاري إنشاء الحساب...';
-
-        if (invite) this.log(`✓ كود الدعوة المُدخل: ${invite}`, 'info');
-        else this.log('ℹ️ كود الدعوة غير مُدخل (اختياري) — لن يتم إرساله', 'info');
-
-        if (emailCode) this.log('✓ كود البريد مُدخل (اختياري) — سيتم إرساله', 'info');
-        else this.log('ℹ️ كود البريد غير مُدخل (اختياري) — لن يتم إرساله', 'info');
-
-        // payload التسجيل — إرسال inviteCode/emailCode فقط إذا كان موجود فعلاً
-        const payload = {
-            email,
-            password,
-            repassword:     password,
-            type:           '0',
-            wallet_address: walletAddr,
-            walletlnfo:     walletInfo || walletAddr
-        };
-
-        if (invite) payload.inviteCode = invite;
-        if (emailCode) payload.emailCode = emailCode;
-
-        // حفظ محلي
-        localStorage.setItem('exc_walletAddr', walletAddr);
-        localStorage.setItem('exc_walletInfo', walletInfo || walletAddr);
-        localStorage.setItem('exc_walletType', this.regWalletType || 'TRX');
-
-        const res = await apiCall('POST', '/login/register', payload, '', '');
-
-        if (res.ok) {
-            this.log('✓ تم إنشاء الحساب بنجاح — جاري تسجيل الدخول...', 'ok');
-            this.toast('✅ تم إنشاء الحساب! جاري تسجيل الدخول...', 'ok');
-            // تسجيل دخول تلقائي بعد التسجيل
-            document.getElementById('loginEmail').value      = email;
-            document.getElementById('loginPassword').value   = password;
-            document.getElementById('loginWalletAddr').value = walletAddr;
-            document.getElementById('loginWalletInfo').value = walletInfo || walletAddr;
-            document.getElementById('loginWalletSection').classList.add('show');
-            this.walletAddr = walletAddr;
-            this.walletInfo = walletInfo || walletAddr;
-            this.switchTab('login');
-            await this.login();
-        } else {
-            const errMsg = res.data?.msg || 'فشل إنشاء الحساب';
-            errBox.textContent = errMsg;
-            errBox.classList.add('show');
-            this.log('✗ ' + errMsg, 'err');
-            this.toast('✗ ' + errMsg, 'err');
-        }
-
-        btn.disabled  = false;
-        btn.innerHTML = 'إنشاء الحساب';
-    },
-
-    /* ========== FETCH ALL ========== */
-    async fetchAll() {
-        this.log('◎ بدء جلب جميع البيانات...', 'info');
-        await Promise.all([this.fetchUserInfo(), this.fetchAccounts(), this.fetchOrders()]);
-        this.updateOverview();
-    },
-
-    /* ========== USER INFO ========== */
-    async fetchUserInfo() {
-        const res = await apiCall('GET', '/personal/userInfo', {}, this.token, this.userId);
-        if (res.ok && res.data.data) {
-            this.renderUserInfo(res.data.data);
-            this.extractAddresses(res.data);
-        }
-    },
-    renderUserInfo(d) {
-        const fields = [
-            ['المعرّف (UID)',       d.uid],
-            ['الاسم',               d.nickname || d.name || d.username],
-            ['البريد الإلكتروني',   d.email],
-            ['رقم الهاتف',          d.mobile],
-            ['مستوى التحقق',        d.kycLevel ?? d.authLevel],
-            ['الحالة',              d.status === 1 ? '✓ نشط' : d.status],
-            ['تاريخ الإنشاء',      d.createTime || d.registerTime],
-            ['آخر تسجيل دخول',     d.loginTime  || d.lastLoginTime],
-        ];
-        const html = fields
-            .filter(([, v]) => v !== undefined && v !== null && v !== '')
-            .map(([k, v]) => `<div class="info-item"><div class="key">${k}</div><div class="val">${v}</div></div>`)
-            .join('');
-        document.getElementById('userInfoGrid').innerHTML = html || '<div class="empty">لا توجد بيانات</div>';
-        document.getElementById('overviewUser').textContent = d.email || d.nickname || '';
-    },
-
-    /* ========== ACCOUNTS ========== */
-    async fetchAccounts() {
-        const res = await apiCall('POST', '/account/getAllUserAccountById', {}, this.token, this.userId);
-        if (res.ok) {
-            const list = res.data.data || [];
-            this.cache.accounts = list;
-            this.renderAccounts(list);
-            this.extractAddresses(res.data);
-        }
-    },
-    renderAccounts(list) {
-        const tbody = document.getElementById('accountsBody');
-        if (!list.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">لا توجد بيانات</td></tr>'; return; }
-        tbody.innerHTML = list.map(a => `<tr>
-            <td><strong>${a.symbol || a.coinName || '—'}</strong></td>
-            <td>${Number(a.balance || a.available || 0).toFixed(8)}</td>
-            <td>${Number(a.freeze  || a.frozen    || 0).toFixed(8)}</td>
-            <td>${Number((a.balance || 0) + (a.freeze || 0)).toFixed(8)}</td>
-            <td><span class="badge badge-green">نشط</span></td>
-        </tr>`).join('');
-    },
-
-    /* ========== ORDERS ========== */
-    async fetchOrders() {
-        const res = await apiCall('GET', '/newCurrency/orders', {}, this.token, this.userId);
-        if (res.ok) {
-            const list = Array.isArray(res.data.data)
-                ? res.data.data
-                : (res.data.data?.list || res.data.data?.records || []);
-            this.cache.orders = list;
-            this.renderOrders(list);
-        }
-    },
-    renderOrders(list) {
-        const tbody = document.getElementById('ordersBody');
-        if (!list.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">لا توجد بيانات</td></tr>'; return; }
-        tbody.innerHTML = list.map((o, i) => `<tr>
-            <td>${o.id || i + 1}</td>
-            <td>${o.type === 1 ? '<span class="badge badge-green">شراء</span>' : '<span class="badge badge-red">بيع</span>'}</td>
-            <td>${o.symbol || o.coinName || '—'}</td>
-            <td>${o.amount || o.num     || '—'}</td>
-            <td>${o.price  || '—'}</td>
-            <td>${this._orderStatus(o.status)}</td>
-            <td>${o.createTime || o.time || '—'}</td>
-        </tr>`).join('');
-    },
-    _orderStatus(s) {
-        const map = {
-            0: '<span class="badge badge-warn">معلّق</span>',
-            1: '<span class="badge badge-green">مكتمل</span>',
-            2: '<span class="badge badge-red">ملغي</span>'
-        };
-        return map[s] || `<span class="badge badge-blue">${s}</span>`;
-    },
-
-    /* ========== ADDRESSES ========== */
-    extractAddresses(data) {
-        const found = [];
-        function walk(obj, path) {
-            if (!obj || typeof obj !== 'object') return;
-            for (const [k, v] of Object.entries(obj)) {
-                const p = path ? `${path}.${k}` : k;
-                if (typeof v === 'string') {
-                    const isEth = /^0x[0-9a-fA-F]{40}$/.test(v);
-                    const isBtc = /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(v);
-                    const isTrx = /^T[A-Za-z0-9]{33}$/.test(v);
-                    if (isEth || isBtc || isTrx) {
-                        const type    = isEth ? 'ETH/ERC20' : isBtc ? 'BTC' : 'TRX/TRC20';
-                        const purpose = /withdraw|member|payout/i.test(k)  ? 'سحب'  :
-                                        /recharge|deposit|funding/i.test(k) ? 'إيداع' : 'عام';
-                        found.push({ key: p, address: v, type, purpose });
-                    }
-                }
-                if (typeof v === 'object') walk(v, p);
-            }
-        }
-        walk(data, '');
-        if (found.length) {
-            this.cache.addresses.push(...found);
-            this.renderAddresses();
-        }
-    },
-    renderAddresses() {
-        const uniq = [...new Map(this.cache.addresses.map(a => [a.address, a])).values()];
-        this.cache.addresses = uniq;
-        document.getElementById('ov-addresses').textContent = uniq.length;
-        const html = uniq.map(a => `<div>
-            <div class="info-item">
-                <div class="key">${a.purpose} — ${a.type} — <code style="font-size:.75rem;color:var(--text-secondary)">${a.key}</code></div>
-                <div class="addr-val">${a.address}</div>
-                <button class="btn btn-outline btn-sm" style="margin-top:6px"
-                    onclick="navigator.clipboard.writeText('${a.address}');App.toast('✓ تم النسخ','ok')">
-                    📋 نسخ
-                </button>
-            </div>
-        </div>`).join('');
-        document.getElementById('addressGrid').innerHTML = html || '<div class="empty">لا توجد عناوين</div>';
-    },
-
-    /* ========== OVERVIEW ========== */
-    updateOverview() {
-        document.getElementById('ov-accounts').textContent  = this.cache.accounts.length;
-        document.getElementById('ov-orders').textContent    = this.cache.orders.length;
-        document.getElementById('ov-addresses').textContent = this.cache.addresses.length;
-    }
-};
-
-window.addEventListener('DOMContentLoaded', () => App.init());
-</script>
-</body>
-</html>
+window.addEventListener('DOMContentLoaded',()=>A.init());
+</script></body></html>
