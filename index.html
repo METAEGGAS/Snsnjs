@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Firebase — تسجيل الدخول والإشعارات</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;font-family:Arial,sans-serif;background:#0b0f14;color:#fff;display:flex;align-items:center;justify-content:center;padding:20px}
+    .card{width:min(440px,100%);background:#121821;border:1px solid #26313d;border-radius:22px;padding:25px;box-shadow:0 20px 60px #0008}
+    h1{margin:0 0 8px;font-size:24px}
+    .sub{color:#9aa8b8;font-size:14px;margin-bottom:22px}
+    input{width:100%;padding:14px;margin:7px 0;border:1px solid #334150;border-radius:12px;background:#0c1219;color:#fff;outline:none}
+    input:focus{border-color:#4f8cff}
+    button{width:100%;padding:14px;margin-top:9px;border:0;border-radius:12px;background:#3478f6;color:#fff;font-size:15px;font-weight:700;cursor:pointer}
+    button.secondary{background:#222d39}
+    button.danger{background:#b83232}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .hidden{display:none}
+    .status{margin-top:16px;padding:12px;border-radius:12px;background:#0b1118;color:#b9c5d2;font-size:13px;line-height:1.7;word-break:break-word}
+    .user{padding:13px;background:#0d141c;border-radius:12px;margin:12px 0;color:#dce5ee}
+    .token{font-size:11px;color:#8fa0b2;max-height:120px;overflow:auto;direction:ltr;text-align:left;margin-top:10px}
+    .row{display:flex;gap:8px}.row button{flex:1}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <section id="authView">
+      <h1 id="authTitle">تسجيل الدخول</h1>
+      <div class="sub">حساب Firebase Auth + تسجيل جهاز FCM الرسمي</div>
+
+      <input id="email" type="email" autocomplete="email" placeholder="البريد الإلكتروني">
+      <input id="password" type="password" autocomplete="current-password" placeholder="كلمة المرور">
+
+      <button id="loginBtn">تسجيل الدخول</button>
+      <button id="signupBtn" class="secondary">إنشاء حساب جديد</button>
+      <div id="authStatus" class="status">أدخل بيانات الحساب.</div>
+    </section>
+
+    <section id="appView" class="hidden">
+      <h1>حسابك</h1>
+      <div class="sub">تم تسجيل الدخول بنجاح.</div>
+      <div id="userInfo" class="user"></div>
+      <div class="user">
+        <div style="font-weight:700;margin-bottom:8px">FCM Registration Token</div>
+        <div id="tokenBox" style="font-size:11px;line-height:1.6;word-break:break-all;direction:ltr;text-align:left;color:#b9c5d2">لم يتم تسجيل الجهاز بعد.</div>
+        <button id="copyTokenBtn" class="secondary" disabled>نسخ التوكن</button>
+      </div>
+
+      <button id="enablePushBtn">تفعيل إشعارات هذا الجهاز</button>
+      <button id="logoutBtn" class="danger">تسجيل الخروج</button>
+
+      <div id="pushStatus" class="status">لم يتم تسجيل الجهاز بعد.</div>
+      <div id="token" class="token"></div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+    import {
+      getAuth, onAuthStateChanged, createUserWithEmailAndPassword,
+      signInWithEmailAndPassword, signOut
+    } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+    import { getMessaging, getToken, onMessage, isSupported } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-messaging.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBvzfJOOjRFZnTgTUrwEZQPr8Ba7zKKlNg",
+      authDomain: "hhhxh-5ebe4.firebaseapp.com",
+      projectId: "hhhxh-5ebe4",
+      storageBucket: "hhhxh-5ebe4.firebasestorage.app",
+      messagingSenderId: "79243000696",
+      appId: "1:79243000696:web:ee0fb2d2ccce791954e68d",
+      measurementId: "G-08BR6LN6PT"
+    };
+
+    // Public Web Push certificate key (VAPID) from Firebase Console > Cloud Messaging.
+    const vapidKey = "BNyvEQlN4tst9Z73YwbcIoHXoBhUn2PrDFww36Liv-7OrByaSG7fgEJe422yNPDr1fPYjMOOaID2_Hqp00-mrTA";
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    const $ = id => document.getElementById(id);
+    const authView = $("authView");
+    const appView = $("appView");
+
+    function authError(e){
+      const map = {
+        "auth/invalid-email":"البريد الإلكتروني غير صحيح.",
+        "auth/user-not-found":"لا يوجد حساب بهذا البريد.",
+        "auth/wrong-password":"كلمة المرور غير صحيحة.",
+        "auth/invalid-credential":"بيانات الدخول غير صحيحة.",
+        "auth/email-already-in-use":"هذا البريد مستخدم مسبقًا.",
+        "auth/weak-password":"كلمة المرور ضعيفة. استخدم 6 أحرف أو أكثر.",
+        "auth/too-many-requests":"تمت محاولات كثيرة. حاول لاحقًا."
+      };
+      return map[e.code] || e.message || "حدث خطأ غير معروف.";
+    }
+
+    $("loginBtn").onclick = async () => {
+      const email = $("email").value.trim();
+      const password = $("password").value;
+      try {
+        $("authStatus").textContent = "جارٍ تسجيل الدخول...";
+        await signInWithEmailAndPassword(auth, email, password);
+        $("authStatus").textContent = "تم تسجيل الدخول.";
+      } catch(e){ $("authStatus").textContent = authError(e); }
+    };
+
+    $("signupBtn").onclick = async () => {
+      const email = $("email").value.trim();
+      const password = $("password").value;
+      try {
+        $("authStatus").textContent = "جارٍ إنشاء الحساب...";
+        await createUserWithEmailAndPassword(auth, email, password);
+        $("authStatus").textContent = "تم إنشاء الحساب وتسجيل الدخول.";
+      } catch(e){ $("authStatus").textContent = authError(e); }
+    };
+
+    $("logoutBtn").onclick = () => signOut(auth);
+
+    onAuthStateChanged(auth, user => {
+      if(user){
+        authView.classList.add("hidden");
+        appView.classList.remove("hidden");
+        $("userInfo").textContent = "البريد: " + (user.email || "") + " | UID: " + user.uid;
+      }else{
+        authView.classList.remove("hidden");
+        appView.classList.add("hidden");
+        $("token").textContent = "";
+      }
+    });
+
+    $("copyTokenBtn").onclick = async () => {
+      const token = $("tokenBox").textContent;
+      if(!token || token === "لم يتم تسجيل الجهاز بعد.") return;
+      try {
+        await navigator.clipboard.writeText(token);
+        $("pushStatus").textContent = "تم نسخ FCM Registration Token.";
+      } catch(e) {
+        $("pushStatus").textContent = "تعذر النسخ تلقائيًا. حدد التوكن وانسخه يدويًا.";
+      }
+    };
+
+    $("enablePushBtn").onclick = async () => {
+      const user = auth.currentUser;
+      if(!user){ $("pushStatus").textContent = "سجل الدخول أولًا."; return; }
+
+      try {
+        $("enablePushBtn").disabled = true;
+        $("pushStatus").textContent = "جارٍ فحص دعم FCM...";
+
+        if(!window.isSecureContext)
+          throw new Error("يجب تشغيل الموقع عبر HTTPS. localhost مسموح أثناء الاختبار.");
+
+        if(!("serviceWorker" in navigator))
+          throw new Error("هذا المتصفح لا يدعم Service Worker.");
+
+        if(!("Notification" in window))
+          throw new Error("هذا المتصفح لا يدعم الإشعارات.");
+
+        const supported = await isSupported();
+        if(!supported)
+          throw new Error("Firebase Cloud Messaging غير مدعوم في هذا المتصفح/البيئة.");
+
+        // The worker MUST be at the site root so its scope covers the app.
+        const registration = await navigator.serviceWorker.register(
+          "/firebase-messaging-sw.js",
+          { scope: "/" }
+        );
+        await navigator.serviceWorker.ready;
+
+        const permission = await Notification.requestPermission();
+        if(permission !== "granted")
+          throw new Error("لم يتم منح إذن الإشعارات.");
+
+        const messaging = getMessaging(app);
+
+        // This is the official Firebase Web FCM registration flow.
+        // Firebase creates/refreshes the registration token as needed.
+        const currentToken = await getToken(messaging, {
+          vapidKey,
+          serviceWorkerRegistration: registration
+        });
+
+        if(!currentToken)
+          throw new Error("Firebase لم يُرجع FCM registration token.");
+
+        $("pushStatus").textContent =
+          "تم تسجيل هذا الجهاز في Firebase Cloud Messaging بنجاح. UID الحساب: " + user.uid;
+
+        $("token").textContent = currentToken;
+        $("tokenBox").textContent = currentToken;
+        $("copyTokenBtn").disabled = false;
+
+        // Foreground messages are handled here. Background messages are handled
+        // by firebase-messaging-sw.js.
+        onMessage(messaging, payload => {
+          console.log("FCM foreground message:", payload);
+          const n = payload.notification || {};
+          $("pushStatus").textContent =
+            "وصل إشعار أثناء فتح الموقع: " + (n.title || "إشعار جديد");
+        });
+
+      } catch(e) {
+        console.error(e);
+        $("pushStatus").textContent = e.message || String(e);
+      } finally {
+        $("enablePushBtn").disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>
